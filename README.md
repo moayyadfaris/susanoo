@@ -1,4 +1,9 @@
-##Susanoo
+#Susanoo
+
+
+[![Build Status](https://travis-ci.com/moayyadfaris/susanoo.svg?token=RPUCvPPCNd1UVpCM1Tyq&branch=master)](https://travis-ci.com/moayyadfaris/susanoo)
+
+
 <p align="center"><img src="public/assets/Battle_Susanoo_Main.png" width="200"></p>
 
 

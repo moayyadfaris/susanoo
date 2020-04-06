@@ -3,20 +3,19 @@ const { expect } = require('chai')
 const chaiHttp = require('chai-http')
 chai.use(chaiHttp)
 
-const { host, port } = require('../config').app
-console.log(host)
+const { appUrl, testEmail, testPassword, fingerprint } = require('./common')
+
 describe('AUTH CONTROLLER', function () {
   this.slow(0)
-  const appUrl = `${host}:${port}`
-  const fingerprint = 'random-random-random'
   let refreshToken = ''
   let accessToken = ''
 
-  describe('[POST] api/v1/auth/login', () => {
+  describe('[POST] /api/v1/auth/login', () => {
     it('it should return access/refresh tokens', done => {
       chai.request(appUrl)
         .post('/api/v1/auth/login')
-        .send({ password: 'Admin@123', email_or_mobile_number: 'moayyad@startappz.com', fingerprint })
+        .set('content-type', 'application/json')
+        .send({ password: testPassword, email_or_mobile_number: testEmail, fingerprint })
         .end((err, res) => {
           expect(err).to.be.null
           expect(res.status).to.equal(200)
@@ -36,6 +35,7 @@ describe('AUTH CONTROLLER', function () {
     it('it should return refreshed access/refresh tokens', done => {
       chai.request(appUrl)
         .post('/api/v1/auth/refresh-tokens')
+        .set('content-type', 'application/json')
         .send({ refreshToken, fingerprint })
         .end((err, res) => {
           expect(err).to.be.null
@@ -45,6 +45,7 @@ describe('AUTH CONTROLLER', function () {
           expect(res.body.data.accessToken).to.be.a('string').that.is.not.empty
           expect(res.body.data.refreshToken).to.be.a('string').that.is.not.empty
 
+          accessToken = res.body.data.accessToken
           refreshToken = res.body.data.refreshToken
           done()
         })
@@ -55,6 +56,7 @@ describe('AUTH CONTROLLER', function () {
     it('it should return success message', done => {
       chai.request(appUrl)
         .post('/api/v1/auth/logout')
+        .set('content-type', 'application/json')
         .set('authorization', `Bearer ${accessToken}`)
         .send({ refreshToken })
         .end((err, res) => {

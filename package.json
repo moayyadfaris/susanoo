@@ -14,7 +14,8 @@
     "seed": "knex seed:run",
     "docs": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
     "docs-web": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
-    "lint": "./node_modules/eslint/bin/eslint.js --fix --config .eslintrc \"**/*.js\""
+    "lint": "./node_modules/eslint/bin/eslint.js --fix --config .eslintrc \"**/*.js\"",
+    "test": "echo \">>> Keep in mind: to enshure right test you should set seed data and run server :) <<<\" && mocha test/*.test.js"
   },
   "husky": {
     "hooks": {
@@ -54,6 +55,10 @@
     "eslint": "^6.6.0",
     "husky": "^3.0.9",
     "standart": "^6.1.0",
-    "swagger-jsdoc": "^3.4.0"
+    "swagger-jsdoc": "^3.4.0",
+    "chai": "^4.2.0",
+    "chai-http": "^4.3.0",
+    "mocha": "^6.2.2",
+    "supertest": "^4.0.2"
   }
 }

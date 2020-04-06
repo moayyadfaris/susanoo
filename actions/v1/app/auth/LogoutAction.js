@@ -21,7 +21,7 @@ class LogoutAction extends BaseAction {
 
   static async run (ctx) {
     const { currentUser } = ctx
-    await UserDAO.baseUpdate(currentUser.id, { notificationToken: null })
+    await UserDAO.baseUpdate(currentUser.id)
     await SessionDAO.baseRemoveWhere({ refreshToken: ctx.body.refreshToken })
 
     return this.result({ message: 'User is logged out from current session.' })
