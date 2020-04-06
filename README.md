@@ -1,4 +1,6 @@
 ##Susanoo
+<p align="center"><img src="public/assets/Battle_Susanoo_Main.png" width="200"></p>
+
 
 ## Features:
 - RESTful API
