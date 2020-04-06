@@ -9,9 +9,9 @@ class ConfrimSMS {
     assert.validate(code, UserModel.schema.code, { required: true })
 
     this.to = to
-    this.subject = 'Welcome to Khabbir!'
+    this.subject = 'Welcome to Susanoo!'
     this.text = `Please use the following code to verify your account: ${code}
-Team Khabbir`
+Team Susanoo`
   }
 }
 
