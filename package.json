@@ -5,6 +5,7 @@
   "author": "Moayyad Faris",
   "scripts": {
     "start": "node ./main.js",
+    "start-server": "npm run dev",
     "dev": "NODE_ENV=development nodemon ./main.js",
     "notifications-dev": "NODE_ENV=development node ./consumers/notifications-consumer.js",
     "qr-code-service": "NODE_ENV=development node services/qr_code.js",
@@ -15,7 +16,8 @@
     "docs": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
     "docs-web": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
     "lint": "./node_modules/eslint/bin/eslint.js --fix --config .eslintrc \"**/*.js\"",
-    "test": "echo \">>> Keep in mind: to enshure right test you should set seed data and run server :) <<<\" && mocha test/*.test.js"
+    "test-script": "echo \">>> Keep in mind: to enshure right test you should set seed data and run server :) <<<\" && mocha test/*.test.js",
+    "test": "start-server-and-test start-server http://localhost:4000 test-script"
   },
   "husky": {
     "hooks": {
@@ -52,13 +54,14 @@
     "validator": "^12.0.0"
   },
   "devDependencies": {
-    "eslint": "^6.6.0",
-    "husky": "^3.0.9",
-    "standart": "^6.1.0",
-    "swagger-jsdoc": "^3.4.0",
     "chai": "^4.2.0",
     "chai-http": "^4.3.0",
+    "eslint": "^6.6.0",
+    "husky": "^3.0.9",
     "mocha": "^6.2.2",
-    "supertest": "^4.0.2"
+    "standart": "^6.1.0",
+    "start-server-and-test": "^1.10.11",
+    "supertest": "^4.0.2",
+    "swagger-jsdoc": "^3.4.0"
   }
 }
