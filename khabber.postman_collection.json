@@ -1,0 +1,260 @@
+{
+	"variables": [],
+	"info": {
+		"name": "Susanoo",
+		"_postman_id": "062d9d9b-ebe8-28d3-21e6-845fed4353f1",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "reset-password",
+			"description": "",
+			"item": [
+				{
+					"name": "localhost:4000/api/v1/users/send-reset-password-otp",
+					"request": {
+						"url": "localhost:4000/api/v1/users/send-reset-password-otp",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "1Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoibW9heXlhZCIsInVzZXJSb2xlIjoiUk9MRV9VU0VSIiwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJpc3MiOiJzdXByYS1hcGkiLCJpYXQiOjE1NzA5MTM3OTYsImV4cCI6MTU3MDkxNDM5Niwic3ViIjoiMSJ9.BtdE6TCxGgLKNqQP2CGEM1qK_w60iheLmcq0qV79hnF6TXn8Hfh_0-3xaL0RORIJhC82c2-JHiFjTn8R4R53ew",
+								"description": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"email_or_mobile_number\": \"moayyad@startappz.com\"\n\t\n}"
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "localhost:4000/api/v1/users/check-reset-password-otp",
+					"request": {
+						"url": "localhost:4000/api/v1/users/check-reset-password-otp",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "1Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoibW9heXlhZCIsInVzZXJSb2xlIjoiUk9MRV9VU0VSIiwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJpc3MiOiJzdXByYS1hcGkiLCJpYXQiOjE1NzA5MTM3OTYsImV4cCI6MTU3MDkxNDM5Niwic3ViIjoiMSJ9.BtdE6TCxGgLKNqQP2CGEM1qK_w60iheLmcq0qV79hnF6TXn8Hfh_0-3xaL0RORIJhC82c2-JHiFjTn8R4R53ew",
+								"description": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"email_or_mobile_number\": \"moayyad@startappz.com\",\n\t\"code\": \"5571\"\n}"
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "localhost:4000/api/v1/users/reset-password",
+					"request": {
+						"url": "localhost:4000/api/v1/users/reset-password",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "1Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoibW9heXlhZCIsInVzZXJSb2xlIjoiUk9MRV9VU0VSIiwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJpc3MiOiJzdXByYS1hcGkiLCJpYXQiOjE1NzA5MTM3OTYsImV4cCI6MTU3MDkxNDM5Niwic3ViIjoiMSJ9.BtdE6TCxGgLKNqQP2CGEM1qK_w60iheLmcq0qV79hnF6TXn8Hfh_0-3xaL0RORIJhC82c2-JHiFjTn8R4R53ew",
+								"description": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"resetPasswordToken\": \"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX1JFU0VUX1BBU1NXT1JEIiwiZW1haWwiOiJtb2F5eWFkQHN0YXJ0YXBwei5jb20iLCJpc3MiOiJraGFiYmVyLWFwaSIsImlhdCI6MTU3MzAzMzM2NSwiZXhwIjoxNTczMDQ3NzY1LCJzdWIiOiI4NjE0ODQ4MC1mNGIyLTExZTktODAyYS01YWE1Mzg5ODRiZDgifQ.VIdYhJBlD_xKCwRcOAwl-58UzQUM_W1zEyPF6Z9QTqrjAoqtcRNtOuu9vZ51_XaUsWjGyT4P0hxqsFKUOnqACQ\",\n\t\"password\": \"admin@123\"\n}"
+						},
+						"description": ""
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "auth",
+			"description": "",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"url": "http://localhost:4000/api/v1/users/",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoiTW9heXlhZCBGYXJpcyIsInVzZXJSb2xlIjoiUk9MRV9TVVBFUkFETUlOIiwiZW1haWwiOiJtb2F5eWFkQHN0YXJ0YXBwei5jb20iLCJpc3MiOiJraGFiYmVyLWFwaSIsImlhdCI6MTU3MTA4MjkyOCwiZXhwIjoxNTcxMDgzNTI4LCJzdWIiOiI2ODhjODQxYy1mZGIwLTRhMWMtYWZlZC05YWI2MTAyOTc2ZTgifQ.GNEgtXXpfeZYguttyClraWGD5lZAJTF4zp7y6KdGWHXLg_4jEg-1Cd28GPrpmUmof-NtT754LNM135PnfI6cnQ",
+								"description": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"email\": \"moayyadzf+4@gmail.com\",\n\t\"mobileNumber\": \"962795974021\",\n\t\"password\": \"Admin@123\",\n\t\"name\": \"Mutaz\"\n}"
+						},
+						"description": "register user + OTP"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"request": {
+						"url": "localhost:4000/api/v1/auth/login",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoiTW9heXlhZCBGYXJpcyIsInVzZXJSb2xlIjoiUk9MRV9TVVBFUkFETUlOIiwiZW1haWwiOiJtb2F5eWFkQHN0YXJ0YXBwei5jb20iLCJpc3MiOiJraGFiYmVyLWFwaSIsImlhdCI6MTU3MTA4MjkyOCwiZXhwIjoxNTcxMDgzNTI4LCJzdWIiOiI2ODhjODQxYy1mZGIwLTRhMWMtYWZlZC05YWI2MTAyOTc2ZTgifQ.GNEgtXXpfeZYguttyClraWGD5lZAJTF4zp7y6KdGWHXLg_4jEg-1Cd28GPrpmUmof-NtT754LNM135PnfI6cnQ",
+								"description": "",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"email_or_mobile_number\": \"moayyad@startappz.com\",\n\t\"password\": \"Admin@123\",\n\t\"fingerprint\": \"random-random-random\"\n}"
+						},
+						"description": "Login Reporter"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"url": "http://localhost:4000/api/v1/auth/logout",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJuYW1lIjoiSm9obiBEdWUiLCJ1c2VyUm9sZSI6IlJPTEVfVVNFUiIsImVtYWlsIjoiZWRpdG9yam9obkBtYWlsaW5hdG9yLmNvbSIsImlzcyI6ImtoYWJiZXItYXBpIiwiaWF0IjoxNTcxNjU3NzE5LCJleHAiOjE1NzE2NTgzMTksInN1YiI6IjY4OGM4NDFjLWZkYjAtNGExZC1hZmVkLTlhYjYxMDI5NzZlOCJ9.d4CN8V17vWqRFHqyhhybt-ik8x7p1hFLCvGMu--Mv5ICib6r78ChtxgsitsFg8Q6Jimw3eKCnsXiYAiXBFF65w",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"refreshToken\": \"ea9a6a0c-0631-4883-b7d0-b57691cac80c\"\n} "
+						},
+						"description": ""
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "intrests",
+			"description": "",
+			"item": [
+				{
+					"name": "http://localhost:4000/api/v1/users/current/interests",
+					"request": {
+						"url": "http://localhost:4000/api/v1/stories",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJSb2xlIjoiUk9MRV9TVVBFUkFETUlOIiwiZW1haWwiOiJtb2F5eWFkQHN0YXJ0YXBwei5jb20iLCJpc3MiOiJraGFiYmVyLWFwaSIsImlhdCI6MTU3MzcyMjk4OSwiZXhwIjoxNTczNzI2NTg5LCJzdWIiOiI4NjE0ODQ4MC1mNGIyLTExZTktODAyYS01YWE1Mzg5ODRiZDgifQ.LRNFYUQAWHYlxTODZzz2wvmpE3_zEXGoaUtsp7rLpBWWHV_6JJd9JHAyDqGsKEzb3hl_OUvQBzfEjCp_MXZXrg",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"title\": \"test title\",\n\t\"details\": \"test title\",\n\t\"countryId\": 10,\n\t\"tags\": [],\n\t\"status\": \"\"\n\t \n}"
+						},
+						"description": ""
+					},
+					"response": []
+				},
+				{
+					"name": "http://localhost:4000/api/v1/users/current/interests",
+					"request": {
+						"url": "http://localhost:4000/api/v1/users/current/interests",
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"description": ""
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlblR5cGUiOiJUT0tFTl9UWVBFX0FDQ0VTUyIsInVzZXJSb2xlIjoiUk9MRV9TVVBFUkFETUlOIiwiZW1haWwiOiJtb2F5eWFkQHN0YXJ0YXBwei5jb20iLCJpc3MiOiJraGFiYmVyLWFwaSIsImlhdCI6MTU3MzEyMDYzMiwiZXhwIjoxNTczMTI0MjMyLCJzdWIiOiI4NjE0ODQ4MC1mNGIyLTExZTktODAyYS01YWE1Mzg5ODRiZDgifQ.ONBy9L0fR0ecvfxvWTx4k8u0ZADVD0QKQWNKxPcXoRmE706_ejj5mkbBM0L2N57hDJWHft5SXrMYTFzqWbq6bg",
+								"description": ""
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"intrests\": [1,5]\n}"
+						},
+						"description": ""
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "http://localhost:4000/health-check",
+			"request": {
+				"url": "http://localhost:4000/health-check",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "",
+						"description": "",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\"email\": \"admin@gmail.com\",\n\"password\": \"123\",\n\"fingerprint\": \"12345\"\n\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}

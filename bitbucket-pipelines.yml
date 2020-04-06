@@ -1,0 +1,62 @@
+# This is a sample build configuration for JavaScript.
+# Check our guides at https://confluence.atlassian.com/x/14UWN for more examples.
+# Only use spaces to indent your .yml configuration.
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+image: nikolaik/python-nodejs
+
+pipelines:
+  branches:
+    develop:
+      - step:
+          caches:
+            - node
+            - pip
+          deployment: Development
+          script:
+            - export APP_ENV='PROD'
+            - echo "Deploying to development environment"
+            - npm config set unsafe-perm true
+            - pip install awsebcli
+            - bash eb.config.sh
+            - eb deploy
+    develop-temp:
+      - step:
+          caches:
+            - node
+            - pip
+          deployment: TempDevelopment
+          script:
+            - export APP_ENV='PROD'
+            - echo "Deploying to temp development environment"
+            - npm config set unsafe-perm true
+            - pip install awsebcli
+            - bash eb.config.sh
+            - eb deploy
+    staging:
+      - step:
+          caches:
+            - node
+            - pip
+          deployment: Staging
+          script:
+            - export APP_ENV='PROD'
+            - echo "Deploying to staging environment"
+            - npm config set unsafe-perm true
+            - pip install awsebcli
+            - bash eb.config.sh
+            - eb deploy
+            - eb setenv BITBUCKET_BUILD_NUMBER=$BITBUCKET_BUILD_NUMBER
+    master:
+      - step:
+          caches:
+            - node
+            - pip
+          deployment: Production
+          script:
+            - export APP_ENV='PROD'
+            - echo "Deploying to production environment"
+            - npm config set unsafe-perm true
+            - pip install awsebcli
+            - bash eb.config.sh
+            - eb deploy

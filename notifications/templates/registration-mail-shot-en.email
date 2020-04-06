@@ -1,0 +1,44 @@
+<html>
+
+    <head>
+        <TITLE>Your Title Here</TITLE>
+        <!-- <link rel = "stylesheet" type = "text/css" href = "./mail-shot.css" /> -->
+    </head>
+
+    <body >
+        <div>
+            <table style="bgcolor:#f0f0f0;background-color:#f0f0f0; margin: 0 auto;width: 600px;text-align: center;">
+                <tr class="first-row" style="color: #ffffff;background-color: #d20243;BGCOLOR:#d20243;">
+                    <td style="padding: 20px;">
+                        <img src='{logo_path}' style="width:50;height:60px;margin-bottom: 10px;">
+                        <h2 style="width: 200px;margin: 0 auto;">Welcome on board!</h2>
+                    </td>
+
+                </tr>
+                <tr class="second-row" style="BGCOLOR:#ffffff; padding: 20px;background-color: #ffffff;">
+                    <td style="text-align: center; padding: 20px;margin-top: 20px;margin-bottom: 30px;">
+                        <p style="width: 300px;margin: auto;">Hello <span class="reporter-name">
+                            {user.name}</span>
+                        </p>
+
+                        <p style="width: 300px;margin: auto;">
+                            You can use the following to register:
+                            <span class="code-container" style="background-color: #333333;padding: 10px;color: #ffffff;display: block;width: 190px;
+                            letter-spacing: 10px;margin: auto;margin-top: 20px;font-weight: bold;margin-bottom: 40px;">{code}</span>
+                        </p>
+                        <p style="width: 300px;margin: auto;">
+                            We’re excited to have you on board!
+                        </p>
+                        <p style="width: 300px;margin: auto;">
+                            <span>Thank You</span>
+                            <span class="team-khabbir-text" style="font-size: 18px;display: block;">
+                                <strong>Team Khabbir</strong>
+                            </span>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+
+</html>

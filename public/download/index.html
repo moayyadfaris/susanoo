@@ -1,0 +1,41 @@
+<html>
+    <head>
+      <script>
+        function getMobileOperatingSystem() {
+          var userAgent = navigator.userAgent || navigator.vendor || window.opera;
+          if (/android/i.test(userAgent)) {
+            window.location.assign("https://play.google.com/")
+          }
+          // iOS detection from: http://stackoverflow.com/a/9039885/177710
+          if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+            window.location.assign("https://www.apple.com/ios/app-store/")
+          }
+        }
+        getMobileOperatingSystem()
+      </script>
+        <title>Susanoo Backend API</title>
+        <link href="https://fonts.googleapis.com/css?family=Space+Mono&display=swap" rel="stylesheet">
+        <style>
+            body{
+                background-color: #000;
+                text-align: center;
+                margin: 0px;
+                padding: 0px;
+            }
+            h1{
+                font-family: 'Space Mono', monospace;
+                color: #fff;
+                margin:10px 10px 30px;
+            }
+            h1 img{
+                position: relative;
+                top:30px;
+            }
+
+        </style>
+    </head>
+    <body>
+        <h1>Khabbir Mobile Application <img width="100" src="../assets/loading-logo.gif" /></h1>
+
+    </body>
+</html>

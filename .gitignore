@@ -1,0 +1,17 @@
+node_modules/
+bower_components/
+_tmp/
+tmp/
+.tmp/
+tmp_files/
+.env
+.DS_Store
+.idea
+*.ai
+*.psd
+*.pdf
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

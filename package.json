@@ -1,0 +1,59 @@
+{
+  "name": "susanoo",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Moayyad Faris",
+  "scripts": {
+    "start": "node ./main.js",
+    "dev": "NODE_ENV=development nodemon ./main.js",
+    "notifications-dev": "NODE_ENV=development node ./consumers/notifications-consumer.js",
+    "qr-code-service": "NODE_ENV=development node services/qr_code.js",
+    "testrun": "NODE_ENV=test node ./main.js",
+    "migrate": "knex migrate:latest",
+    "rollback": "knex migrate:rollback",
+    "seed": "knex seed:run",
+    "docs": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
+    "docs-web": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
+    "lint": "./node_modules/eslint/bin/eslint.js --fix --config .eslintrc \"**/*.js\""
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint"
+    }
+  },
+  "dependencies": {
+    "axios": "^0.19.2",
+    "backend-core": "./core",
+    "bcryptjs": "^2.4.3",
+    "bull": "^3.13.0",
+    "dotenv": "^8.1.0",
+    "express-rate-limit": "^5.1.1",
+    "firebase-admin": "^8.10.0",
+    "google-auth-library": "^5.10.1",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.24.0",
+    "ms": "^2.1.2",
+    "multer": "^1.4.2",
+    "multer-s3": "^2.9.0",
+    "nodemailer": "^6.4.5",
+    "oauth": "^0.9.15",
+    "otplib": "^12.0.0",
+    "request": "^2.88.0",
+    "socket.io": "^2.3.0",
+    "socket.io-redis": "^5.2.0",
+    "socketio-auth": "^0.1.1",
+    "stack-trace": "0.0.10",
+    "stdout-stream": "^1.4.1",
+    "swagger-stats": "^0.95.17",
+    "twilio": "^3.42.0",
+    "type-check": "^0.3.2",
+    "uuid": "^3.3.3",
+    "validator": "^12.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^6.6.0",
+    "husky": "^3.0.9",
+    "standart": "^6.1.0",
+    "swagger-jsdoc": "^3.4.0"
+  }
+}
