@@ -1,6 +1,6 @@
 const joi = require('@hapi/joi')
 const { BaseModel, Rule } = require('backend-core')
-const UserModel = require('../models/UserModel')
+const UserModel = require('./UserModel')
 /**
  * @swagger
  * definitions:

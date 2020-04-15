@@ -1,6 +1,6 @@
 const joi = require('@hapi/joi')
 const { BaseModel, Rule } = require('backend-core')
-const UserModel = require('../models/UserModel')
+const UserModel = require('./UserModel')
 const S3Config = require(__folders.config).s3
 /**
  * @swagger

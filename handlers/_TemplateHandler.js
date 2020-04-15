@@ -1,7 +1,7 @@
 const { RequestRule } = require('backend-core')
 const BaseHandler = require(__folders.handlers + '/BaseHandler')
 const Rule = require('../core/Rule')
-const UserModel = require('../models/UserModel')
+const UserModel = require('../../models/UserModel')
 
 class TemplateHandler extends BaseHandler {
   static get accessTag () {

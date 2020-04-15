@@ -1,5 +1,5 @@
 const { BaseDAO, assert } = require('backend-core')
-const AuthenticationProviderModel = require('../models/AuthenticationProviderModel')
+const AuthenticationProviderModel = require('../../models/AuthenticationProviderModel')
 
 class AuthenticationProviderDAO extends BaseDAO {
   static get tableName () {

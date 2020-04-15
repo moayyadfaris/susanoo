@@ -1,5 +1,5 @@
 const { BaseDAO, assert } = require('backend-core')
-const CountryModel = require('../models/CountryModel')
+const CountryModel = require('../../models/CountryModel')
 const { redisClient } = require(__folders.handlers + '/RootProvider')
 class CountryDAO extends BaseDAO {
   static get tableName () {

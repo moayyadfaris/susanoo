@@ -1,5 +1,5 @@
 const { BaseDAO, assert } = require('backend-core')
-const UserModel = require('../models/UserModel')
+const UserModel = require('../../models/UserModel')
 
 class UserDAO extends BaseDAO {
   static get tableName () {
