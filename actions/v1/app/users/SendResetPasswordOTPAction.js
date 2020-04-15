@@ -3,7 +3,7 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const { notificationClient } = require(__folders.actions + '/RootProvider')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { makeResetPasswordOTPHelper } = require(__folders.auth + '/')
+const { makeResetPasswordOTPHelper } = require(__folders.helpers).authHelpers
 const { ErrorWrapper, errorCodes } = require('backend-core')
 const { notificationType } = require(__folders.config)
 /**

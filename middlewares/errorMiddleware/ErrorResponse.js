@@ -1,8 +1,8 @@
-const uuidv4 = require('uuid/v4')
+const { v4: uuidV4 } = require('uuid')
 
 class ErrorResponse {
   constructor (options = {}) {
-    this.logId = uuidv4()
+    this.logId = uuidV4()
     this.success = false
     this.status = options.status || undefined
     this.code = options.code || undefined

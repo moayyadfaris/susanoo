@@ -5,7 +5,7 @@ const UserDAO = require(__folders.dao + '/UserDAO')
 const CountryDAO = require(__folders.dao + '/CountryDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper } = require(__folders.auth + '/')
+const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper } = require(__folders.helpers).authHelpers
 const logger = require(__folders.util + '/logger')
 const { notificationType } = require(__folders.config)
 

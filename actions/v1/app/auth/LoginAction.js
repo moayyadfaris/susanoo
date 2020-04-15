@@ -1,3 +1,4 @@
+const ms = require('ms')
 const { RequestRule, ErrorWrapper, errorCodes } = require('backend-core')
 const addSession = require(__folders.actionsV1 + '/common/addSession')
 const SessionEntity = require(__folders.actionsV1 + '/common/SessionEntity')
@@ -5,7 +6,9 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const CountryDAO = require(__folders.dao + '/CountryDAO')
 const AuthModel = require(__folders.models + '/AuthModel')
-const { checkPasswordHelper, makeAccessTokenHelper, makeUpdateTokenHelper } = require(__folders.auth + '/')
+const { checkPasswordHelper, makeAccessTokenHelper, makeUpdateTokenHelper } = require(__folders.helpers).authHelpers
+const config = require(__folders.config)
+
 class LoginAction extends BaseAction {
   static get accessTag () {
     return 'auth:login'
@@ -22,6 +25,9 @@ class LoginAction extends BaseAction {
   }
 
   static async run (ctx) {
+    const refTokenExpiresInMilliseconds = new Date().getTime() + ms(config.token.refresh.expiresIn)
+    // const refTokenExpiresInSeconds = parseInt(refTokenExpiresInMilliseconds / 1000)
+
     let user = await UserDAO.getByEmailOrMobileNumber(ctx.body.email_or_mobile_number)
     try {
       await checkPasswordHelper(ctx.body.password, user.passwordHash)
@@ -56,10 +62,12 @@ class LoginAction extends BaseAction {
       userId: user.id,
       ip: ctx.ip,
       ua: ctx.headers['User-Agent'],
-      fingerprint: ctx.body.fingerprint
+      fingerprint: ctx.body.fingerprint,
+      expiresIn: refTokenExpiresInMilliseconds
     })
 
-    await addSession(newSession)
+    const sessionData = await addSession(newSession)
+    user.sessionId = sessionData.id
 
     return this.result({
       data: {

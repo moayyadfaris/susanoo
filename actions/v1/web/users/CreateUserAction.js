@@ -2,7 +2,7 @@ const { RequestRule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { makePasswordHashHelper } = require(__folders.auth + '/')
+const { makePasswordHashHelper } = require(__folders.helpers).authHelpers
 class CreateUserAction extends BaseAction {
   static get accessTag () {
     return 'web#users:create'

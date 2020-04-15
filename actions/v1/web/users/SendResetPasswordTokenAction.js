@@ -2,7 +2,7 @@ const { RequestRule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { makeResetPasswordTokenHelper } = require(__folders.auth + '/')
+const { makeResetPasswordTokenHelper } = require(__folders.helpers).authHelpers
 const { notificationType } = require(__folders.config)
 const { notificationClient } = require(__folders.actions + '/RootProvider')
 /**

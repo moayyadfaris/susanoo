@@ -1,5 +1,5 @@
 const { errorCodes, ErrorWrapper, BaseMiddleware } = require('backend-core')
-const { jwtHelper } = require('../auth')
+const { jwtHelper } = require(__folders.helpers).authHelpers
 const SECRET = require(__folders.config).token.access.secret
 const roles = require(__folders.config).roles
 const logger = require('../util/logger')
@@ -22,7 +22,8 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
         role: roles.anonymous,
         email: null,
         expiresIn: null,
-        language: null
+        language: null,
+        sessionId: null
       })
 
       if (token) {
@@ -34,7 +35,8 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
               role: tokenData.userRole,
               email: tokenData.email,
               expiresIn: Number(tokenData.exp),
-              language: tokenData.language
+              language: tokenData.language,
+              sessionId: tokenData.sessionId
             })
 
             next()

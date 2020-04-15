@@ -5,7 +5,7 @@ const UserDAO = require(__folders.dao + '/UserDAO')
 const AuthModel = require(__folders.models + '/AuthModel')
 const SessionDAO = require(__folders.dao + '/SessionDAO')
 const SessionEntity = require(__folders.actionsV1 + '/common/SessionEntity')
-const { makeAccessTokenHelper, verifySession } = require(__folders.auth + '/')
+const { makeAccessTokenHelper, verifySessionHelper } = require(__folders.helpers).authHelpers
 
 class RefreshTokensAction extends BaseAction {
   static get accessTag () {
@@ -27,7 +27,7 @@ class RefreshTokensAction extends BaseAction {
 
     const oldSession = await SessionDAO.getByRefreshToken(reqRefreshToken)
     await SessionDAO.baseRemoveWhere({ refreshToken: reqRefreshToken })
-    await verifySession(new SessionEntity(oldSession), reqFingerprint)
+    await verifySessionHelper(new SessionEntity(oldSession), reqFingerprint)
     const user = await UserDAO.baseGetById(oldSession.userId)
 
     const newSession = new SessionEntity({

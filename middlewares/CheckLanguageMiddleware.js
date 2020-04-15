@@ -13,7 +13,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
         const userLanguage = req.currentUser.language
         if (userLanguage !== req.headers['language']) {
           // language is different or unset for user
-          UserDAO.baseUpdate(req.currentUser.id, { preferredLanguage: req.headers['language'], deviceType: req.headers['device-type'] }).then({})
+          UserDAO.baseUpdate(req.currentUser.id, { preferredLanguage: req.headers['language'] }).then({})
         }
       }
       next()

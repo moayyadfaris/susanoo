@@ -3,11 +3,11 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const AuthModel = require(__folders.models + '/AuthModel')
-const { otpHelper } = require(__folders.auth + '/')
+const { otpHelper } = require(__folders.helpers).authHelpers
 const { errorCodes, ErrorWrapper } = require('backend-core')
 const addSession = require(__folders.actionsV1 + '/common/addSession')
 const SessionEntity = require(__folders.actionsV1 + '/common/SessionEntity')
-const { makeAccessTokenHelper } = require(__folders.auth)
+const { makeAccessTokenHelper } = require(__folders.helpers).authHelpers
 const config = require(__folders.config)
 class ConfirmRegistrationOTPAction extends BaseAction {
   static get accessTag () {

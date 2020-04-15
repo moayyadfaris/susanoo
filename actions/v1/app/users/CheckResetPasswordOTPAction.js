@@ -1,6 +1,6 @@
 const { errorCodes, ErrorWrapper, RequestRule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
-const { otpHelper, makeResetPasswordTokenHelper } = require(__folders.auth + '/')
+const { otpHelper, makeResetPasswordTokenHelper } = require(__folders.helpers).authHelpers
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const config = require(__folders.config)

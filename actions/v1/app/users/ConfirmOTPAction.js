@@ -2,7 +2,7 @@ const { RequestRule, Rule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { otpHelper } = require(__folders.auth + '/')
+const { otpHelper } = require(__folders.helpers).authHelpers
 const { errorCodes, ErrorWrapper } = require('backend-core')
 const config = require(__folders.config)
 

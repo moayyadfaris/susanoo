@@ -2,7 +2,7 @@ const { RequestRule, Rule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const { notificationClient } = require(__folders.actions + '/RootProvider')
 const UserDAO = require(__folders.dao + '/UserDAO')
-const { makeConfirmOTPHelper } = require(__folders.auth + '/')
+const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
 const { notificationType } = require(__folders.config)
 class ResendOTPAction extends BaseAction {
   static get accessTag () {

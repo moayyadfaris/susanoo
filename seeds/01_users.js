@@ -11,7 +11,7 @@ exports.seed = function (knex) {
           id: '86148480-f4b2-11e9-802a-5aa538984bd8',
           name: 'Moayyad Faris',
           role: 'ROLE_SUPERADMIN',
-          email: 'moayyadzf@gmail.com',
+          email: 'admin@susano.dev',
           mobileNumber: '962795974021',
           countryId: 108,
           passwordHash: await makePasswordHashHelper('Admin@123'),

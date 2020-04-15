@@ -4,6 +4,7 @@ const RedisClient = require('./RedisClient')
 const S3Client = require('./S3Client')
 const SlackClient = require('./SlackClient')
 const QueueClient = require('./QueueClient')
+const IpLookupClient = require('./IpLookupClient')
 
 module.exports = {
   EmailClient,
@@ -11,5 +12,6 @@ module.exports = {
   S3Client,
   SMSClient,
   SlackClient,
-  QueueClient
+  QueueClient,
+  IpLookupClient
 }

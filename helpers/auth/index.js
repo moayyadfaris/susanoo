@@ -8,7 +8,7 @@ const parseTokenHelper = require('./parseTokenHelper')
 const makeConfirmOTPHelper = require('./makeConfirmOTPHelper')
 const jwtHelper = require('./jwtHelper')
 const otpHelper = require('./otpHelper')
-const verifySession = require('./verifySession')
+const verifySessionHelper = require('./verifySessionHelper')
 const makeUpdateTokenHelper = require('./makeUpdateTokenHelper')
 const makeLoginByQRTokenHelper = require('./makeLoginByQRTokenHelper')
 module.exports = {
@@ -20,7 +20,7 @@ module.exports = {
   makeResetPasswordOTPHelper,
   parseTokenHelper,
   jwtHelper,
-  verifySession,
+  verifySessionHelper,
   makeConfirmOTPHelper,
   otpHelper,
   makeUpdateTokenHelper,

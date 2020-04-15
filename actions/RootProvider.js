@@ -1,4 +1,4 @@
-const { EmailClient, SMSClient, SlackClient, RedisClient, QueueClient } = require('../clients')
+const { EmailClient, SMSClient, SlackClient, RedisClient, QueueClient, IpLookupClient } = require('../clients')
 const config = require(__folders.config)
 const logger = require('../util/logger')
 
@@ -51,6 +51,11 @@ class RootProvider {
       port: config.email.port,
       from: config.email.from,
       logger
+    })
+
+    this.ipLookupClient = new IpLookupClient({
+      baseUrl: config.ipLookup.baseUrl,
+      accessToken: config.ipLookup.accessToken
     })
   }
   async init () {

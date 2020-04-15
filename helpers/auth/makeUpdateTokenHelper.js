@@ -1,24 +1,24 @@
+const jwtHelper = require('./jwtHelper')
 const { assert } = require('backend-core')
 
-const jwtHelper = require('./jwtHelper')
-
-const SECRET = require(__folders.config).token.access.secret
-const expiresIn = require(__folders.config).token.access.expiresIn
-const type = require(__folders.config).token.access.type
+const SECRET = require(__folders.config).token.updateToken.secret
+const expiresIn = require(__folders.config).token.updateToken.expiresIn
+const type = require(__folders.config).token.updateToken.type
 const iss = require(__folders.config).token.jwtIss
+const UserModel = require(__folders.models + '/UserModel')
 
 /**
  * @return {Promise} string
  */
 module.exports = userEntity => {
   assert.object(userEntity, { required: true })
+  assert.validate(userEntity.id, UserModel.schema.id, { required: true })
+  assert.validate(userEntity.email, UserModel.schema.email, { required: true })
 
   let config = {
     payload: {
       tokenType: type,
-      userRole: userEntity.role,
       email: userEntity.email,
-      language: userEntity.preferredLanguage,
       iss
     },
 
@@ -26,6 +26,7 @@ module.exports = userEntity => {
       algorithm: 'HS512',
       subject: userEntity.id,
       expiresIn
+
     }
   }
 

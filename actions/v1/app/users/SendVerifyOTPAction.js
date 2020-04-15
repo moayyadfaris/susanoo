@@ -3,9 +3,9 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const { notificationClient } = require(__folders.actions + '/RootProvider')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { makeConfirmOTPHelper } = require(__folders.auth + '/')
+const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const { jwtHelper } = require(__folders.auth + '/')
+const { jwtHelper } = require(__folders.helpers).authHelpers
 const config = require(__folders.config)
 const { notificationType } = require(__folders.config)
 /**

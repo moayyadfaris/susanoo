@@ -4,7 +4,7 @@ const SessionEntity = require(__folders.actionsV1 + '/common/SessionEntity')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const AuthModel = require(__folders.models + '/AuthModel')
-const { checkPasswordHelper, makeAccessTokenHelper } = require(__folders.auth + '/')
+const { checkPasswordHelper, makeAccessTokenHelper } = require(__folders.helpers).authHelpers
 const { dashboardUserPolicy } = require(__folders.policy)
 
 class LoginAction extends BaseAction {

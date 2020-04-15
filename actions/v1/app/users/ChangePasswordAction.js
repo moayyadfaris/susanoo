@@ -3,7 +3,7 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const SessionDAO = require(__folders.dao + '/SessionDAO')
-const { checkPasswordHelper, makePasswordHashHelper } = require(__folders.auth + '/')
+const { checkPasswordHelper, makePasswordHashHelper } = require(__folders.helpers).authHelpers
 
 class ChangePasswordAction extends BaseAction {
   static get accessTag () {

@@ -24,11 +24,6 @@ class QueryMiddleware extends BaseMiddleware {
           throw new ErrorWrapper({ ...errorCodes.BAD_REQUEST, message: `Invalid accept Language. Expect one of: [${validAcceptLanguage}]` })
         }
 
-        const acceptDeviceType = req.headers['Device-Type'] || req.headers['device-type']
-        const validAcceptDeviceType = ['ios', 'android']
-        if (acceptDeviceType && (!validAcceptDeviceType.includes(acceptDeviceType))) {
-          throw new ErrorWrapper({ ...errorCodes.BAD_REQUEST, message: `Invalid Device Type. Expect one of: [${validAcceptDeviceType}]` })
-        }
         // get method default query
         req.query = req.method === 'GET' ? {
           ...req.query,

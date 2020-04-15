@@ -10,6 +10,8 @@ tmp_files/
 *.ai
 *.psd
 *.pdf
+coverage/
+.nyc_output/
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*

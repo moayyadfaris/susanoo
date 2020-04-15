@@ -2,5 +2,15 @@ language: node_js
 sudo: false
 node_js:
   - node
+cache:
+   directories:
+     — “node_modules”
 notifications:
   slack: moayyadz:Hs9XPwBHrG2119SXM7T205Al
+# env:
+
+# services:
+#   - postgresql
+
+# before_script:
+#   - psql -c 'create database susanoo;' -U postgres

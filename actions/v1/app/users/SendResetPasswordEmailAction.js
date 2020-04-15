@@ -3,7 +3,7 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const { emailClient } = require(__folders.actions + '/RootProvider')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { makeResetPasswordTokenHelper } = require(__folders.auth + '/')
+const { makeResetPasswordTokenHelper } = require(__folders.helpers).authHelpers
 const ResetPasswordEmail = require(__folders.notifications + '/ResetPasswordEmail')
 
 /**

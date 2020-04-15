@@ -1,7 +1,7 @@
 const { RequestRule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const AuthModel = require(__folders.models + '/AuthModel')
-const { makeAccessTokenHelper, makeLoginByQRTokenHelper, jwtHelper } = require(__folders.auth + '/')
+const { makeAccessTokenHelper, makeLoginByQRTokenHelper, jwtHelper } = require(__folders.helpers).authHelpers
 const config = require(__folders.config)
 const addSession = require(__folders.actionsV1 + '/common/addSession')
 const SessionEntity = require(__folders.actionsV1 + '/common/SessionEntity')

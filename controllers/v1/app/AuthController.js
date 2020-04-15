@@ -123,6 +123,7 @@ class AuthController extends BaseController {
      */
     router.post('/auth/refresh-tokens', this.actionRunner(actions.RefreshTokensAction))
     router.post('/auth/login/qr-code', this.actionRunner(actions.LoginByQRCodeAction))
+    router.get('/auth/sessions', this.actionRunner(actions.ListUserSessionsAction))
     return router
   }
 

@@ -8,7 +8,7 @@ module.exports = {
   models: process.env.PWD + '/models',
   actions: process.env.PWD + '/actions',
   actionsV1: process.env.PWD + '/actions/v1',
-  auth: process.env.PWD + '/auth',
+  helpers: process.env.PWD + '/helpers',
   policy: process.env.PWD + '/policy',
   notifications: process.env.PWD + '/notifications',
   controllers: process.env.PWD + '/controllers',

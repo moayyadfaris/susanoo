@@ -1,5 +1,5 @@
 const { BaseConfig, ErrorWrapper, errorCodes } = require('backend-core')
-const uuid = require('uuid')
+const { v4: uuidV4 } = require('uuid')
 const path = require('path')
 const aws = require('aws-sdk')
 const multerS3 = require('multer-s3')
@@ -32,7 +32,7 @@ class S3Config extends BaseConfig {
           const date = new Date()
           const year = date.getFullYear()
           const month = date.getMonth()
-          cb(null, 'attachments/' + year + '/' + month + '/' + uuid.v4() + path.extname(file.originalname).toLowerCase())
+          cb(null, 'attachments/' + year + '/' + month + '/' + uuidV4() + path.extname(file.originalname).toLowerCase())
         }
       }),
       fileFilter: function (req, file, cb) {

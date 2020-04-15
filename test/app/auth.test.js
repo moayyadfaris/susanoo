@@ -3,9 +3,9 @@ const { expect } = require('chai')
 const chaiHttp = require('chai-http')
 chai.use(chaiHttp)
 
-const { appUrl, testEmail, testPassword, fingerprint } = require('./common')
+const { appUrl, testEmail, testPassword, fingerprint } = require('../common')
 
-describe('AUTH CONTROLLER', function () {
+describe('[APP:] AUTH CONTROLLER', function () {
   this.slow(0)
   let refreshToken = ''
   let accessToken = ''
@@ -31,7 +31,7 @@ describe('AUTH CONTROLLER', function () {
     })
   })
 
-  describe('[POST] /api/v1/auth/refresh-tokens', () => {
+  describe('[APP:][POST] /api/v1/auth/refresh-tokens', () => {
     it('it should return refreshed access/refresh tokens', done => {
       chai.request(appUrl)
         .post('/api/v1/auth/refresh-tokens')
@@ -52,7 +52,7 @@ describe('AUTH CONTROLLER', function () {
     })
   })
 
-  describe('[POST] /api/v1/auth/logout', () => {
+  describe('[APP:][POST] /api/v1/auth/logout', () => {
     it('it should return success message', done => {
       chai.request(appUrl)
         .post('/api/v1/auth/logout')

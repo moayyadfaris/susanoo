@@ -1,6 +1,6 @@
 const { errorCodes, ErrorWrapper, RequestRule } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
-const { jwtHelper, makePasswordHashHelper } = require(__folders.auth + '/')
+const { jwtHelper, makePasswordHashHelper } = require(__folders.helpers).authHelpers
 const config = require(__folders.config)
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')

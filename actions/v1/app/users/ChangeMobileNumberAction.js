@@ -3,7 +3,7 @@ const BaseAction = require(__folders.actions + '/BaseAction')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const { notificationClient } = require(__folders.actions + '/RootProvider')
-const { makeConfirmOTPHelper } = require(__folders.auth + '/')
+const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
 const { notificationType } = require(__folders.config)
 class ChangeMobileNumberAction extends BaseAction {
   static get accessTag () {

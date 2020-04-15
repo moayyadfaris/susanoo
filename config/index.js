@@ -18,6 +18,7 @@ const userConfig = require('./user')
 const story = require('./story')
 const notificationType = require('./notificationType')
 const cache = require('./cache')
+const ipLookup = require('./ipLookup')
 
 const asyncConfigs = [
   app,
@@ -61,5 +62,6 @@ module.exports = {
   story,
   notificationType,
   mainInit,
-  cache
+  cache,
+  ipLookup
 }

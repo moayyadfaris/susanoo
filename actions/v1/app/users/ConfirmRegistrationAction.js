@@ -2,7 +2,7 @@ const { RequestRule, errorCodes, ErrorWrapper } = require('backend-core')
 const BaseAction = require(__folders.actions + '/BaseAction')
 const UserModel = require(__folders.models + '/UserModel')
 const UserDAO = require(__folders.dao + '/UserDAO')
-const { jwtHelper } = require(__folders.auth + '/')
+const { jwtHelper } = require(__folders.helpers).authHelpers
 const config = require(__folders.config)
 const logger = require(__folders.util + '/logger')
 
