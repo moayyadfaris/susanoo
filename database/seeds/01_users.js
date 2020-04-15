@@ -1,5 +1,5 @@
-require('../globals')()
-const { makePasswordHashHelper } = require('../auth')
+require('../../globals')()
+const { makePasswordHashHelper } = require('../../helpers/').authHelpers
 
 exports.seed = function (knex) {
   // Deletes ALL existing entries

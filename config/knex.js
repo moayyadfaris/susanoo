@@ -20,6 +20,14 @@ class KnexConfig extends BaseConfig {
       min: 1,
       max: 10
     }
+
+    this.migrations = {
+      directory: 'database/migrations'
+    }
+
+    this.seeds = {
+      directory: 'database/seeds'
+    }
     // this.debug = true
   }
 
