@@ -1,5 +1,5 @@
 const { assert, ErrorWrapper, errorCodes } = require('backend-core')
-const roles = require('../config').roles
+const roles = require(__folders.config).roles
 
 module.exports = (model, currentUser) => {
   assert.object(model, { required: true })

@@ -9,7 +9,7 @@ module.exports = {
   handlers: process.env.PWD + '/handlers',
   handlersV1: process.env.PWD + '/handlers/v1',
   helpers: process.env.PWD + '/helpers',
-  policy: process.env.PWD + '/policy',
+  policies: process.env.PWD + '/acl/policies',
   notifications: process.env.PWD + '/notifications',
   controllers: process.env.PWD + '/controllers',
   util: process.env.PWD + '/util'

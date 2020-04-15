@@ -5,7 +5,7 @@ const BaseHandler = require(__folders.handlers + '/BaseHandler')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const AuthModel = require(__folders.models + '/AuthModel')
 const { checkPasswordHelper, makeAccessTokenHelper } = require(__folders.helpers).authHelpers
-const { dashboardUserPolicy } = require(__folders.policy)
+const { dashboardUserPolicy } = require(__folders.policies)
 
 class LoginHandler extends BaseHandler {
   static get accessTag () {

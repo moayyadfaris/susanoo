@@ -2,7 +2,7 @@ const { RequestRule } = require('backend-core')
 const BaseHandler = require(__folders.handlers + '/BaseHandler')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const UserModel = require(__folders.models + '/UserModel')
-// const { updateUserPolicy } = require(__folders.policy)
+// const { updateUserPolicy } = require(__folders.policies)
 
 class RemoveUserHandler extends BaseHandler {
   static get accessTag () {

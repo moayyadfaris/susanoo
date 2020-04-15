@@ -1,4 +1,4 @@
-const { handlerTagPolicy } = require(__folders.policy)
+const { handlerTagPolicy } = require(__folders.policies)
 const { errorCodes, ErrorWrapper, assert, RequestRule, AbstractLogger } = require('backend-core')
 
 class BaseController {
