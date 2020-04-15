@@ -1,6 +1,6 @@
 require('../globals')()
 const config = require('../config')
-const { slackClient, emailClient, smsClient } = require(__folders.actions + '/RootProvider')
+const { slackClient, emailClient, smsClient } = require(__folders.handlers + '/RootProvider')
 const ResetPasswordSlack = require(__folders.notifications + '/ResetPasswordSlack')
 const ResetPasswordEmail = require(__folders.notifications + '/ResetPasswordEmail')
 const ResetPasswordSMS = require(__folders.notifications + '/ResetPasswordSMS')

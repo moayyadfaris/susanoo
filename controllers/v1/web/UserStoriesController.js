@@ -1,5 +1,5 @@
 const router = require('express').Router()
-const actions = require(__folders.actions + '/v1/web/userStories')
+const handlers = require(__folders.handlers + '/v1/web/userStories')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class UserStoriesController extends BaseController {
@@ -27,7 +27,7 @@ class UserStoriesController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.get('/users/:id/stories', this.actionRunner(actions.getUserStories))
+    router.get('/users/:id/stories', this.handlerRunner(handlers.getUserStories))
     return router
   }
 

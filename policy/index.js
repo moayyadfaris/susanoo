@@ -1,4 +1,4 @@
-const actionTagPolicy = require('./actionTagPolicy')
+const handlerTagPolicy = require('./handlerTagPolicy')
 const ownerPolicy = require('./ownerPolicy')
 const privateItemPolicy = require('./privateItemPolicy')
 const updateUserPolicy = require('./updateUserPolicy')
@@ -8,7 +8,7 @@ const isMemberPolicy = require('./isMemberPolicy')
 const dashboardUserPolicy = require('./dashboardUserPolicy')
 
 module.exports = {
-  actionTagPolicy,
+  handlerTagPolicy,
   ownerPolicy,
   privateItemPolicy,
   updateUserPolicy,

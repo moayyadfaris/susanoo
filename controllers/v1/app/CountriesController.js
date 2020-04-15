@@ -1,5 +1,5 @@
 const router = require('express').Router()
-const actions = require(__folders.actions + '/v1/app/countries')
+const handlers = require(__folders.handlers + '/v1/app/countries')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class CountriesController extends BaseController {
@@ -26,7 +26,7 @@ class CountriesController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/countries', this.actionRunner(actions.ListCountriesAction))
+    router.get('/countries', this.handlerRunner(handlers.ListCountriesHandler))
 
     return router
   }

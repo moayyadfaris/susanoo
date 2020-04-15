@@ -1,5 +1,5 @@
 const router = require('express').Router()
-const actions = require(__folders.actions + '/v1/web/users')
+const handlers = require(__folders.handlers + '/v1/web/users')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 const multer = require('multer')
 const config = require(__folders.config)
@@ -54,8 +54,8 @@ class UsersController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/users/dashboard', this.actionRunner(actions.ListDashboardUsersAction))
-    router.get('/users/current', this.actionRunner(actions.GetCurrentUserAction))
+    router.get('/users/dashboard', this.handlerRunner(handlers.ListDashboardUsersHandler))
+    router.get('/users/current', this.handlerRunner(handlers.GetCurrentUserHandler))
     /**
      * @swagger
      * /users:
@@ -116,7 +116,7 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.get('/users', this.actionRunner(actions.ListUsersAction))
+    router.get('/users', this.handlerRunner(handlers.ListUsersHandler))
     /**
      * @swagger
      * /users/{id}:
@@ -140,7 +140,7 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.get('/users/:id', this.actionRunner(actions.GetUserByIdAction))
+    router.get('/users/:id', this.handlerRunner(handlers.GetUserByIdHandler))
     /**
      * @swagger
      * /web/users/current/password:
@@ -181,7 +181,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.put('/users/current/password', this.actionRunner(actions.ChangePasswordAction))
+    router.put('/users/current/password', this.handlerRunner(handlers.ChangePasswordHandler))
     /**
      * @swagger
      * /web/users/current/profile-image:
@@ -208,7 +208,7 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.actionRunner(actions.UploadProfileImageAction))
+    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.handlerRunner(handlers.UploadProfileImageHandler))
     /**
      * @swagger
      * /web/users/current:
@@ -247,11 +247,11 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.patch('/users/current', this.actionRunner(actions.UpdateUserAction))
-    router.post('/users', this.actionRunner(actions.CreateUserAction))
-    router.post('/users/send-reset-password-token', this.actionRunner(actions.SendResetPasswordTokenAction))
-    router.post('/users/reset-password', this.actionRunner(actions.ResetPasswordAction))
-    router.post('/users/confirm-reset-password', this.actionRunner(actions.ConfirmResetPasswordTokenAction))
+    router.patch('/users/current', this.handlerRunner(handlers.UpdateUserHandler))
+    router.post('/users', this.handlerRunner(handlers.CreateUserHandler))
+    router.post('/users/send-reset-password-token', this.handlerRunner(handlers.SendResetPasswordTokenHandler))
+    router.post('/users/reset-password', this.handlerRunner(handlers.ResetPasswordHandler))
+    router.post('/users/confirm-reset-password', this.handlerRunner(handlers.ConfirmResetPasswordTokenHandler))
 
     return router
   }

@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/app/users')
+const handlers = require(__folders.handlers + '/v1/app/users')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 const config = require(__folders.config)
 const RateLimit = require('express-rate-limit')
@@ -8,7 +8,7 @@ const multer = require('multer')
 
 class UsersController extends BaseController {
   get router () {
-    router.get('/users', this.actionRunner(actions.ListUsersAction))
+    router.get('/users', this.handlerRunner(handlers.ListUsersHandler))
     /**
      * @swagger
      * /users/current:
@@ -57,7 +57,7 @@ class UsersController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/users/current', this.actionRunner(actions.GetCurrentUserAction))
+    router.get('/users/current', this.handlerRunner(handlers.GetCurrentUserHandler))
     /**
      * @swagger
      * /users/availability:
@@ -93,9 +93,9 @@ class UsersController extends BaseController {
      *       '409':
      *         description: This email/mobile already taken, try use another.
      */
-    router.post('/users/availability', this.actionRunner(actions.CheckAvailabilityAction))
+    router.post('/users/availability', this.handlerRunner(handlers.CheckAvailabilityHandler))
 
-    router.get('/users/:id', this.actionRunner(actions.GetUserByIdAction))
+    router.get('/users/:id', this.handlerRunner(handlers.GetUserByIdHandler))
     /**
      * @swagger
      * /users:
@@ -159,11 +159,11 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/users', this.actionRunner(actions.CreateUserAction))
-    // router.patch('/users', this.actionRunner(actions.UpdateUserAction))
-    router.delete('/users/:id', this.actionRunner(actions.RemoveUserAction))
+    router.post('/users', this.handlerRunner(handlers.CreateUserHandler))
+    // router.patch('/users', this.handlerRunner(handlers.UpdateUserHandler))
+    router.delete('/users/:id', this.handlerRunner(handlers.RemoveUserHandler))
 
-    router.post('/users/send-reset-password-email', this.actionRunner(actions.SendResetPasswordEmailAction))
+    router.post('/users/send-reset-password-email', this.handlerRunner(handlers.SendResetPasswordEmailHandler))
     /**
      * @swagger
      * /users/send-reset-password-otp:
@@ -200,7 +200,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/send-reset-password-otp', new RateLimit(config.rateLimting.defaultConfig), this.actionRunner(actions.SendResetPasswordOTPAction))
+    router.post('/users/send-reset-password-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendResetPasswordOTPHandler))
     /**
      * @swagger
      * /users/check-reset-password-otp:
@@ -245,8 +245,8 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/check-reset-password-otp', this.actionRunner(actions.CheckResetPasswordOTPAction))
-    router.post('/users/reset-password-otp', this.actionRunner(actions.CheckResetPasswordOTPAction))
+    router.post('/users/check-reset-password-otp', this.handlerRunner(handlers.CheckResetPasswordOTPHandler))
+    router.post('/users/reset-password-otp', this.handlerRunner(handlers.CheckResetPasswordOTPHandler))
     /**
      * @swagger
      * /users/reset-password:
@@ -287,10 +287,10 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/reset-password', this.actionRunner(actions.ResetPasswordAction))
-    router.post('/users/change-email', this.actionRunner(actions.ChangeEmailAction))
-    router.post('/users/confirm-email', this.actionRunner(actions.ConfirmEmailAction))
-    router.post('/users/cancel-email-changing', this.actionRunner(actions.CancelEmailChangingAction))
+    router.post('/users/reset-password', this.handlerRunner(handlers.ResetPasswordHandler))
+    router.post('/users/change-email', this.handlerRunner(handlers.ChangeEmailHandler))
+    router.post('/users/confirm-email', this.handlerRunner(handlers.ConfirmEmailHandler))
+    router.post('/users/cancel-email-changing', this.handlerRunner(handlers.CancelEmailChangingHandler))
     /**
      * @swagger
      * /users/confirm-otp:
@@ -341,7 +341,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/confirm-otp', this.actionRunner(actions.ConfirmRegistrationOTPAction))
+    router.post('/users/confirm-otp', this.handlerRunner(handlers.ConfirmRegistrationOTPHandler))
     /**
      * @swagger
      * /users/send-verify-otp:
@@ -380,7 +380,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/send-verify-otp', new RateLimit(config.rateLimting.defaultConfig), this.actionRunner(actions.SendVerifyOTPAction))
+    router.post('/users/send-verify-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendVerifyOTPHandler))
     /**
      * @swagger
      * /users/current/password:
@@ -421,7 +421,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.put('/users/current/password', this.actionRunner(actions.ChangePasswordAction))
+    router.put('/users/current/password', this.handlerRunner(handlers.ChangePasswordHandler))
     /**
      * @swagger
      * /users/current/profile:
@@ -457,7 +457,7 @@ class UsersController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/users/current/profile', this.actionRunner(actions.GetProfileAction))
+    router.get('/users/current/profile', this.handlerRunner(handlers.GetProfileHandler))
     /**
      * @swagger
      * /users/current:
@@ -496,7 +496,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.patch('/users/current', this.actionRunner(actions.UpdateUserAction))
+    router.patch('/users/current', this.handlerRunner(handlers.UpdateUserHandler))
     /**
      * @swagger
      * /users/current/profile-image:
@@ -523,7 +523,7 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.actionRunner(actions.UploadProfileImageAction))
+    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.handlerRunner(handlers.UploadProfileImageHandler))
     /**
      * @swagger
      * /users/current/profile-image:
@@ -546,7 +546,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.delete('/users/current/profile-image', this.actionRunner(actions.DeleteProfileImageAction))
+    router.delete('/users/current/profile-image', this.handlerRunner(handlers.DeleteProfileImageHandler))
     /**
      * @swagger
      * /users/current/change-mobile-number:
@@ -587,7 +587,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/change-mobile-number', this.actionRunner(actions.ChangeMobileNumberAction))
+    router.post('/users/current/change-mobile-number', this.handlerRunner(handlers.ChangeMobileNumberHandler))
     /**
      * @swagger
      * /users/current/confirm-otp:
@@ -628,7 +628,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/confirm-otp', this.actionRunner(actions.ConfirmOTPAction))
+    router.post('/users/current/confirm-otp', this.handlerRunner(handlers.ConfirmOTPHandler))
     /**
      * @swagger
      * /users/current/resend-otp:
@@ -667,7 +667,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/resend-otp', new RateLimit(config.rateLimting.defaultConfig), this.actionRunner(actions.ResendOTPAction))
+    router.post('/users/current/resend-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ResendOTPHandler))
     /**
      * @swagger
      * /users/current/change-email:
@@ -706,7 +706,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/change-email', new RateLimit(config.rateLimting.defaultConfig), this.actionRunner(actions.ChangeEmailAction))
+    router.post('/users/current/change-email', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangeEmailHandler))
     /**
      * @swagger
      * /users/change-password:
@@ -747,9 +747,9 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/change-password', new RateLimit(config.rateLimting.defaultConfig), this.actionRunner(actions.ChangePasswordAction))
+    router.post('/users/change-password', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangePasswordHandler))
 
-    // router.post('/users/current/notifications', this.actionRunner(actions.SendPushNotificationAction))
+    // router.post('/users/current/notifications', this.handlerRunner(handlers.SendPushNotificationHandler))
     return router
   }
 

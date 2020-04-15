@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
 const { BaseController } = require(__folders.controllers + '/BaseController')
-const actions = require(__folders.actions + '/v1/web/auth')
+const handlers = require(__folders.handlers + '/v1/web/auth')
 
 class AuthController extends BaseController {
   get router () {
@@ -61,7 +61,7 @@ class AuthController extends BaseController {
      *       '403':
      *         description: Invalid credentials
      */
-    router.post('/auth/login', this.actionRunner(actions.LoginAction))
+    router.post('/auth/login', this.handlerRunner(handlers.LoginHandler))
     /**
      * @swagger
      * /web/auth/logout:
@@ -90,7 +90,7 @@ class AuthController extends BaseController {
      *       '403':
      *         description: Access denied, don't have permissions.
      */
-    router.post('/auth/logout', this.actionRunner(actions.LogoutAction))
+    router.post('/auth/logout', this.handlerRunner(handlers.LogoutHandler))
     /**
      * @swagger
      * /web/auth/refresh-tokens:
@@ -121,7 +121,7 @@ class AuthController extends BaseController {
      *       '403':
      *         description: Access denied, don't have permissions.
      */
-    router.post('/auth/refresh-tokens', this.actionRunner(actions.RefreshTokensAction))
+    router.post('/auth/refresh-tokens', this.handlerRunner(handlers.RefreshTokensHandler))
 
     return router
   }

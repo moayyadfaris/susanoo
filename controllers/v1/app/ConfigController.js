@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/app/config')
+const handlers = require(__folders.handlers + '/v1/app/config')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class ConfigController extends BaseController {
@@ -24,7 +24,7 @@ class ConfigController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/config', this.actionRunner(actions.GetConfigAction))
+    router.get('/config', this.handlerRunner(handlers.GetConfigHandler))
     return router
   }
 

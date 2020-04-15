@@ -1,7 +1,7 @@
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
 const cacheConfig = require('../config').cache
-const { redisClient } = require(__folders.actions + '/RootProvider')
+const { redisClient } = require(__folders.handlers + '/RootProvider')
 class CacheMiddleware extends BaseMiddleware {
   async init () {
     logger.debug(`${this.constructor.name} initialized...`)

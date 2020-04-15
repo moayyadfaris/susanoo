@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/app/interests')
+const handlers = require(__folders.handlers + '/v1/app/interests')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class InterestsController extends BaseController {
@@ -29,7 +29,7 @@ class InterestsController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/interests', this.actionRunner(actions.ListInterestsAction))
+    router.get('/interests', this.handlerRunner(handlers.ListInterestsHandler))
 
     return router
   }

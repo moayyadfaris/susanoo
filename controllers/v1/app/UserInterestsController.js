@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/app/userInterests')
+const handlers = require(__folders.handlers + '/v1/app/userInterests')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class UserInterestsController extends BaseController {
@@ -29,7 +29,7 @@ class UserInterestsController extends BaseController {
      *       '400':
      *         description: Bad request
      */
-    router.get('/users/current/interests', this.actionRunner(actions.ListUserInterestsAction))
+    router.get('/users/current/interests', this.handlerRunner(handlers.ListUserInterestsHandler))
 
     /**
      * @swagger
@@ -73,7 +73,7 @@ class UserInterestsController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/interests', this.actionRunner(actions.AddUserInterestAction))
+    router.post('/users/current/interests', this.handlerRunner(handlers.AddUserInterestHandler))
 
     return router
   }

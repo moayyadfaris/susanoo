@@ -1,11 +1,11 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actionsV1 + '/web/cache')
+const handlers = require(__folders.handlersV1 + '/web/cache')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class CacheController extends BaseController {
   get router () {
-    router.delete('/cache', this.actionRunner(actions.ClearCacheAction))
+    router.delete('/cache', this.handlerRunner(handlers.ClearCacheHandler))
 
     return router
   }

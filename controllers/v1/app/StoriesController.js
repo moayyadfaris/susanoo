@@ -1,5 +1,5 @@
 const router = require('express').Router()
-const actions = require(__folders.actions + '/v1/app/stories')
+const handlers = require(__folders.handlers + '/v1/app/stories')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class StoriesController extends BaseController {
@@ -65,7 +65,7 @@ class StoriesController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.get('/stories/', this.actionRunner(actions.ListStoriesAction))
+    router.get('/stories/', this.handlerRunner(handlers.ListStoriesHandler))
     /**
      * @swagger
      * /stories/{id}:
@@ -124,7 +124,7 @@ class StoriesController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.get('/stories/:id', this.actionRunner(actions.GetStoryByIdAction))
+    router.get('/stories/:id', this.handlerRunner(handlers.GetStoryByIdHandler))
     /**
      * @swagger
      * /stories:
@@ -192,7 +192,7 @@ class StoriesController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/stories', this.actionRunner(actions.CreateStoryAction))
+    router.post('/stories', this.handlerRunner(handlers.CreateStoryHandler))
     /**
      * @swagger
      * /stories/{id}:
@@ -257,7 +257,7 @@ class StoriesController extends BaseController {
      *       '403':
      *         description: Access denied
      */
-    router.patch('/stories/:id', this.actionRunner(actions.UpdateStoryAction))
+    router.patch('/stories/:id', this.handlerRunner(handlers.UpdateStoryHandler))
     /**
      * @swagger
      * /stories/{id}:
@@ -296,7 +296,7 @@ class StoriesController extends BaseController {
      *       '403':
      *         description: Access denied
      */
-    router.delete('/stories/:id', this.actionRunner(actions.RemoveStoryAction))
+    router.delete('/stories/:id', this.handlerRunner(handlers.RemoveStoryHandler))
 
     return router
   }

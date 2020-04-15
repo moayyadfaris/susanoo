@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
 const { BaseController } = require(__folders.controllers + '/BaseController')
-const actions = require(__folders.actions + '/v1/app/auth')
+const handlers = require(__folders.handlers + '/v1/app/auth')
 
 class AuthController extends BaseController {
   get router () {
@@ -61,7 +61,7 @@ class AuthController extends BaseController {
     *       '403':
     *         description: Invalid credentials
     */
-    router.post('/auth/login', this.actionRunner(actions.LoginAction))
+    router.post('/auth/login', this.handlerRunner(handlers.LoginHandler))
     /**
      * @swagger
      * /auth/logout:
@@ -90,7 +90,7 @@ class AuthController extends BaseController {
      *       '403':
      *         description: Access denied, don't have permissions.
      */
-    router.post('/auth/logout', this.actionRunner(actions.LogoutAction))
+    router.post('/auth/logout', this.handlerRunner(handlers.LogoutHandler))
     /**
      * @swagger
      * /auth/refresh-tokens:
@@ -121,9 +121,9 @@ class AuthController extends BaseController {
      *       '403':
      *         description: Access denied, don't have permissions.
      */
-    router.post('/auth/refresh-tokens', this.actionRunner(actions.RefreshTokensAction))
-    router.post('/auth/login/qr-code', this.actionRunner(actions.LoginByQRCodeAction))
-    router.get('/auth/sessions', this.actionRunner(actions.ListUserSessionsAction))
+    router.post('/auth/refresh-tokens', this.handlerRunner(handlers.RefreshTokensHandler))
+    router.post('/auth/login/qr-code', this.handlerRunner(handlers.LoginByQRCodeHandler))
+    router.get('/auth/sessions', this.handlerRunner(handlers.ListUserSessionsHandler))
     return router
   }
 

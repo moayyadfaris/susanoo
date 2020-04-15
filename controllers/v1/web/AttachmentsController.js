@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/web/attachments')
+const handlers = require(__folders.handlers + '/v1/web/attachments')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 const config = require(__folders.config)
 const multer = require('multer')
@@ -33,7 +33,7 @@ class AttachmentsController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/attachments', multer(config.s3.multerConfig).single('file'), this.actionRunner(actions.CreateAttachmentAction))
+    router.post('/attachments', multer(config.s3.multerConfig).single('file'), this.handlerRunner(handlers.CreateAttachmentHandler))
 
     return router
   }

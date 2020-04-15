@@ -1,6 +1,6 @@
 const router = require('express').Router()
 
-const actions = require(__folders.actions + '/v1/app/storyAttachments')
+const handlers = require(__folders.handlers + '/v1/app/storyAttachments')
 const { BaseController } = require(__folders.controllers + '/BaseController')
 
 class StoryAttachmentsController extends BaseController {
@@ -49,7 +49,7 @@ class StoryAttachmentsController extends BaseController {
      *       '403':
      *         description: Access denied
      */
-    router.delete('/stories/:id/attachments/:itemId', this.actionRunner(actions.RemoveStoryAttachmentAction))
+    router.delete('/stories/:id/attachments/:itemId', this.handlerRunner(handlers.RemoveStoryAttachmentHandler))
 
     return router
   }

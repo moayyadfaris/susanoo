@@ -1,4 +1,4 @@
-const { actionTagPolicy } = require(__folders.policy)
+const { handlerTagPolicy } = require(__folders.policy)
 const { errorCodes, ErrorWrapper, assert, RequestRule, AbstractLogger } = require('backend-core')
 
 class BaseController {
@@ -10,15 +10,15 @@ class BaseController {
     this.logger = logger
   }
 
-  actionRunner (action) {
-    assert.func(action, { required: true })
+  handlerRunner (handler) {
+    assert.func(handler, { required: true })
 
-    if (!action.hasOwnProperty('accessTag')) {
-      throw new Error(`'accessTag' getter not declared in invoked '${action.name}' action`)
+    if (!handler.hasOwnProperty('accessTag')) {
+      throw new Error(`'accessTag' getter not declared in invoked '${handler.name}' handler`)
     }
 
-    if (!action.hasOwnProperty('run')) {
-      throw new Error(`'run' method not declared in invoked '${action.name}' action`)
+    if (!handler.hasOwnProperty('run')) {
+      throw new Error(`'run' method not declared in invoked '${handler.name}' handler`)
     }
 
     return async (req, res, next) => {
@@ -50,18 +50,18 @@ class BaseController {
          * it will return request schema
          */
         if (ctx.query.schema && ['POST', 'PATCH', 'GET'].includes(ctx.method) && process.env.NODE_ENV === 'development') {
-          return res.json(getSchemaDescription(action.validationRules))
+          return res.json(getSchemaDescription(handler.validationRules))
         }
 
         /**
-         * check access to action by access tag
+         * check access to handler by access tag
          */
-        await actionTagPolicy(action.accessTag, ctx.currentUser)
+        await handlerTagPolicy(handler.accessTag, ctx.currentUser)
 
         /**
          * verify empty body
          */
-        if (action.validationRules && action.validationRules.notEmptyBody && !Object.keys(ctx.body).length) {
+        if (handler.validationRules && handler.validationRules.notEmptyBody && !Object.keys(ctx.body).length) {
           return next(new ErrorWrapper({
             ...errorCodes.EMPTY_BODY,
             layer: this.constructor.name
@@ -69,20 +69,20 @@ class BaseController {
         }
 
         /**
-         * validate action input data
+         * validate handler input data
          */
-        if (action.validationRules) {
-          if (action.validationRules.query) this.validateSchema(ctx.query, action.validationRules.query, 'query')
-          if (action.validationRules.params) this.validateSchema(ctx.params, action.validationRules.params, 'params')
-          if (action.validationRules.body) this.validateSchema(ctx.body, action.validationRules.body, 'body')
-          if (action.validationRules.file) this.validateSchema(ctx.file, action.validationRules.file, 'file')
-          if (action.validationRules.headers) this.validateSchema(ctx.headers, action.validationRules.headers, 'headers')
+        if (handler.validationRules) {
+          if (handler.validationRules.query) this.validateSchema(ctx.query, handler.validationRules.query, 'query')
+          if (handler.validationRules.params) this.validateSchema(ctx.params, handler.validationRules.params, 'params')
+          if (handler.validationRules.body) this.validateSchema(ctx.body, handler.validationRules.body, 'body')
+          if (handler.validationRules.file) this.validateSchema(ctx.file, handler.validationRules.file, 'file')
+          if (handler.validationRules.headers) this.validateSchema(ctx.headers, handler.validationRules.headers, 'headers')
         }
 
         /**
-         * fire action
+         * fire handler
          */
-        const response = await action.run(ctx)
+        const response = await handler.run(ctx)
 
         /**
          * set headers

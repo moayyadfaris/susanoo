@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
 const { BaseController } = require(__folders.controllers + '/BaseController')
-const RootProvider = require(__folders.actions + '/RootProvider')
+const RootProvider = require(__folders.handlers + '/RootProvider')
 
 class RootController extends BaseController {
   get router () {
