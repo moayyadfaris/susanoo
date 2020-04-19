@@ -12,8 +12,6 @@ class AppConfig extends BaseConfig {
     this.sentryCapture = (this.set('SENTRY_CAPTURE', this.joi.boolean().required()) === 'true')
     this.desc = this.set('APP_DESC', this.joi.string().required())
     this.version = this.set('APP_VERSION', this.joi.string().required())
-    this.exclusiveRegistration = this.set('EXCLUSIVE_REGISTRATION', this.joi.boolean())
-    this.exclusiveRegistrationAndroid = this.set('EXCLUSIVE_REGISTRATION_ANDROID', this.joi.boolean())
     this.invitaionCodeLenght = Number(this.set('INVITATION_CODE_LENGTH', this.joi.number().required(), 8))
     this.isoMinVersion = this.set('IOS_MIN_VERSION', this.joi.string())
     this.androidMinVersion = this.set('ANDROID_MIN_VERSION', this.joi.string())
@@ -22,6 +20,7 @@ class AppConfig extends BaseConfig {
     this.resetPasswordUrl = this.set('RESET_PASSWORD_URL', this.joi.string())
     this.qrCodeServiceToken = this.set('QR_CODE_SERVICE_TOKEN', this.joi.string())
     this.socketPort = this.set('SOCKET_PORT', this.joi.number().port().required(), 7000)
+    this.cookieSecret = this.set('COOKIE_SECRET', this.joi.string().min(10))
   }
 
   async init () {

@@ -20,11 +20,11 @@ config.mainInit().then(() => {
     controllers,
     middlewares,
     errorMiddleware,
+    cookieSecret: config.app.cookieSecret,
     logger
   })
 })
   .then(serverParams => {
-    console.clear()
     logger.info('Server initialized...', serverParams)
     logger.debug('--- APP CONFIG ---')
     logger.debug(`HOST: ${config.app.host}`)

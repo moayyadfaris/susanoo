@@ -1,4 +1,5 @@
-const { RequestRule, ErrorWrapper, errorCodes } = require('backend-core')
+const ms = require('ms')
+const { RequestRule, ErrorWrapper, errorCodes, CookieEntity } = require('backend-core')
 const addSession = require(__folders.handlersV1 + '/common/addSession')
 const SessionEntity = require(__folders.handlersV1 + '/common/SessionEntity')
 const BaseHandler = require(__folders.handlers + '/BaseHandler')
@@ -6,7 +7,7 @@ const UserDAO = require(__folders.dao + '/UserDAO')
 const AuthModel = require(__folders.models + '/AuthModel')
 const { checkPasswordHelper, makeAccessTokenHelper } = require(__folders.helpers).authHelpers
 const { dashboardUserPolicy } = require(__folders.policies)
-
+const config = require(__folders.config)
 class LoginHandler extends BaseHandler {
   static get accessTag () {
     return 'web#auth:login'
@@ -23,6 +24,9 @@ class LoginHandler extends BaseHandler {
   }
 
   static async run (ctx) {
+    const refTokenExpiresInMilliseconds = new Date().getTime() + ms(config.token.refresh.expiresIn)
+    const refTokenExpiresInSeconds = parseInt(refTokenExpiresInMilliseconds / 1000)
+
     let user = await UserDAO.getByEmail(ctx.body.email)
     await dashboardUserPolicy(user)
     try {
@@ -43,8 +47,19 @@ class LoginHandler extends BaseHandler {
     return this.result({
       data: {
         accessToken: await makeAccessTokenHelper(user),
+        // return refresh token also in request body, just for debug
         refreshToken: newSession.refreshToken
-      }
+      },
+      cookies: [
+        new CookieEntity({
+          name: 'refreshToken',
+          value: newSession.refreshToken,
+          domain: 'localhost',
+          path: '/',
+          maxAge: refTokenExpiresInSeconds,
+          secure: false // temp: should be deleted
+        })
+      ]
     })
   }
 }

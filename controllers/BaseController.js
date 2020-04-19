@@ -35,9 +35,10 @@ class BaseController {
         method: req.method,
         url: req.url,
         originalUrl: req.originalUrl,
+        cookies: { ...req.cookies, ...req.signedCookies },
         headers: {
           'Content-Type': req.get('Content-Type'),
-          Referer: req.get('referer'),
+          'Referer': req.get('referer'),
           'User-Agent': req.get('User-Agent'),
           'Language': req.get('Language'),
           'Device-Type': req.get('Device-Type')
@@ -77,6 +78,7 @@ class BaseController {
           if (handler.validationRules.body) this.validateSchema(ctx.body, handler.validationRules.body, 'body')
           if (handler.validationRules.file) this.validateSchema(ctx.file, handler.validationRules.file, 'file')
           if (handler.validationRules.headers) this.validateSchema(ctx.headers, handler.validationRules.headers, 'headers')
+          if (handler.validationRules.cookies) this.validateSchema(ctx.cookies, handler.validationRules.cookies, 'cookies')          
         }
 
         /**
@@ -88,6 +90,15 @@ class BaseController {
          * set headers
          */
         if (response.headers) res.set(response.headers)
+
+        /**
+         * set cookie
+         */
+        if (response.cookies && response.cookies.length) {
+          for (const cookie of response.cookies) {
+            res.cookie(cookie.name, cookie.value, cookie.options)
+          }
+        }
 
         /**
          * set status and return result to client

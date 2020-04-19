@@ -5,10 +5,12 @@ const { SanitizeMiddleware } = require('./SanitizeMiddleware')
 const { QueryMiddleware } = require('./QueryMiddleware')
 const { CheckLanguageMiddleware } = require('./CheckLanguageMiddleware')
 const { CacheMiddleware } = require('./CacheMiddleware')
+const { ContentTypeMiddleware } = require('./ContentTypeMiddleware')
 
 module.exports = [
   InitMiddleware,
   CorsMiddleware,
+  ContentTypeMiddleware,
   CheckAccessTokenMiddleware,
   SanitizeMiddleware,
   QueryMiddleware,

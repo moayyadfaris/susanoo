@@ -9,15 +9,6 @@ class QueryMiddleware extends BaseMiddleware {
   handler () {
     return async (req, res, next) => {
       try {
-        // validate content-type
-        if (req.method !== 'GET' && req.method !== 'OPTIONS' && req.method !== 'DELETE') {
-          const contentType = req.headers['Content-Type'] || req.headers['content-type']
-          const validContentType = ['application/json', 'multipart/form-data', 'application/json; charset=UTF-8']
-          if (!contentType || (!validContentType.includes(contentType) && (contentType.indexOf('multipart/form-data') === -1))) {
-            throw new ErrorWrapper({ ...errorCodes.BAD_REQUEST, message: `Invalid content type. Expect one of: [${validContentType}]` })
-          }
-        }
-
         const acceptLanguage = req.headers['Language'] || req.headers['language']
         const validAcceptLanguage = ['ar', 'en']
         if (acceptLanguage && (!validAcceptLanguage.includes(acceptLanguage))) {
