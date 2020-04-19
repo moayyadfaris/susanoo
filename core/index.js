@@ -17,7 +17,6 @@ const { Server } = require('./lib/Server')
 const { Logger } = require('./lib/Logger')
 const { CookieEntity } = require('./lib/CookieEntity')
 
-
 module.exports = {
   errorCodes,
   assert: Assert,

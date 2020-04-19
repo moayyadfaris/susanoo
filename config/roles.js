@@ -3,5 +3,5 @@ module.exports = {
   admin: 'ROLE_ADMIN',
   editor: 'ROLE_EDITOR',
   user: 'ROLE_USER',
-  anonymous: 'ROLE_ANONYMOUS',
+  anonymous: 'ROLE_ANONYMOUS'
 }

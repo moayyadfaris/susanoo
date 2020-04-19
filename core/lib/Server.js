@@ -33,7 +33,7 @@ class Server {
   }
 }
 
-function start ({ port, host, controllers, middlewares, ErrorMiddleware,cookieSecret, logger }) {
+function start ({ port, host, controllers, middlewares, ErrorMiddleware, cookieSecret, logger }) {
   return new Promise(async (resolve, reject) => {
     const app = express()
 

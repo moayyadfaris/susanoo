@@ -78,7 +78,7 @@ class BaseController {
           if (handler.validationRules.body) this.validateSchema(ctx.body, handler.validationRules.body, 'body')
           if (handler.validationRules.file) this.validateSchema(ctx.file, handler.validationRules.file, 'file')
           if (handler.validationRules.headers) this.validateSchema(ctx.headers, handler.validationRules.headers, 'headers')
-          if (handler.validationRules.cookies) this.validateSchema(ctx.cookies, handler.validationRules.cookies, 'cookies')          
+          if (handler.validationRules.cookies) this.validateSchema(ctx.cookies, handler.validationRules.cookies, 'cookies')
         }
 
         /**
