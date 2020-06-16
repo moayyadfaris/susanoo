@@ -1,5 +1,6 @@
 const { handlerTagPolicy } = require(__folders.policies)
 const { errorCodes, ErrorWrapper, assert, RequestRule, AbstractLogger } = require('backend-core')
+const { stripTrailingSlash } = require(__folders.helpers).commonHelpers
 
 class BaseController {
   constructor ({ logger } = {}) {
@@ -34,7 +35,7 @@ class BaseController {
         ip: req.ip,
         method: req.method,
         url: req.url,
-        originalUrl: req.originalUrl,
+        originalUrl: stripTrailingSlash(req.originalUrl),
         cookies: { ...req.cookies, ...req.signedCookies },
         headers: {
           'Content-Type': req.get('Content-Type'),
