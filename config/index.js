@@ -17,7 +17,9 @@ const storyStatus = require('./storyStatus')
 const userConfig = require('./user')
 const story = require('./story')
 const notificationType = require('./notificationType')
-const cache = require('./cache')
+const cacheRoutes = require('./cacheRoutes')
+const basicAuth = require('./basicAuth')
+const basicAuthRoutes = require('./basicAuthRoutes')
 const ipLookup = require('./ipLookup')
 
 const asyncConfigs = [
@@ -62,6 +64,8 @@ module.exports = {
   story,
   notificationType,
   mainInit,
-  cache,
-  ipLookup
+  cacheRoutes,
+  ipLookup,
+  basicAuth,
+  basicAuthRoutes
 }

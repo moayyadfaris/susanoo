@@ -6,6 +6,7 @@ const { QueryMiddleware } = require('./QueryMiddleware')
 const { CheckLanguageMiddleware } = require('./CheckLanguageMiddleware')
 const { CacheMiddleware } = require('./CacheMiddleware')
 const { ContentTypeMiddleware } = require('./ContentTypeMiddleware')
+const { BasicAuthMiddleware } = require('./BasicAuthMiddleware')
 
 module.exports = [
   InitMiddleware,
@@ -15,5 +16,6 @@ module.exports = [
   SanitizeMiddleware,
   QueryMiddleware,
   CheckLanguageMiddleware,
-  CacheMiddleware
+  CacheMiddleware,
+  BasicAuthMiddleware
 ]

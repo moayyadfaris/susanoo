@@ -1,5 +1,4 @@
 const express = require('express')
-const auth = require('http-auth')
 const path = require('path')
 // const favicon = require('serve-favicon')
 const morganLogger = require('morgan')
@@ -15,7 +14,7 @@ const { AbstractLogger } = require('./AbstractLogger')
 const swaggerUi = require('swagger-ui-express')
 const swaggerDocument = require('../../public/docs/swagger.json')
 const swStats = require('swagger-stats')
-const config = require('../../config/swagger')
+const swaggerConfig = require('../../config/swagger')
 
 class Server {
   constructor ({ port, host, controllers, middlewares, errorMiddleware, cookieSecret, logger }) {
@@ -53,22 +52,6 @@ function start ({ port, host, controllers, middlewares, ErrorMiddleware, cookieS
     app.use(compression())
     // secure apps by setting various HTTP headers
     app.use(helmet())
-
-    var basic = auth.basic({
-      realm: 'SusanooBackend.',
-      file: path.join(__dirname, '../../config/data/swagger.users')
-    })
-
-    // Load users managment temp page.
-    app.get('/users', auth.connect(basic), function (req, res) {
-      res.sendFile(path.join(__dirname, '../../public/users/users_managment.html'))
-    })
-
-    // Mounting swagger ui
-    app.use('/api-docs', auth.connect(basic), swaggerUi.serve, swaggerUi.setup(null, config.options))
-
-    // Mouting swagger-stats
-    app.use(swStats.getMiddleware({ swaggerSpec: swaggerDocument }))
 
     // Health check
     app.get('/health-check', (req, res) => {
@@ -113,6 +96,17 @@ function start ({ port, host, controllers, middlewares, ErrorMiddleware, cookieS
     } catch (e) {
       return reject(e)
     }
+
+    // Mounting swagger ui
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(null, swaggerConfig.options))
+
+    // Mouting swagger-stats
+    app.use(swStats.getMiddleware({ swaggerSpec: swaggerDocument }))
+
+    // Load users managment temp page.
+    app.get('/users', function (req, res) {
+      res.sendFile(path.join(__dirname, '../../public/users/users_managment.html'))
+    })
 
     /**
      * Not found route handler

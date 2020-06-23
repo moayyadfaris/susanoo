@@ -1,6 +1,6 @@
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
-const cacheConfig = require('../config').cache
+const cacheRoutes = require('../config').cacheRoutes
 const { redisClient } = require(__folders.handlers + '/RootProvider')
 const { stripTrailingSlash } = require(__folders.helpers).commonHelpers
 
@@ -12,7 +12,7 @@ class CacheMiddleware extends BaseMiddleware {
   handler () {
     return async (req, res, next) => {
       const url = stripTrailingSlash(req.originalUrl)
-      if (cacheConfig.filter(s => s === url || url.match(formatRoute(s))).length > 0) {
+      if (cacheRoutes.filter(s => s === url || url.match(formatRoute(s))).length > 0) {
         const result = await redisClient.getKey(req.originalUrl)
         if (result) {
           res.header(result['headers'])
