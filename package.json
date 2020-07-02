@@ -5,7 +5,7 @@
   "author": "Moayyad Faris",
   "scripts": {
     "start": "node ./main.js",
-    "start-server": "npm run dev",
+    "start-server": "npm start",
     "dev": "NODE_ENV=development nodemon ./main.js",
     "notifications-dev": "NODE_ENV=development node ./consumers/notifications-consumer.js",
     "qr-code-service": "NODE_ENV=development node sockets/QRSocketService.js",
