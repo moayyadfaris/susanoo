@@ -8,9 +8,7 @@ cache:
 notifications:
   slack: moayyadz:Hs9XPwBHrG2119SXM7T205Al
 
-env:
-  -  NODE_ENV=test
-  
+
 services:
   - postgresql
 
