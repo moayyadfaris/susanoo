@@ -25,5 +25,8 @@ before_script:
   - export TWILIO_ACCOUNT_SID="AC123456789012345678901234567890"
   - export PHONE_FROM="12345678"
   - export IP_LOOKUP_ACCESS_TOKEN="AB123456789012345678901234567890"
+  - npm i -g knex
+  - npm run migrate
+  - npm run seed
 
 script: npm run test-script
