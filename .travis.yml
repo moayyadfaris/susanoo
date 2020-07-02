@@ -8,17 +8,6 @@ cache:
 notifications:
   slack: moayyadz:Hs9XPwBHrG2119SXM7T205Al
 
-env:
-  - DB_USER="root"
-  - DB_PASSWORD="Admin@123"
-  - SMTP_USERNAME="TEST_USER"
-  - SMTP_PASSWORD="TEST_PASSWORD"
-  - SMTP_HOST="TEST_HOST"
-  - TWILIO_AUTH_TOKEN=1"23456789012345678901234567890"
-  - TWILIO_ACCOUNT_SID="AC123456789012345678901234567890"
-  - PHONE_FROM="12345678"
-  - IP_LOOKUP_ACCESS_TOKEN="AB123456789012345678901234567890"
-
 services:
   - postgresql
 
@@ -26,5 +15,14 @@ before_script:
   - cp .env.example .env
   - psql -c 'create database susanoo;' -U postgres
   - psql -c "CREATE USER root WITH PASSWORD 'Admin@123';" -U postgres
+  - export DB_USER="root"
+  - export DB_PASSWORD="Admin@123"
+  - export SMTP_USERNAME="TEST_USER"
+  - export SMTP_PASSWORD="TEST_PASSWORD"
+  - export SMTP_HOST="TEST_HOST"
+  - export TWILIO_AUTH_TOKEN="123456789012345678901234567890"
+  - export TWILIO_ACCOUNT_SID="AC123456789012345678901234567890"
+  - export PHONE_FROM="12345678"
+  - export IP_LOOKUP_ACCESS_TOKEN="AB123456789012345678901234567890"
 
 script: npm run test-script
