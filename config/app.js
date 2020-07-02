@@ -8,7 +8,7 @@ class AppConfig extends BaseConfig {
     this.host = this.set('APP_HOST', this.joi.string().required(), 'localhost')
     this.name = this.set('APP_NAME', this.joi.string().required(), 'BackendAPI')
     this.url = this.set('APP_URL', this.joi.string().required())
-    this.sentryDns = this.set('SENTRY_DNS', this.joi.string().required())
+    this.sentryDsn = this.set('SENTRY_DSN', this.joi.string().required())
     this.sentryCapture = (this.set('SENTRY_CAPTURE', this.joi.boolean().required()) === 'true')
     this.desc = this.set('APP_DESC', this.joi.string().required())
     this.version = this.set('APP_VERSION', this.joi.string().required())
