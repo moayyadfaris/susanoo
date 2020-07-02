@@ -8,19 +8,20 @@ const { AbstractLogger } = require('./AbstractLogger')
 const $ = Symbol('private scope')
 
 class Logger extends AbstractLogger {
-  constructor ({ appName, capture = false, sentryDsn, raw = false } = {}) {
+  constructor ({ appName, capture = false, sentryDsn, raw = false, sentryEnvironment } = {}) {
     super()
 
     assert.string(appName, { required: true })
     assert.boolean(capture)
     assert.string(sentryDsn)
+    assert.string(sentryEnvironment)
 
     if (capture && !sentryDsn) {
       throw new Error(`${this.constructor.name}: Please define 'sentryDsn' param`)
     }
 
     this[$] = {
-      sentryCatch: capture ? new SentryCatch(sentryDsn) : null,
+      sentryCatch: capture ? new SentryCatch(sentryDsn, sentryEnvironment) : null,
 
       fatalLogger: pino({
         name: `${appName.toLowerCase()}::fatal`,

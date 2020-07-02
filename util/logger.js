@@ -7,5 +7,6 @@ module.exports = new Logger({
   appName: 'SusanooAPI',
   raw: !isDev,
   capture: sentryCapture === 'true',
-  sentryDsn
+  sentryDsn,
+  sentryEnvironment: process.env.NODE_ENV
 })

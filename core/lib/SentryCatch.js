@@ -1,13 +1,13 @@
 const Sentry = require('@sentry/node')
 
 class SentryCatch {
-  constructor (dns) {
-    if (typeof dns !== 'string' || !dns.startsWith('http')) {
-      throw new Error(`${this.constructor.name}: invalid DNS.`)
+  constructor (dsn, environment) {
+    if (typeof dsn !== 'string' || !dsn.startsWith('http')) {
+      throw new Error(`${this.constructor.name}: invalid DSN.`)
     }
 
     try {
-      Sentry.init({ dsn: dns })
+      Sentry.init({ dsn: dsn, environment: environment })
     } catch (e) {
       throw new Error(`${this.constructor.name}: fails to construct.`)
     }
