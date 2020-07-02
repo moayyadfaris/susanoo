@@ -21,7 +21,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         var password = parts[1]
         if (username !== basicAuth.username || password !== basicAuth.password) {
           res.setHeader('WWW-Authenticate', 'Basic realm="Node"')
-          return res.status(401).send("Not Authorized")
+          return res.status(401).send('Not Authorized')
         }
       }
 
