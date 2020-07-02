@@ -10,6 +10,7 @@ notifications:
 
 services:
   - postgresql
+  - redis-server
 
 before_script:
   - cp .env.example .env
