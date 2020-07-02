@@ -15,7 +15,6 @@ class AppConfig extends BaseConfig {
     this.invitaionCodeLenght = Number(this.set('INVITATION_CODE_LENGTH', this.joi.number().required(), 8))
     this.isoMinVersion = this.set('IOS_MIN_VERSION', this.joi.string())
     this.androidMinVersion = this.set('ANDROID_MIN_VERSION', this.joi.string())
-    this.expiredStoriesDays = this.set('EXPIRED_STORIES_DAYS', this.joi.string())
     this.supportEmail = this.set('SUPPORT_EMAIL', this.joi.string())
     this.resetPasswordUrl = this.set('RESET_PASSWORD_URL', this.joi.string())
     this.qrCodeServiceToken = this.set('QR_CODE_SERVICE_TOKEN', this.joi.string())
