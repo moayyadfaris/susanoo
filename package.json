@@ -16,7 +16,7 @@
     "docs": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
     "docs-web": "./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
     "lint": "./node_modules/eslint/bin/eslint.js --fix --config .eslintrc \"**/*.js\"",
-    "test": "echo \">>> Keep in mind: to enshure right test you should set seed data and run server :) <<<\" && nyc --reporter=html --reporter=text mocha test/**/*.test.js",
+    "test": "echo \">>> Keep in mind: to enshure right test you should set seed data and run server :) <<<\" && mocha test/**/*.test.js",
     "test-script": "start-server-and-test start-server http://localhost:4000 test",
     "coverage": "nyc --reporter=html --reporter=text mocha test/**/*.test.js",
     "update:packages": "node wipe-dependencies.js && rm -rf node_modules && npm update --save-dev && npm update --save"
