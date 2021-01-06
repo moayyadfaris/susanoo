@@ -29,7 +29,7 @@
     }
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "backend-core": "./core",
     "bcryptjs": "^2.4.3",
     "bull": "^3.16.0",
