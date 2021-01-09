@@ -27,8 +27,6 @@ class RoleAnonymousAccess {
       'web#auth:logout': true,
       'web#auth:refresh-tokens': true,
       'config:get': true,
-      'invitations:verify': true,
-      'invitation:create': true,
       'web#users:create': true,
       'web#cache:clear': true,
       'web#users:send-reset-password-token': true,

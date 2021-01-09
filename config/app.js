@@ -12,7 +12,6 @@ class AppConfig extends BaseConfig {
     this.sentryCapture = (this.set('SENTRY_CAPTURE', this.joi.boolean().required()) === 'true')
     this.desc = this.set('APP_DESC', this.joi.string().required())
     this.version = this.set('APP_VERSION', this.joi.string().required())
-    this.invitaionCodeLenght = Number(this.set('INVITATION_CODE_LENGTH', this.joi.number().required(), 8))
     this.isoMinVersion = this.set('IOS_MIN_VERSION', this.joi.string())
     this.androidMinVersion = this.set('ANDROID_MIN_VERSION', this.joi.string())
     this.supportEmail = this.set('SUPPORT_EMAIL', this.joi.string())

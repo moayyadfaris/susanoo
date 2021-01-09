@@ -42,7 +42,6 @@ config.mainInit().then(() => {
   })
   .then(() => Model.knex(Knex(config.knex)))
   .then(() => testDbConnection(Knex(config.knex)))
-  .then(() => require('./consumers/'))
   .then(() => {
     logger.debug('Database initialized...')
     logger.debug('--- SQL DATABASE CONFIG ---')

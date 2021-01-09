@@ -1,4 +1,4 @@
-const joi = require('@hapi/joi')
+const joi = require('joi')
 const { BaseModel, Rule } = require('backend-core')
 const UserModel = require('./UserModel')
 /**

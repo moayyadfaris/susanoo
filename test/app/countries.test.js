@@ -6,7 +6,6 @@ chai.use(chaiHttp)
 const { appUrl, testEmail, testPassword, fingerprint } = require('../common')
 
 describe('[APP:] COUNTRIES CONTROLLER', function () {
-  this.slow(0)
   let refreshToken = ''
   let accessToken = ''
 

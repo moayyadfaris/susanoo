@@ -1,5 +1,5 @@
 const { RequestRule } = require('backend-core')
-const joi = require('@hapi/joi')
+const joi = require('joi')
 const roles = require(__folders.config).roles
 const BaseHandler = require(__folders.handlers + '/BaseHandler')
 const UserDAO = require(__folders.dao + '/UserDAO')

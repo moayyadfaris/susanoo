@@ -3,7 +3,7 @@ const StoryDAO = require(__folders.dao + '/StoryDAO')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const StoryModel = require(__folders.models + '/StoryModel')
 const { RequestRule, Rule } = require('backend-core')
-const joi = require('@hapi/joi')
+const joi = require('joi')
 const { redisClient } = require(__folders.handlers + '/RootProvider')
 
 class ListStoriesHandler extends BaseHandler {

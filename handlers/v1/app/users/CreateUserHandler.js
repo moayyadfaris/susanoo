@@ -4,7 +4,6 @@ const { notificationClient } = require(__folders.handlers + '/RootProvider')
 const UserDAO = require(__folders.dao + '/UserDAO')
 const CountryDAO = require(__folders.dao + '/CountryDAO')
 const UserModel = require(__folders.models + '/UserModel')
-const { ErrorWrapper, errorCodes } = require('backend-core')
 const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper } = require(__folders.helpers).authHelpers
 const logger = require(__folders.util + '/logger')
 const { notificationType } = require(__folders.config)
@@ -20,25 +19,13 @@ class CreateUserHandler extends BaseHandler {
         name: new RequestRule(UserModel.schema.name, { required: true }),
         email: new RequestRule(UserModel.schema.email, { required: true }),
         countryId: new RequestRule(UserModel.schema.countryId, { required: true }),
-        mobileCountryId: new RequestRule(UserModel.schema.countryId, { required: true }),
         password: new RequestRule(UserModel.schema.passwordHash, { required: true }),
-        mobileNumber: new RequestRule(UserModel.schema.mobileNumber, { required: true }),
-        invitationCode: new RequestRule(UserModel.schema.invitationCode)
+        mobileNumber: new RequestRule(UserModel.schema.mobileNumber, { required: true })
       }
     }
   }
 
   static async run (ctx) {
-    let referralId = null
-    if (ctx.body.invitationCode) {
-      const referralUser = await UserDAO.baseFindOneWhere({ invitationCode: ctx.body.invitationCode })
-      if (!referralUser) {
-        throw new ErrorWrapper({ ...errorCodes.INVITATION_CODE_NOT_EXIST })
-      }
-      referralId = referralUser.id
-      delete ctx.body.invitationCode
-    }
-
     const hash = await makePasswordHashHelper(ctx.body.password)
     delete ctx.body.password
     let user = await UserDAO.create({
@@ -52,7 +39,7 @@ class CreateUserHandler extends BaseHandler {
       // Todo: push it to queue
       const verifyCode = await makeConfirmOTPHelper(user.email)
       const updateToken = await makeUpdateTokenHelper(user)
-      user = await UserDAO.baseUpdate(user.id, { verifyCode, updateToken, referralId })
+      user = await UserDAO.baseUpdate(user.id, { verifyCode, updateToken })
       notificationClient.enqueue({ type: notificationType.createUser, to: user.mobileNumber, code: verifyCode, name: user.name, email: user.email, lang: user.preferredLanguage })
     } catch (error) {
       if (error.statusCode) { // log mailGun errors

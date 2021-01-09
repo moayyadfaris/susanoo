@@ -1,7 +1,7 @@
 const pino = require('pino')
 
 require('dotenv').config()
-const joi = require('@hapi/joi')
+const joi = require('joi')
 
 const warnLogger = pino({
   name: 'config-env-warning',

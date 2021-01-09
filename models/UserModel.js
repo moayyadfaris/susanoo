@@ -3,7 +3,7 @@ const isEmail = require('validator/lib/isEmail')
 const isJWT = require('validator/lib/isJWT')
 const isUUID = require('validator/lib/isUUID')
 const { BaseModel, Rule } = require('backend-core')
-const joi = require('@hapi/joi')
+const joi = require('joi')
 const { roles, otp } = require(__folders.config)
 const rolesList = Object.values(roles)
 /**

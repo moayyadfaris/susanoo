@@ -6,7 +6,6 @@ chai.use(chaiHttp)
 const { appUrl, testEmail, testPassword, fingerprint } = require('../common')
 
 describe('[APP:] AUTH CONTROLLER', function () {
-  this.slow(0)
   let refreshToken = ''
   let accessToken = ''
 
@@ -26,6 +25,21 @@ describe('[APP:] AUTH CONTROLLER', function () {
 
           refreshToken = res.body.data.refreshToken
           accessToken = res.body.data.accessToken
+          done()
+        })
+    })
+
+    it('it should return 404 when user not exists', done => {
+      chai.request(appUrl)
+        .post('/api/v1/auth/login')
+        .set('content-type', 'application/json')
+        .send({ password: testPassword, email_or_mobile_number: "fake@susano.dev", fingerprint })
+        .end((err, res) => {
+          expect(err).to.be.null
+          expect(res.status).to.equal(404)
+          expect(res.body.success).to.be.false
+          expect(res.body.data).to.be.null
+
           done()
         })
     })

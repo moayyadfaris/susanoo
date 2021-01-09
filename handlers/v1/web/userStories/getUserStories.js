@@ -2,7 +2,7 @@ const BaseHandler = require(__folders.handlers + '/BaseHandler')
 const StoryDAO = require(__folders.dao + '/StoryDAO')
 const UserModel = require(__folders.models + '/UserModel')
 const { RequestRule, Rule } = require('backend-core')
-const joi = require('@hapi/joi')
+const joi = require('joi')
 
 class getUserStories extends BaseHandler {
   static get accessTag () {
