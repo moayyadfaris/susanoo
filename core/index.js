@@ -17,6 +17,13 @@ const { Server } = require('./lib/Server')
 const { Logger } = require('./lib/Logger')
 const { CookieEntity } = require('./lib/CookieEntity')
 
+// Enterprise Components
+const { EnterpriseBaseDAO } = require('./lib/EnterpriseBaseDAO')
+const { EnterpriseBaseModel } = require('./lib/EnterpriseBaseModel')
+const { EnterpriseEncryption } = require('./lib/EnterpriseEncryption')
+const { EnterpriseCacheService } = require('./lib/EnterpriseCacheService')
+const { EnterpriseConnectionPool } = require('./lib/EnterpriseConnectionPool')
+
 module.exports = {
   errorCodes,
   assert: Assert,
@@ -36,5 +43,12 @@ module.exports = {
   SentryCatch,
   Server,
   Logger,
-  CookieEntity
+  CookieEntity,
+
+  // Enterprise Components
+  EnterpriseBaseDAO,
+  EnterpriseBaseModel,
+  EnterpriseEncryption,
+  EnterpriseCacheService,
+  EnterpriseConnectionPool
 }
