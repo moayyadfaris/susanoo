@@ -6,7 +6,7 @@ const path = require('path')
 const { S3Client } = require('@aws-sdk/client-s3')
 const logger = require('../util/logger')
 const S3UploadClient = require('../clients/S3UploadClient')
-const CustomMulterS3 = require('../middlewares/CustomMulterS3')
+const CustomMulterS3 = require('../clients/CustomMulterS3')
 
 /**
  * Enhanced S3Config - Comprehensive AWS S3 configuration with compatibility fixes
