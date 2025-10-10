@@ -1,9 +1,9 @@
 const { errorCodes, ErrorWrapper, RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { jwtHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
+const BaseHandler = require('handlers/BaseHandler')
+const { jwtHelper } = require('helpers').authHelpers
+const config = require('config')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
 
 /**
  * 1) verify resetPasswordToken

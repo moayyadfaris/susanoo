@@ -1,9 +1,9 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryModel = require('models/StoryModel')
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const storyType = require(__folders.config).storyType
+const storyType = require('config').storyType
 
 class RemoveStoryHandler extends BaseHandler {
   static get accessTag () {

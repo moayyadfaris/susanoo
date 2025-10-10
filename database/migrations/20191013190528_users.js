@@ -1,5 +1,5 @@
 require('../../globals')()
-const roles = require(__folders.config).roles
+const roles = require('config').roles
 
 exports.up = (knex, Promise) => {
   return knex.schema

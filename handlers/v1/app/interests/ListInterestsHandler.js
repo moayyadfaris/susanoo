@@ -1,6 +1,6 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const InterestDAO = require(__folders.dao + '/InterestDAO')
-const { redisClient } = require(__folders.handlers + '/RootProvider')
+const BaseHandler = require('handlers/BaseHandler')
+const InterestDAO = require('database/dao/InterestDAO')
+const { redisClient } = require('handlers/RootProvider')
 class ListInterestsHandler extends BaseHandler {
   static get accessTag () {
     return 'interests:list'

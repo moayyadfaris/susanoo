@@ -1,7 +1,7 @@
 const Sentry = require('@sentry/node')
 
 class SentryCatch {
-  constructor (dsn, environment) {
+  constructor(dsn, environment) {
     if (typeof dsn !== 'string' || !dsn.startsWith('http')) {
       throw new Error(`${this.constructor.name}: invalid DSN.`)
     }
@@ -13,17 +13,17 @@ class SentryCatch {
     }
   }
 
-  captureException (error, meta = {}) {
+  captureException(error, meta = {}) {
     Sentry.withScope(scope => {
       scope.setExtras({ ...meta })
       Sentry.captureException(error)
     })
   }
 
-  captureMessage (message, meta = {}) {
+  captureMessage(message, meta = {}) {
     Sentry.withScope(scope => {
       scope.setExtras({ ...meta })
-      Sentry.captureMessage(message, Sentry.Severity.Info)
+      Sentry.captureMessage(message)
     })
   }
 }

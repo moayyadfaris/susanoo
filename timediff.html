@@ -1,0 +1,71 @@
+<div class="porto_countdown countdown-timer wpb_custom_1ab975255cba2552cb8f0831b0782e84 porto-cd-s2">
+  <style>
+    #count-down-wrap-1069 .porto_countdown-amount {}
+    #count-down-wrap-1069 .porto_countdown-period, #count-down-wrap-1069 .porto_countdown-row:before {}
+  </style>
+
+<div class="porto_countdown countdown-timer porto-cd-s2">
+  <div id="count-down-wrap-1069" class="porto_countdown-div"
+       data-terminal-date="2025-03-13T18:00:00+03:00">
+    <span class="porto_countdown-row porto_countdown-show3">
+      <span class="porto_countdown-section">
+        <span class="porto_time-mid">
+          <span class="porto_countdown-amount" id="hours">00</span>
+          <span class="porto_countdown-period">ساعات</span>
+        </span>
+      </span>
+      <span class="porto_countdown-section">
+        <span class="porto_time-mid">
+          <span class="porto_countdown-amount" id="minutes">00</span>
+          <span class="porto_countdown-period">دقائق</span>
+        </span>
+      </span>
+      <span class="porto_countdown-section">
+        <span class="porto_time-mid">
+          <span class="porto_countdown-amount" id="seconds">00</span>
+          <span class="porto_countdown-period">ثواني</span>
+        </span>
+      </span>
+    </span>
+  </div>
+</div>
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const countdownDiv = document.getElementById('count-down-wrap-1069');
+
+    // Use ISO date string with explicit timezone
+    const targetDateStr = countdownDiv.getAttribute('data-terminal-date');
+
+    // Create a Date object from ISO string (this respects the +03:00 offset)
+    const targetDate = new Date(targetDateStr);
+
+    function updateCountdown() {
+      const now = new Date();
+      console.log(now)
+      // Difference in milliseconds
+      const diff = targetDate.getTime() - now.getTime();
+      console.log("DIFF: "+diff);
+      if (diff <= 0) {
+        document.getElementById('hours').innerText = '00';
+        document.getElementById('minutes').innerText = '00';
+        document.getElementById('seconds').innerText = '00';
+        clearInterval(countdownInterval);
+        return;
+      }
+
+      const totalSeconds = Math.floor(diff / 1000);
+      const hours = Math.floor((totalSeconds / 3600) % 24);
+      const minutes = Math.floor((totalSeconds / 60) % 60);
+      const seconds = totalSeconds % 60;
+
+      document.getElementById('hours').innerText = String(hours).padStart(2, '0');
+      document.getElementById('minutes').innerText = String(minutes).padStart(2, '0');
+      document.getElementById('seconds').innerText = String(seconds).padStart(2, '0');
+    }
+
+    const countdownInterval = setInterval(updateCountdown, 1000);
+    updateCountdown();
+  });
+</script>

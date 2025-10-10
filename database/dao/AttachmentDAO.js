@@ -1,5 +1,5 @@
 const { BaseDAO } = require('backend-core')
-const s3Config = require(__folders.config).s3
+const s3Config = require('config').s3
 class AttachmentDAO extends BaseDAO {
   static get tableName () {
     return 'attachments'

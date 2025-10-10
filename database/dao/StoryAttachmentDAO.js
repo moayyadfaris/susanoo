@@ -1,6 +1,6 @@
 const { assert } = require('backend-core')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryAttachmentModel = require(__folders.models + '/StoryAttachmentModel')
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryAttachmentModel = require('models/StoryAttachmentModel')
 class StoryAttachmentDAO extends StoryDAO {
   static get tableName () {
     return 'story_attachments'

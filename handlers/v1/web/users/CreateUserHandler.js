@@ -1,8 +1,8 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { makePasswordHashHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { makePasswordHashHelper } = require('helpers').authHelpers
 class CreateUserHandler extends BaseHandler {
   static get accessTag () {
     return 'web#users:create'

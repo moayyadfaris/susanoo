@@ -1,7 +1,7 @@
 const { errorCodes, ErrorWrapper, BaseMiddleware } = require('backend-core')
-const { jwtHelper } = require(__folders.helpers).authHelpers
-const SECRET = require(__folders.config).token.access.secret
-const roles = require(__folders.config).roles
+const { jwtHelper } = require('helpers').authHelpers
+const SECRET = require('config').token.access.secret
+const roles = require('config').roles
 const logger = require('../util/logger')
 
 class CheckAccessTokenMiddleware extends BaseMiddleware {

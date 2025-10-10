@@ -3,30 +3,50 @@ const isUUID = require('validator/lib/isUUID')
 const isJWT = require('validator/lib/isJWT')
 const { BaseModel, Rule } = require('backend-core')
 
+/**
+ * Enhanced AuthModel - Email-only Authentication Schema
+ * 
+ * Updated for email-only authentication flow with enhanced validation
+ * and security features.
+ * 
+ * @version 2.0.0 - Email-only authentication
+ */
+
 const schema = {
   email: new Rule({
-    validator: v => isEmail(v) && v.length <= 50,
-    description: 'string; email; max 50 chars;'
+    validator: v => isEmail(v) && v.length <= 100,
+    description: 'string; valid email address; max 100 chars'
   }),
+  
   password: new Rule({
-    validator: v => typeof v === 'string' && v.length >= 8,
-    description: 'string; min 8 chars;'
+    validator: v => typeof v === 'string' && v.length >= 8 && v.length <= 128,
+    description: 'string; min 8 chars; max 128 chars'
   }),
-  emailOrMobileNumber: new Rule({
-    validator: v => (typeof v === 'string') && v.length >= 3 && v.length <= 50,
-    description: 'string; email or mobile number; max 50 chars;'
-  }),
+  
   fingerprint: new Rule({ // https://github.com/Valve/fingerprintjs2
-    validator: v => (typeof v === 'string') && v.length >= 10 && v.length <= 50,
-    description: 'string; min 10; max 50 chars;'
+    validator: v => (typeof v === 'string') && v.length >= 10 && v.length <= 100,
+    description: 'string; device fingerprint; min 10; max 100 chars'
   }),
+  
   refreshToken: new Rule({
     validator: v => isUUID(v),
-    description: 'string; UUID;'
+    description: 'string; UUID refresh token'
   }),
+  
   loginByQRToken: new Rule({
     validator: v => isJWT(v),
-    description: 'string; jwt;'
+    description: 'string; JWT token for QR code login'
+  }),
+
+  // Enhanced validation rules for email-only authentication
+  deviceInfo: new Rule({
+    validator: v => typeof v === 'object' && v !== null,
+    description: 'object; device information for security tracking'
+  }),
+
+  rememberMe: new Rule({
+    validator: v => typeof v === 'boolean',
+    description: 'boolean; remember login session preference'
   })
 }
 

@@ -1,13 +1,25 @@
 const ms = require('ms')
 const { RequestRule, ErrorWrapper, errorCodes, CookieEntity } = require('backend-core')
-const addSession = require(__folders.handlersV1 + '/common/addSession')
-const SessionEntity = require(__folders.handlersV1 + '/common/SessionEntity')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const AuthModel = require(__folders.models + '/AuthModel')
-const { checkPasswordHelper, makeAccessTokenHelper } = require(__folders.helpers).authHelpers
-const { dashboardUserPolicy } = require(__folders.policies)
-const config = require(__folders.config)
+const addSession = require('handlers/v1/common/addSession')
+const SessionEntity = require('handlers/v1/common/SessionEntity')
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const AuthModel = require('models/AuthModel')
+const { checkPasswordHelper, makeAccessTokenHelper } = require('helpers').authHelpers
+const { dashboardUserPolicy } = require('acl/policies')
+const config = require('config')
+/**
+ * Enhanced Web LoginHandler - Email-only Authentication for Web Interface
+ * 
+ * Features:
+ * - Email-only authentication (no mobile number support)
+ * - Cookie-based session management for web interface
+ * - Enhanced security validation
+ * - Dashboard user policy enforcement
+ * 
+ * @extends BaseHandler
+ * @version 2.0.0 - Email-only authentication
+ */
 class LoginHandler extends BaseHandler {
   static get accessTag () {
     return 'web#auth:login'
@@ -16,8 +28,8 @@ class LoginHandler extends BaseHandler {
   static get validationRules () {
     return {
       body: {
-        password: new RequestRule(AuthModel.schema.password, { required: true }),
         email: new RequestRule(AuthModel.schema.email, { required: true }),
+        password: new RequestRule(AuthModel.schema.password, { required: true }),
         fingerprint: new RequestRule(AuthModel.schema.fingerprint, { required: true })
       }
     }

@@ -1,7 +1,7 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
+const BaseHandler = require('handlers/BaseHandler')
 const { RequestRule } = require('backend-core')
-const UserInterestDAO = require(__folders.dao + '/UserInterestDAO')
-const UserInterestModel = require(__folders.models + '/UserInterestModel')
+const UserInterestDAO = require('database/dao/UserInterestDAO')
+const UserInterestModel = require('models/UserInterestModel')
 
 class AddUserInterestHandler extends BaseHandler {
   static get accessTag () {

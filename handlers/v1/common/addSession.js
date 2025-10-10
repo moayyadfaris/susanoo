@@ -1,8 +1,8 @@
 const { assert } = require('backend-core')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
+const SessionDAO = require('database/dao/SessionDAO')
 const SessionEntity = require('./SessionEntity')
-const UserModel = require(__folders.models + '/UserModel')
-const { redisClient } = require(__folders.handlers + '/RootProvider')
+const UserModel = require('models/UserModel')
+const { redisClient } = require('handlers/RootProvider')
 const MAX_SESSIONS_COUNT = 5
 
 module.exports = async session => {

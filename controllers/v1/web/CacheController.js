@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
-const handlers = require(__folders.handlersV1 + '/web/cache')
-const { BaseController } = require(__folders.controllers + '/BaseController')
+const handlers = require('handlers/v1/web/cache')
+const { BaseController } = require('controllers/BaseController')
 
 class CacheController extends BaseController {
   get router () {

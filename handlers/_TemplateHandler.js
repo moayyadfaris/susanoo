@@ -1,5 +1,5 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
+const BaseHandler = require('handlers/BaseHandler')
 const Rule = require('../core/Rule')
 const UserModel = require('../../models/UserModel')
 

@@ -1,10 +1,10 @@
 const { RequestRule, Rule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { otpHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { otpHelper } = require('helpers').authHelpers
 const { errorCodes, ErrorWrapper } = require('backend-core')
-const config = require(__folders.config)
+const config = require('config')
 
 class ConfirmOTPHandler extends BaseHandler {
   static get accessTag () {

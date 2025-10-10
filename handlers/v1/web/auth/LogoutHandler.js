@@ -1,7 +1,7 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
-const AuthModel = require(__folders.models + '/AuthModel')
+const BaseHandler = require('handlers/BaseHandler')
+const SessionDAO = require('database/dao/SessionDAO')
+const AuthModel = require('models/AuthModel')
 
 /**
  * remove current session

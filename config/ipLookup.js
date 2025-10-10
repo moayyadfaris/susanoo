@@ -1,4 +1,4 @@
-const { BaseConfig } = require('backend-core')
+const { BaseConfig } = require('../core/lib/BaseConfig')
 
 class IpLookup extends BaseConfig {
   constructor () {

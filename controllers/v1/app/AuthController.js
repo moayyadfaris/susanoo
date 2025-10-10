@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
-const { BaseController } = require(__folders.controllers + '/BaseController')
-const handlers = require(__folders.handlers + '/v1/app/auth')
+const { BaseController } = require('controllers/BaseController')
+const handlers = require('handlers/v1/app/auth')
 
 class AuthController extends BaseController {
   get router () {
@@ -12,7 +12,7 @@ class AuthController extends BaseController {
     *     tags:
     *      - Authentication
     *     name: Login
-    *     summary: Logs in a user
+    *     summary: Email-only user authentication - Enhanced security
     *     produces:
     *       - application/json
     *     consumes:
@@ -25,15 +25,27 @@ class AuthController extends BaseController {
     *         schema:
     *           type: object
     *           properties:
-    *             email_or_mobile_number:
+    *             email:
     *               type: string
+    *               format: email
+    *               description: User email address
+    *               example: "user@example.com"
     *             password:
     *               type: string
     *               format: password
+    *               description: User password (min 8 characters)
     *             fingerprint:
     *               type: string
+    *               description: Device fingerprint for security
+    *             rememberMe:
+    *               type: boolean
+    *               description: Remember login session
+    *               example: false
+    *             deviceInfo:
+    *               type: object
+    *               description: Device information for security tracking
     *         required:
-    *           - email_or_mobile_number
+    *           - email
     *           - password
     *           - fingerprint
     *     responses:

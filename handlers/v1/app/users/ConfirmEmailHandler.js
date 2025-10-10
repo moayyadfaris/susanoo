@@ -1,11 +1,11 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { jwtHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { jwtHelper } = require('helpers').authHelpers
+const config = require('config')
 const { errorCodes, ErrorWrapper } = require('backend-core')
-const logger = require(__folders.util + '/logger')
+const logger = require('util/logger')
 
 class ConfirmEmailHandler extends BaseHandler {
   static get accessTag () {

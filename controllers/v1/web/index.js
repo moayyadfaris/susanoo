@@ -1,4 +1,4 @@
-// const RootController = require(__folders.controllers + '/RootController')
+// const RootController = require('controllers/RootController')
 const { CountriesController } = require('./CountriesController')
 const { AuthController } = require('./AuthController')
 const { UsersController } = require('./UsersController')

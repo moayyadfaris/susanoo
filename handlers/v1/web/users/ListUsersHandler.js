@@ -1,9 +1,9 @@
 const { RequestRule } = require('backend-core')
 const joi = require('joi')
-const roles = require(__folders.config).roles
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
+const roles = require('config').roles
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
 const { Rule } = require('backend-core')
 /**
  * @description return users list

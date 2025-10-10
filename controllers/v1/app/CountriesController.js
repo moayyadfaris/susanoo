@@ -1,6 +1,6 @@
 const router = require('express').Router()
-const handlers = require(__folders.handlers + '/v1/app/countries')
-const { BaseController } = require(__folders.controllers + '/BaseController')
+const handlers = require('handlers/v1/app/countries')
+const { BaseController } = require('controllers/BaseController')
 
 class CountriesController extends BaseController {
   get router () {

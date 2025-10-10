@@ -1,7 +1,7 @@
 const joi = require('joi')
 const { BaseModel, Rule } = require('backend-core')
 const UserModel = require('./UserModel')
-const { storyType } = require(__folders.config)
+const { storyType } = require('config')
 const storyTypeList = Object.values(storyType)
 /**
  * @swagger

@@ -1,4 +1,4 @@
-const { BaseConfig } = require('backend-core')
+const { BaseConfig } = require('../core/lib/BaseConfig')
 const logger = require('../util/logger')
 class SlackConfig extends BaseConfig {
   constructor () {

@@ -1,4 +1,4 @@
-const config = require(__folders.config)
+const config = require('config')
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
 

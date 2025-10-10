@@ -1,11 +1,11 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { notificationClient } = require(__folders.handlers + '/RootProvider')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { makeResetPasswordOTPHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const { notificationClient } = require('handlers/RootProvider')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { makeResetPasswordOTPHelper } = require('helpers/auth')
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const { notificationType } = require(__folders.config)
+const { notificationType } = require('config/notificationType')
 /**
  * 1) get email from body request
  * 2) find user in DB by email

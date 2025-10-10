@@ -1,8 +1,8 @@
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
 const cacheRoutes = require('../config').cacheRoutes
-const { redisClient } = require(__folders.handlers + '/RootProvider')
-const { stripTrailingSlash } = require(__folders.helpers).commonHelpers
+const { redisClient } = require('handlers/RootProvider')
+const { stripTrailingSlash } = require('helpers').commonHelpers
 
 class CacheMiddleware extends BaseMiddleware {
   async init () {

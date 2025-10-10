@@ -1,10 +1,10 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const UserDAO = require('database/dao/UserDAO')
+const StoryModel = require('models/StoryModel')
 const { RequestRule, Rule } = require('backend-core')
 const joi = require('joi')
-const { redisClient } = require(__folders.handlers + '/RootProvider')
+const { redisClient } = require('handlers/RootProvider')
 
 class ListStoriesHandler extends BaseHandler {
   static get accessTag () {

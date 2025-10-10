@@ -8,7 +8,7 @@ const { AbstractLogger } = require('./AbstractLogger')
 const $ = Symbol('private scope')
 
 class Logger extends AbstractLogger {
-  constructor ({ appName, capture = false, sentryDsn, raw = false, sentryEnvironment } = {}) {
+  constructor({ appName, capture = false, sentryDsn, raw = false, sentryEnvironment } = {}) {
     super()
 
     assert.string(appName, { required: true })
@@ -26,30 +26,60 @@ class Logger extends AbstractLogger {
       fatalLogger: pino({
         name: `${appName.toLowerCase()}::fatal`,
         errorLikeObjectKeys: ['err', 'error'],
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       }),
       errorLogger: pino({
         name: `${appName.toLowerCase()}::error`,
         errorLikeObjectKeys: ['err', 'error'],
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       }),
       warnLogger: pino({
         name: `${appName.toLowerCase()}::warn`,
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       }),
       infoLogger: pino({
         name: `${appName.toLowerCase()}::info`,
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       }),
       debugLogger: pino({
         level: 20,
         name: `${appName.toLowerCase()}::debug`,
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       }),
       traceLogger: pino({
         level: 10,
         name: `${appName.toLowerCase()}::trace`,
-        ...(!raw && { prettyPrint: { translateTime: 'SYS:standard' } })
+        ...(!raw && { transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true
+          }
+        } })
       })
     }
   }
@@ -60,11 +90,11 @@ class Logger extends AbstractLogger {
    * ------------------------------
    */
 
-  _captureException (error, payload) {
+  _captureException(error, payload) {
     if (this[$].sentryCatch) this[$].sentryCatch.captureException(error, payload)
   }
 
-  _captureMessage (message, payload) {
+  _captureMessage(message, payload) {
     if (this[$].sentryCatch) this[$].sentryCatch.captureMessage(message, payload)
   }
 
@@ -74,7 +104,7 @@ class Logger extends AbstractLogger {
    * ------------------------------
    */
 
-  fatal (message, error, meta) {
+  fatal(message, error, meta) {
     assert.string(message, { required: true })
     assert.isOk(error, { required: true })
     assert.isOk(meta)
@@ -85,7 +115,7 @@ class Logger extends AbstractLogger {
     this[$].fatalLogger.fatal(message, meta || error.toString())
   }
 
-  error (message, error, meta) {
+  error(message, error, meta) {
     assert.string(message, { required: true })
     assert.isOk(error, { required: true })
     assert.isOk(meta)
@@ -96,7 +126,7 @@ class Logger extends AbstractLogger {
     this[$].errorLogger.error(message, payload)
   }
 
-  warn (message, error, meta) {
+  warn(message, error, meta) {
     assert.string(message, { required: true })
     assert.isOk(error, { required: true })
     assert.isOk(meta)
@@ -113,7 +143,7 @@ class Logger extends AbstractLogger {
    * ------------------------------
    */
 
-  info (message, meta) {
+  info(message, meta) {
     assert.string(message, { required: true })
     assert.isOk(meta)
 
@@ -123,7 +153,7 @@ class Logger extends AbstractLogger {
     this[$].infoLogger.info(message, payload)
   }
 
-  debug (message, meta) {
+  debug(message, meta) {
     assert.string(message, { required: true })
     assert.isOk(meta)
 
@@ -132,7 +162,7 @@ class Logger extends AbstractLogger {
     this[$].debugLogger.debug(message, payload)
   }
 
-  trace (message, meta) {
+  trace(message, meta) {
     assert.string(message, { required: true })
     assert.isOk(meta)
 

@@ -1,6 +1,6 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const s3Config = require(__folders.config).s3
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const s3Config = require('config').s3
 
 class GetProfileHandler extends BaseHandler {
   static get accessTag () {

@@ -1,11 +1,11 @@
 const { RequestRule } = require('backend-core')
-const addSession = require(__folders.handlersV1 + '/common/addSession')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const AuthModel = require(__folders.models + '/AuthModel')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
-const SessionEntity = require(__folders.handlersV1 + '/common/SessionEntity')
-const { makeAccessTokenHelper, verifySessionHelper } = require(__folders.helpers).authHelpers
+const addSession = require('handlers/v1/common/addSession')
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const AuthModel = require('models/AuthModel')
+const SessionDAO = require('database/dao/SessionDAO')
+const SessionEntity = require('handlers/v1/common/SessionEntity')
+const { makeAccessTokenHelper, verifySessionHelper } = require('helpers').authHelpers
 
 class RefreshTokensHandler extends BaseHandler {
   static get accessTag () {

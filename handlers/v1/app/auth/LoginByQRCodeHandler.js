@@ -1,11 +1,11 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const AuthModel = require(__folders.models + '/AuthModel')
-const { makeAccessTokenHelper, makeLoginByQRTokenHelper, jwtHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
-const addSession = require(__folders.handlersV1 + '/common/addSession')
-const SessionEntity = require(__folders.handlersV1 + '/common/SessionEntity')
-const { redisClient } = require(__folders.handlers + '/RootProvider')
+const BaseHandler = require('handlers/BaseHandler')
+const AuthModel = require('models/AuthModel')
+const { makeAccessTokenHelper, makeLoginByQRTokenHelper, jwtHelper } = require('helpers').authHelpers
+const config = require('config')
+const addSession = require('handlers/v1/common/addSession')
+const SessionEntity = require('handlers/v1/common/SessionEntity')
+const { redisClient } = require('handlers/RootProvider')
 class LoginByQRCodeHandler extends BaseHandler {
   static get accessTag () {
     return 'auth:login-qr-code'

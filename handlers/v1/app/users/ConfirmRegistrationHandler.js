@@ -1,10 +1,10 @@
 const { RequestRule, errorCodes, ErrorWrapper } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserModel = require(__folders.models + '/UserModel')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const { jwtHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
-const logger = require(__folders.util + '/logger')
+const BaseHandler = require('handlers/BaseHandler')
+const UserModel = require('models/UserModel')
+const UserDAO = require('database/dao/UserDAO')
+const { jwtHelper } = require('helpers').authHelpers
+const config = require('config')
+const logger = require('util/logger')
 
 class ConfirmRegistrationHandler extends BaseHandler {
   static get accessTag () {

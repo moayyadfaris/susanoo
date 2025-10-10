@@ -1,10 +1,10 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryModel = require('models/StoryModel')
 const { RequestRule, Rule } = require('backend-core')
 const joi = require('joi')
-const storyType = require(__folders.config).storyType
-const roles = require(__folders.config).roles
+const storyType = require('config').storyType
+const roles = require('config').roles
 
 class ListStoriesHandler extends BaseHandler {
   static get accessTag () {

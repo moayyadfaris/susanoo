@@ -2,7 +2,7 @@ const path = require('path')
 require('dotenv').config({ path: path.join(__dirname, '../.env') })
 const logger = require('../util/logger')
 
-const { BaseConfig } = require('backend-core')
+const { BaseConfig } = require('../core/lib/BaseConfig')
 
 class KnexConfig extends BaseConfig {
   constructor () {

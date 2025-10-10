@@ -1,10 +1,10 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { emailClient } = require(__folders.handlers + '/RootProvider')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { makeResetPasswordTokenHelper } = require(__folders.helpers).authHelpers
-const ResetPasswordEmail = require(__folders.notifications + '/ResetPasswordEmail')
+const BaseHandler = require('handlers/BaseHandler')
+const { emailClient } = require('handlers/RootProvider')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { makeResetPasswordTokenHelper } = require('helpers').authHelpers
+const ResetPasswordEmail = require('notifications/ResetPasswordEmail')
 
 /**
  * 1) get email from body request

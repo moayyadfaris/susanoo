@@ -1,6 +1,5 @@
 const app = require('./app')
 const knex = require('./knex')
-const folders = require('./folders')
 const token = require('./token')
 const roles = require('./roles')
 const email = require('./email')
@@ -46,7 +45,6 @@ function mainInit () {
 module.exports = {
   app,
   knex,
-  folders,
   token,
   roles,
   email,

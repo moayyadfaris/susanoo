@@ -1,9 +1,9 @@
 const router = require('express').Router()
 
-const handlers = require(__folders.handlers + '/v1/app/users')
-const { BaseController } = require(__folders.controllers + '/BaseController')
-const config = require(__folders.config)
-const RateLimit = require('express-rate-limit')
+const handlers = require('handlers/v1/app/users')
+const { BaseController } = require('controllers/BaseController')
+const config = require('config')
+const rateLimit = require('express-rate-limit')
 const multer = require('multer')
 
 class UsersController extends BaseController {
@@ -64,7 +64,7 @@ class UsersController extends BaseController {
      *   post:
      *     tags:
      *      - Users
-     *     summary: Check if email/Mobile is taken or not.
+     *     summary: Check availability of email and/or phone number - Enhanced flexible format
      *     produces:
      *       - application/json
      *     consumes:
@@ -75,18 +75,86 @@ class UsersController extends BaseController {
      *         schema:
      *           type: object
      *           properties:
+     *             email:
+     *               type: string
+     *               description: Email address to check availability
+     *               example: "user@example.com"
+     *             phone:
+     *               type: string
+     *               description: Phone number to check availability
+     *               example: "+1234567890"
      *             email_or_mobile_number:
      *               type: string
+     *               description: LEGACY - Email or phone in single field
+     *               example: "user@example.com"
+     *             countryCode:
+     *               type: string
+     *               description: ISO country code for phone validation
+     *               example: "US"
+     *             suggestions:
+     *               type: boolean
+     *               description: Generate suggestions for unavailable fields
+     *               example: true
+     *             includeDetails:
+     *               type: boolean
+     *               description: Include detailed availability information
+     *               example: true
+     *             batch:
+     *               type: array
+     *               description: Batch check multiple values
+     *               items:
+     *                 type: object
+     *                 properties:
+     *                   type:
+     *                     type: string
+     *                     enum: [email, phone]
+     *                   value:
+     *                     type: string
      *     responses:
      *       '200':
-     *         description: Email or phone number is available.
-     *         content:
+     *         description: Availability check completed successfully
      *         schema:
+     *           type: object
+     *           properties:
+     *             success:
+     *               type: boolean
+     *               example: true
+     *             summary:
      *               type: object
      *               properties:
-     *                 success:
+     *                 totalChecks:
+     *                   type: integer
+     *                 availableCount:
+     *                   type: integer
+     *                 unavailableCount:
+     *                   type: integer
+     *                 allAvailable:
      *                   type: boolean
-     *                 message:
+     *             results:
+     *               type: array
+     *               items:
+     *                 type: object
+     *                 properties:
+     *                   type:
+     *                     type: string
+     *                   value:
+     *                     type: string
+     *                   available:
+     *                     type: boolean
+     *                   field:
+     *                     type: string
+     *                   suggestions:
+     *                     type: array
+     *                     items:
+     *                       type: string
+     *             meta:
+     *               type: object
+     *               properties:
+     *                 processingTime:
+     *                   type: string
+     *                 requestId:
+     *                   type: string
+     *                 timestamp:
      *                   type: string
      *       '400':
      *         description: Bad request
@@ -200,7 +268,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/send-reset-password-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendResetPasswordOTPHandler))
+    router.post('/users/send-reset-password-otp', rateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendResetPasswordOTPHandler))
     /**
      * @swagger
      * /users/check-reset-password-otp:
@@ -380,7 +448,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/send-verify-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendVerifyOTPHandler))
+    router.post('/users/send-verify-otp', rateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.SendVerifyOTPHandler))
     /**
      * @swagger
      * /users/current/password:
@@ -523,7 +591,33 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.handlerRunner(handlers.UploadProfileImageHandler))
+    router.post('/users/current/profile-image', 
+      multer({
+        storage: multer.memoryStorage(), // Store in memory for processing
+        limits: {
+          fileSize: 5 * 1024 * 1024 // 5MB limit for profile images
+        },
+        fileFilter: function (req, file, cb) {
+          // Profile images must be images
+          if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Profile image must be an image file'), false)
+          }
+          
+          // Check against allowed image types
+          const allowedImageTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+            'image/webp', 'image/bmp'
+          ]
+          
+          if (!allowedImageTypes.includes(file.mimetype)) {
+            return cb(new Error(`Image type ${file.mimetype} is not allowed for profile images`), false)
+          }
+          
+          cb(null, true)
+        }
+      }).single('file'),
+      config.s3.getCustomMulter().single('file'),
+      this.handlerRunner(handlers.UploadProfileImageHandler))
     /**
      * @swagger
      * /users/current/profile-image:
@@ -667,7 +761,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/resend-otp', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ResendOTPHandler))
+    router.post('/users/current/resend-otp', rateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ResendOTPHandler))
     /**
      * @swagger
      * /users/current/change-email:
@@ -706,7 +800,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/current/change-email', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangeEmailHandler))
+    router.post('/users/current/change-email', rateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangeEmailHandler))
     /**
      * @swagger
      * /users/change-password:
@@ -747,7 +841,7 @@ class UsersController extends BaseController {
      *          description: user not found
      *
      */
-    router.post('/users/change-password', new RateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangePasswordHandler))
+    router.post('/users/change-password', rateLimit(config.rateLimting.defaultConfig), this.handlerRunner(handlers.ChangePasswordHandler))
 
     // router.post('/users/current/notifications', this.handlerRunner(handlers.SendPushNotificationHandler))
     return router

@@ -1,6 +1,6 @@
 const { errorCodes, ErrorWrapper, assert } = require('backend-core')
 
-const roles = require(__folders.config).roles
+const roles = require('config').roles
 
 /**
  * @description model userId === current user id

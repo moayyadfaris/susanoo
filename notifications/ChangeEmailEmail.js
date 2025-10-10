@@ -1,8 +1,8 @@
 const { assert } = require('backend-core')
 
 const UserModel = require('../models/UserModel')
-const { app } = require(__folders.config)
-// const { expiresIn } = require(__folders.config).token.resetPassword
+const { app } = require('config')
+// const { expiresIn } = require('config').token.resetPassword
 
 class ChangeEmailEmail {
   constructor ({ to, code } = {}) {

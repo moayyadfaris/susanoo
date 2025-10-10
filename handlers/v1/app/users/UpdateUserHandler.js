@@ -1,8 +1,8 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const CountryDAO = require(__folders.dao + '/CountryDAO')
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const CountryDAO = require('database/dao/CountryDAO')
 class UpdateUserHandler extends BaseHandler {
   static get accessTag () {
     return 'users:update'

@@ -1,13 +1,13 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { notificationClient } = require(__folders.handlers + '/RootProvider')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const { notificationClient } = require('handlers/RootProvider')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { makeConfirmOTPHelper } = require('helpers').authHelpers
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const { jwtHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
-const { notificationType } = require(__folders.config)
+const { jwtHelper } = require('helpers').authHelpers
+const config = require('config')
+const { notificationType } = require('config')
 /**
  * 1) get email/mobile number from body request
  * 2) find user in DB by email

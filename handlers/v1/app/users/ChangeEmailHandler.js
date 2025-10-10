@@ -1,10 +1,10 @@
 const { errorCodes, ErrorWrapper, RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const { notificationClient } = require(__folders.handlers + '/RootProvider')
-const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
-const { notificationType } = require(__folders.config)
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const { notificationClient } = require('handlers/RootProvider')
+const { makeConfirmOTPHelper } = require('helpers').authHelpers
+const { notificationType } = require('config')
 class ChangeEmailHandler extends BaseHandler {
   static get accessTag () {
     return 'users:change-email'

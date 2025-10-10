@@ -1,9 +1,9 @@
 const { errorCodes, ErrorWrapper, RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { otpHelper, makeResetPasswordTokenHelper } = require(__folders.helpers).authHelpers
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const config = require(__folders.config)
+const BaseHandler = require('handlers/BaseHandler')
+const { otpHelper, makeResetPasswordTokenHelper } = require('helpers').authHelpers
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const config = require('config')
 /**
  * 1) verify resetPasswordToken
  * 2) compare existing resetPasswordToken from DB and resetPasswordToken from request

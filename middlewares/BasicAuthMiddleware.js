@@ -2,7 +2,7 @@
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
 const { basicAuth, basicAuthRoutes } = require('../config')
-const { stripTrailingSlash } = require(__folders.helpers).commonHelpers
+const { stripTrailingSlash } = require('helpers').commonHelpers
 
 class BasicAuthMiddleware extends BaseMiddleware {
   async init () {

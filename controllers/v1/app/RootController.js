@@ -1,11 +1,16 @@
 const router = require('express').Router()
 
-const { BaseController } = require(__folders.controllers + '/BaseController')
-const RootProvider = require(__folders.handlers + '/RootProvider')
+const { BaseController } = require('controllers/BaseController')
+const RootProvider = require('handlers/RootProvider')
 
 class RootController extends BaseController {
   get router () {
     router.get('/', (req, res) => {
+      res.json({ success: true, message: '(>___<)' })
+    })
+
+    router.post('/callback', (req, res) => {
+      console.log(req)
       res.json({ success: true, message: '(>___<)' })
     })
 

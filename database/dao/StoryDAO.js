@@ -1,5 +1,5 @@
 const { BaseDAO, assert } = require('backend-core')
-const { roles } = require(__folders.config)
+const { roles } = require('config')
 
 class StoryDAO extends BaseDAO {
   static get tableName () {

@@ -1,9 +1,5 @@
-/**
- * https://www.twilio.com/docs/sms/tutorials/how-to-send-sms-messages-node-js
- */
-
 const $ = Symbol('private scope')
-const request = require('request')
+const axios = require('axios')
 const { assert, AbstractLogger } = require('backend-core')
 
 class SlackClient {
@@ -13,7 +9,7 @@ class SlackClient {
     assert.instanceOf(options.logger, AbstractLogger)
 
     this[$] = {
-      client: request,
+      client: axios,
       url: options.url,
       icon: options.icon,
       logger: options.logger
@@ -28,7 +24,7 @@ class SlackClient {
    * to: '+972795974021'
    * text: 'Testing some Twilio awesomness!'
    */
-  send (message) {
+  async send (message) {
     assert.object(message, { required: true })
     assert.string(message.from)
     // assert.string(message.to, { notEmpty: true })
@@ -37,18 +33,19 @@ class SlackClient {
     const options = {
       method: 'POST',
       url: this[$].url,
-      body: {
+      data: {
         icon_url: this[$].icon,
         text: message.subject + ' ' + message.text
-      },
-      json: true
+      }
     }
-    return new Promise((resolve, reject) => {
-      this[$].client(options, function (error, response, body) {
-        if (error) throw new Error(error)
-        return resolve(response)
-      })
-    })
+
+    try {
+      const response = await this[$].client(options)
+      return response
+    } catch (error) {
+      this[$].logger.error(`Error sending message: ${error.message}`)
+      throw new Error(error)
+    }
   }
 }
 

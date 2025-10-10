@@ -1,14 +1,14 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const AuthModel = require(__folders.models + '/AuthModel')
-const { otpHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const AuthModel = require('models/AuthModel')
+const { otpHelper } = require('helpers').authHelpers
 const { errorCodes, ErrorWrapper } = require('backend-core')
-const addSession = require(__folders.handlersV1 + '/common/addSession')
-const SessionEntity = require(__folders.handlersV1 + '/common/SessionEntity')
-const { makeAccessTokenHelper } = require(__folders.helpers).authHelpers
-const config = require(__folders.config)
+const addSession = require('handlers/v1/common/addSession')
+const SessionEntity = require('handlers/v1/common/SessionEntity')
+const { makeAccessTokenHelper } = require('helpers').authHelpers
+const config = require('config')
 class ConfirmRegistrationOTPHandler extends BaseHandler {
   static get accessTag () {
     return 'users:confirm-otp'

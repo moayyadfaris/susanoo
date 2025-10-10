@@ -1,5 +1,5 @@
-const { BaseConfig } = require('backend-core')
-const logger = require('../util/logger')
+const { BaseConfig } = require('../core/lib/BaseConfig')
+
 class AppConfig extends BaseConfig {
   constructor () {
     super()
@@ -23,7 +23,7 @@ class AppConfig extends BaseConfig {
 
   async init () {
     await this.fetchAndSetAsyncValue()
-    logger.debug(`${this.constructor.name}: Initialization finish...`)
+    console.log(`${this.constructor.name}: Initialization finish...`)
   }
 
   fetchAndSetAsyncValue () { // just tor example

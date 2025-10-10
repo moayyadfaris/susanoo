@@ -1,8 +1,8 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
-const { isOwnerPolicy } = require(__folders.policies)
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryModel = require('models/StoryModel')
+const { isOwnerPolicy } = require('acl/policies')
 const { ErrorWrapper, errorCodes } = require('backend-core')
 
 class RemoveStoryHandler extends BaseHandler {

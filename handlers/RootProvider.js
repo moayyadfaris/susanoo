@@ -1,5 +1,5 @@
 const { EmailClient, SMSClient, SlackClient, RedisClient, QueueClient, IpLookupClient } = require('../clients')
-const config = require(__folders.config)
+const config = require('config')
 const logger = require('../util/logger')
 
 class RootProvider {

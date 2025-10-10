@@ -1,5 +1,6 @@
-const { BaseConfig } = require('backend-core')
-const { ErrorWrapper, errorCodes } = require('backend-core')// const { errorCodes } = require('backend-core')
+const { BaseConfig } = require('../core/lib/BaseConfig')
+const { ErrorWrapper } = require('../core/lib/ErrorWrapper')
+const errorCodes = require('../core/lib/errorCodes')// const { errorCodes } = require('backend-core')
 const logger = require('../util/logger')
 class RateLimitingConfig extends BaseConfig {
   constructor () {

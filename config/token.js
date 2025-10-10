@@ -1,4 +1,4 @@
-const { BaseConfig } = require('backend-core')
+const { BaseConfig } = require('../core/lib/BaseConfig')
 const expiresInRegexp = /^(\d\d?m$|\d\d?h$|\d\d?d$)/ // valid minutes, hours, days like: 1m, 1h, 1d, 11m, 11h, 11d
 const logger = require('../util/logger')
 

@@ -1,7 +1,7 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
+const BaseHandler = require('handlers/BaseHandler')
+const SessionDAO = require('database/dao/SessionDAO')
 const uaParser = require('ua-parser-js')
-const ipLookupClient = require(__folders.handlers + '/RootProvider').ipLookupClient
+const ipLookupClient = require('handlers/RootProvider').ipLookupClient
 
 class ListUserSessionsHandler extends BaseHandler {
   static get accessTag () {

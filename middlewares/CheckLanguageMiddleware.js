@@ -1,6 +1,6 @@
 const { BaseMiddleware } = require('backend-core')
 const logger = require('../util/logger')
-const UserDAO = require(__folders.dao + '/UserDAO')
+const UserDAO = require('database/dao/UserDAO')
 
 class CheckLanguageMiddleware extends BaseMiddleware {
   async init () {

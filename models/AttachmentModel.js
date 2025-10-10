@@ -1,7 +1,7 @@
 const joi = require('joi')
 const { BaseModel, Rule } = require('backend-core')
 const UserModel = require('./UserModel')
-const S3Config = require(__folders.config).s3
+const S3Config = require('config').s3
 /**
  * @swagger
  * definitions:
@@ -66,6 +66,32 @@ const schema = {
       return true
     },
     description: 'file size; min 10 bytes; max 1 GB;'
+  }),
+  originalName: new Rule({
+    validator: v => {
+      try {
+        joi.assert(v, joi.string().min(1).max(255))
+      } catch (e) { return e.message }
+      return true
+    },
+    description: 'string; original filename; min 1; max 255;'
+  }),
+  category: new Rule({
+    validator: v => {
+      if (v === null || v === undefined) return true // nullable
+      try {
+        joi.assert(v, joi.string().valid(
+          'profile_image', 
+          'document', 
+          'image', 
+          'video', 
+          'audio', 
+          'other'
+        ))
+      } catch (e) { return e.message }
+      return true
+    },
+    description: 'string; file category; one of: profile_image, document, image, video, audio, other; nullable;'
   })
 }
 

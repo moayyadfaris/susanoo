@@ -1,0 +1,790 @@
+const { errorCodes, ErrorWrapper, RequestRule, Rule } = require('backend-core')
+const BaseHandler = require(__folders.handlers + '/BaseHandler')
+const UserDAO = require(__folders.dao + '/UserDAO')
+const CountryDAO = require(__folders.dao + '/CountryDAO')
+const UserModel = require(__folders.models + '/UserModel')
+const logger = require(__folders.util + '/logger')
+const { redisClient } = require(__folders.handlers + '/RootProvider')
+const crypto = require('crypto')
+const validator = require('validator')
+
+/**
+ * Enhanced CheckAvailabilityHandler - Flexible Field Availability Checking System
+ * 
+ * Features:
+ * - Flexible field checking with {email: "", phone: ""} format
+ * - Support for individual or combined field validation
+ * - Real-time validation with detailed feedback
+ * - Rate limiting and abuse prevention
+ * - Comprehensive response formatting
+ * - Performance monitoring and analytics
+ * - Enterprise-level security and validation
+ * 
+ * Supported Formats:
+ * - {email: "user@example.com"} - Check email only
+ * - {phone: "+1234567890"} - Check phone only  
+ * - {email: "user@example.com", phone: "+1234567890"} - Check both
+ * - Legacy: {email_or_mobile_number: "user@example.com"} - Backward compatibility
+ * 
+ * @extends BaseHandler
+ * @version 3.0.0 - Flexible field validation
+ */
+ * - Performance optimizations with caching
+ * - Security features and audit logging
+ * - Analytics and usage tracking
+ * 
+ * @extends BaseHandler
+ * @version 2.0.0
+ */
+class CheckAvailabilityHandler extends BaseHandler {
+  static get accessTag() {
+    return 'users:check-availability'
+  }
+
+  /**
+   * Enhanced validation rules with multiple checking options
+   */
+  static get validationRules() {
+    return {
+      body: {
+        // New flexible format - primary checking methods
+        email: new RequestRule(new Rule({
+          validator: v => typeof v === 'string' && validator.isEmail(v) && v.length <= 100,
+          description: 'string; valid email address; max 100 chars'
+        }), { required: false }),
+        
+        phone: new RequestRule(new Rule({
+          validator: v => typeof v === 'string' && validator.isMobilePhone(v, 'any') && v.length >= 10 && v.length <= 20,
+          description: 'string; valid phone number with country code; min 10 max 20 chars'
+        }), { required: false }),
+
+        // Legacy support - backward compatibility
+        email_or_mobile_number: new RequestRule(new Rule({
+          validator: v => typeof v === 'string' && v.length >= 3 && v.length <= 100,
+          description: 'string; email or mobile number; max 100 chars; LEGACY FORMAT'
+        }), { required: false }),
+
+        // Enhanced options
+        includeDetails: new RequestRule(new Rule({
+          validator: v => typeof v === 'boolean',
+          description: 'boolean; include detailed availability information'
+        }), { required: false }),
+
+        suggestions: new RequestRule(new Rule({
+          validator: v => typeof v === 'boolean',
+          description: 'boolean; generate alternative suggestions for unavailable fields'
+        }), { required: false }),
+
+        // Batch checking capabilities
+        batch: new RequestRule(new Rule({
+          validator: v => Array.isArray(v) && v.length <= 10,
+          description: 'array; batch check multiple values; max 10 items'
+        }), { required: false }),
+
+        // Country context for phone validation
+        countryCode: new RequestRule(new Rule({
+          validator: v => typeof v === 'string' && v.length === 2,
+          description: 'string; ISO 2-letter country code for phone validation'
+        }), { required: false })
+      }
+    }
+  }
+
+  /**
+   * Enhanced availability checking with comprehensive features
+   */
+  static async run(ctx) {
+    const startTime = Date.now()
+    const { body, headers, ip } = ctx
+    const requestId = ctx.requestId || crypto.randomUUID()
+    
+    const logContext = {
+      handler: 'CheckAvailabilityHandler',
+      requestId,
+      ip: ip || ctx.connection?.remoteAddress,
+      userAgent: headers['user-agent']
+    }
+
+    try {
+      logger.info('Availability check started', {
+        ...logContext,
+        hasEmail: !!body.email,
+        hasMobile: !!body.mobileNumber,
+        hasUsername: !!body.username,
+        hasLegacy: !!body.email_or_mobile_number,
+        hasBatch: !!body.batch,
+        requestSuggestions: body.suggestions,
+        checkSimilar: body.checkSimilar
+      })
+
+      // Rate limiting check
+      await this.checkRateLimit(ip, requestId)
+
+      // Validate request
+      const validatedRequest = await this.validateRequest(body, logContext)
+
+      // Process availability checks
+      const results = await this.processAvailabilityChecks(validatedRequest, logContext)
+
+      // Generate suggestions if requested and needed
+      if (body.suggestions) {
+        await this.generateSuggestions(results, logContext)
+      }
+
+      // Add metadata if requested
+      if (body.includeMetadata) {
+        await this.addMetadata(results, logContext)
+      }
+
+      // Log analytics
+      await this.trackUsageAnalytics(validatedRequest, results, logContext)
+
+      // Format response
+      const response = await this.formatResponse(results, body, logContext, Date.now() - startTime)
+
+      logger.info('Availability check completed', {
+        ...logContext,
+        totalChecks: results.length,
+        availableCount: results.filter(r => r.available).length,
+        processingTime: Date.now() - startTime
+      })
+
+      return response
+
+    } catch (error) {
+      logger.error('Availability check failed', {
+        ...logContext,
+        error: error.message,
+        stack: error.stack,
+        processingTime: Date.now() - startTime
+      })
+
+      if (error instanceof ErrorWrapper) {
+        throw error
+      }
+
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'Availability check failed',
+        layer: 'CheckAvailabilityHandler.run',
+        meta: {
+          originalError: error.message,
+          requestId
+        }
+      })
+    }
+  }
+
+  /**
+   * Check rate limiting to prevent abuse
+   */
+  static async checkRateLimit(ip, requestId) {
+    const rateKey = `availability_check:${ip}`
+    const maxRequests = 50 // per hour
+    const window = 3600 // 1 hour in seconds
+
+    try {
+      const current = await redisClient.get(rateKey)
+      
+      if (current && parseInt(current) >= maxRequests) {
+        logger.warn('Rate limit exceeded for availability check', {
+          ip,
+          requestId,
+          currentCount: current,
+          maxRequests
+        })
+        
+        throw new ErrorWrapper({
+          ...errorCodes.TOO_MANY_REQUESTS,
+          message: 'Too many availability check requests. Please try again later.',
+          layer: 'CheckAvailabilityHandler.checkRateLimit',
+          meta: {
+            currentCount: parseInt(current),
+            maxRequests,
+            windowSeconds: window
+          }
+        })
+      }
+
+      // Increment counter
+      const newCount = await redisClient.incr(rateKey)
+      if (newCount === 1) {
+        await redisClient.expire(rateKey, window)
+      }
+
+    } catch (error) {
+      if (error instanceof ErrorWrapper) throw error
+      
+      // Log Redis error but don't fail the request
+      logger.warn('Rate limiting check failed', {
+        ip,
+        requestId,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Validate and normalize the request - Enhanced for flexible field checking
+   */
+  static async validateRequest(body, logContext) {
+    const checks = []
+
+    // Handle new flexible format - email field
+    if (body.email) {
+      checks.push({ 
+        type: 'email', 
+        value: body.email.toLowerCase().trim(),
+        field: 'email'
+      })
+    }
+
+    // Handle new flexible format - phone field
+    if (body.phone) {
+      checks.push({ 
+        type: 'phone', 
+        value: body.phone.trim(),
+        field: 'phone',
+        countryCode: body.countryCode || null
+      })
+    }
+
+    // Handle legacy format for backward compatibility
+    if (body.email_or_mobile_number) {
+      const value = body.email_or_mobile_number.trim()
+      
+      if (validator.isEmail(value)) {
+        checks.push({ 
+          type: 'email', 
+          value: value.toLowerCase(),
+          field: 'email_or_mobile_number',
+          legacy: true 
+        })
+      } else if (validator.isMobilePhone(value, 'any')) {
+        checks.push({ 
+          type: 'phone', 
+          value: value,
+          field: 'email_or_mobile_number',
+          legacy: true 
+        })
+      } else {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'Invalid email or phone number format',
+          layer: 'CheckAvailabilityHandler.validateRequest'
+        })
+      }
+    }
+
+    // Handle batch requests
+    if (body.batch) {
+      for (const item of body.batch) {
+        if (!item.type || !item.value) {
+          throw new ErrorWrapper({
+            ...errorCodes.VALIDATION,
+            message: 'Batch items must have type and value fields',
+            layer: 'CheckAvailabilityHandler.validateRequest'
+          })
+        }
+
+        checks.push({
+          type: item.type,
+          value: item.type === 'email' ? item.value.toLowerCase().trim() : item.value.trim(),
+          field: 'batch',
+          batch: true,
+          batchIndex: body.batch.indexOf(item)
+        })
+      }
+    }
+
+    // Validate we have at least one check
+    if (checks.length === 0) {
+      throw new ErrorWrapper({
+        ...errorCodes.VALIDATION,
+        message: 'At least one field must be provided for availability checking: email, phone, or email_or_mobile_number',
+        layer: 'CheckAvailabilityHandler.validateRequest'
+      })
+    }
+
+    // Remove duplicates and normalize
+    const uniqueChecks = checks.filter((check, index, self) => 
+      index === self.findIndex(c => c.type === check.type && c.value === check.value)
+    )
+
+    logger.info('Availability check request validated', {
+      ...logContext,
+      checksCount: checks.length,
+      uniqueChecks: uniqueChecks.length,
+      types: [...new Set(uniqueChecks.map(c => c.type))],
+      hasLegacyFormat: uniqueChecks.some(c => c.legacy),
+      hasBatch: uniqueChecks.some(c => c.batch)
+    })
+
+    return uniqueChecks
+  }
+
+  /**
+   * Process all availability checks
+   */
+  static async processAvailabilityChecks(checks, logContext) {
+    const results = []
+
+    for (const check of checks) {
+      try {
+        const result = await this.checkSingleAvailability(check, logContext)
+        results.push(result)
+      } catch (error) {
+        logger.error('Single availability check failed', {
+          ...logContext,
+          check,
+          error: error.message
+        })
+        
+        results.push({
+          type: check.type,
+          value: check.value,
+          available: false,
+          error: 'Check failed',
+          errorDetails: error.message
+        })
+      }
+    }
+
+    return results
+  }
+
+  /**
+   * Check availability for a single identifier - Enhanced for phone support
+   */
+  static async checkSingleAvailability(check, logContext) {
+    const { type, value, countryCode } = check
+    
+    // Check cache first
+    const cacheKey = `availability:${type}:${value}${countryCode ? ':' + countryCode : ''}`
+    const cached = await this.getCachedResult(cacheKey)
+    
+    if (cached) {
+      logger.debug('Using cached availability result', {
+        ...logContext,
+        type,
+        value: this.maskValue(value, type),
+        cached: true
+      })
+      
+      return {
+        ...cached,
+        cached: true,
+        checkedAt: new Date().toISOString()
+      }
+    }
+
+    let available = true
+    let existingUser = null
+    let details = {}
+
+    switch (type) {
+      case 'email':
+        existingUser = await UserDAO.query()
+          .where('email', value)
+          .first()
+        break
+        
+      case 'phone':
+        const query = UserDAO.query().where('mobileNumber', value)
+        if (countryCode) {
+          // Validate country code if provided
+          const validCountry = await CountryDAO.query()
+            .where('iso', countryCode.toUpperCase())
+            .first()
+          
+          if (!validCountry) {
+            throw new ErrorWrapper({
+              ...errorCodes.VALIDATION,
+              message: `Invalid country code: ${countryCode}`,
+              layer: 'CheckAvailabilityHandler.checkSingleAvailability'
+            })
+          }
+          
+          query.where('mobileCountryId', validCountry.id)
+        }
+        existingUser = await query.first()
+        break
+          const country = await CountryDAO.query()
+            .where('id', countryId)
+            .where('isActive', true)
+            .first()
+            
+          if (!country) {
+            throw new ErrorWrapper({
+              ...errorCodes.VALIDATION,
+              message: 'Invalid or inactive country',
+              layer: 'CheckAvailabilityHandler.checkSingleAvailability'
+            })
+          }
+          
+          details.country = {
+            id: country.id,
+            name: country.name,
+            iso: country.iso,
+            phonecode: country.phonecode
+          }
+        }
+        break
+        
+      case 'username':
+        // Note: Assuming username field exists, otherwise this would need to be adapted
+        existingUser = await UserDAO.query()
+          .where('username', value)
+          .first()
+        break
+        
+      default:
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: `Unsupported check type: ${type}`,
+          layer: 'CheckAvailabilityHandler.checkSingleAvailability'
+        })
+    }
+
+    available = !existingUser
+
+    const result = {
+      type,
+      value: this.maskValue(value, type),
+      available,
+      checkedAt: new Date().toISOString(),
+      ...details
+    }
+
+    if (!available && existingUser) {
+      result.reason = 'already_exists'
+      result.conflictDetails = {
+        accountCreated: existingUser.createdAt,
+        isActive: existingUser.isActive,
+        isVerified: existingUser.isVerified
+      }
+    }
+
+    // Cache result for 5 minutes
+    await this.cacheResult(cacheKey, result, 300)
+
+    logger.debug('Availability check completed', {
+      ...logContext,
+      type,
+      value: this.maskValue(value, type),
+      available
+    })
+
+    return result
+  }
+
+  /**
+   * Generate intelligent suggestions for unavailable identifiers
+   */
+  static async generateSuggestions(results, logContext) {
+    for (const result of results) {
+      if (!result.available && !result.suggestions) {
+        try {
+          result.suggestions = await this.getSuggestions(result.type, result.value, logContext)
+        } catch (error) {
+          logger.warn('Failed to generate suggestions', {
+            ...logContext,
+            type: result.type,
+            error: error.message
+          })
+        }
+      }
+    }
+  }
+
+  /**
+   * Get intelligent suggestions for unavailable identifiers
+   */
+  static async getSuggestions(type, value, logContext) {
+    const suggestions = []
+    
+    switch (type) {
+      case 'email':
+        const [localPart, domain] = value.split('@')
+        
+        // Number variations
+        for (let i = 1; i <= 3; i++) {
+          suggestions.push(`${localPart}${i}@${domain}`)
+          suggestions.push(`${localPart}${Math.floor(Math.random() * 99) + 1}@${domain}`)
+        }
+        
+        // Common variations
+        suggestions.push(`${localPart}.${new Date().getFullYear()}@${domain}`)
+        suggestions.push(`${localPart}_${Math.floor(Math.random() * 999) + 1}@${domain}`)
+        break
+        
+      case 'username':
+        // Number variations
+        for (let i = 1; i <= 3; i++) {
+          suggestions.push(`${value}${i}`)
+          suggestions.push(`${value}${Math.floor(Math.random() * 99) + 1}`)
+        }
+        
+        // Underscore variations
+        suggestions.push(`${value}_`)
+        suggestions.push(`_${value}`)
+        suggestions.push(`${value}_${new Date().getFullYear()}`)
+        break
+        
+      case 'mobile':
+        // For mobile numbers, suggest checking different countries
+        suggestions.push('Consider using a different country code')
+        break
+    }
+
+    // Check if suggestions are available
+    const availableSuggestions = []
+    for (const suggestion of suggestions.slice(0, 5)) { // Limit to 5 suggestions
+      try {
+        const check = await this.checkSingleAvailability({ type, value: suggestion }, logContext)
+        if (check.available) {
+          availableSuggestions.push(suggestion)
+        }
+      } catch (error) {
+        // Skip invalid suggestions
+      }
+    }
+
+    return availableSuggestions.slice(0, 3) // Return max 3 suggestions
+  }
+
+  /**
+   * Add detailed metadata to results
+   */
+  static async addMetadata(results, logContext) {
+    for (const result of results) {
+      try {
+        result.metadata = await this.getMetadata(result.type, result.value, logContext)
+      } catch (error) {
+        logger.warn('Failed to add metadata', {
+          ...logContext,
+          type: result.type,
+          error: error.message
+        })
+      }
+    }
+  }
+
+  /**
+   * Get metadata for a specific check type
+   */
+  static async getMetadata(type, value, logContext) {
+    const metadata = {
+      validationRules: this.getValidationRules(type),
+      recommendations: this.getRecommendations(type)
+    }
+
+    switch (type) {
+      case 'email':
+        const domain = value.split('@')[1]
+        metadata.domain = {
+          name: domain,
+          isCommon: ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(domain)
+        }
+        break
+        
+      case 'mobile':
+        metadata.format = 'International format recommended'
+        break
+        
+      case 'username':
+        metadata.characteristics = {
+          length: value.length,
+          hasNumbers: /\d/.test(value),
+          hasUnderscores: /_/.test(value)
+        }
+        break
+    }
+
+    return metadata
+  }
+
+  /**
+   * Get validation rules for a type
+   */
+  static getValidationRules(type) {
+    const rules = {
+      email: [
+        'Must be a valid email format',
+        'Maximum 100 characters',
+        'Domain must be valid'
+      ],
+      mobile: [
+        'Must be 10-15 digits',
+        'No spaces or special characters',
+        'Country code recommended'
+      ],
+      username: [
+        '3-30 characters only',
+        'Letters, numbers, and underscores only',
+        'Must not start with a number'
+      ]
+    }
+
+    return rules[type] || []
+  }
+
+  /**
+   * Get recommendations for a type
+   */
+  static getRecommendations(type) {
+    const recommendations = {
+      email: [
+        'Use a personal email address',
+        'Avoid temporary email services',
+        'Keep it professional if for business use'
+      ],
+      mobile: [
+        'Use your primary mobile number',
+        'Ensure the number is active',
+        'Include country code for international numbers'
+      ],
+      username: [
+        'Choose something memorable',
+        'Avoid personal information',
+        'Consider your brand or identity'
+      ]
+    }
+
+    return recommendations[type] || []
+  }
+
+  /**
+   * Track usage analytics
+   */
+  static async trackUsageAnalytics(checks, results, logContext) {
+    try {
+      const analytics = {
+        timestamp: new Date().toISOString(),
+        checksCount: checks.length,
+        availableCount: results.filter(r => r.available).length,
+        typeBreakdown: this.getTypeBreakdown(checks),
+        userAgent: logContext.userAgent,
+        ip: logContext.ip
+      }
+
+      // Store in Redis for analytics (expire after 30 days)
+      const analyticsKey = `analytics:availability:${new Date().toISOString().split('T')[0]}`
+      await redisClient.lpush(analyticsKey, JSON.stringify(analytics))
+      await redisClient.expire(analyticsKey, 30 * 24 * 3600)
+
+    } catch (error) {
+      logger.warn('Failed to track analytics', {
+        ...logContext,
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get type breakdown for analytics
+   */
+  static getTypeBreakdown(checks) {
+    const breakdown = {}
+    checks.forEach(check => {
+      breakdown[check.type] = (breakdown[check.type] || 0) + 1
+    })
+    return breakdown
+  }
+
+  /**
+   * Format the final response
+   */
+  static async formatResponse(results, originalBody, logContext, processingTime) {
+    // Handle legacy single-field response
+    if (originalBody.email_or_mobile_number && results.length === 1) {
+      const result = results[0]
+      
+      if (!result.available) {
+        throw new ErrorWrapper({
+          ...errorCodes.EMAIL_PHONE_ALREADY_TAKEN,
+          message: `${result.type === 'email' ? 'Email' : 'Mobile number'} is already taken`,
+          meta: {
+            type: result.type,
+            conflictDetails: result.conflictDetails,
+            suggestions: result.suggestions
+          }
+        })
+      }
+
+      return this.result({
+        message: `${result.type === 'email' ? 'Email' : 'Mobile number'} is available`,
+        available: true,
+        type: result.type,
+        checkedAt: result.checkedAt,
+        suggestions: result.suggestions,
+        metadata: result.metadata
+      })
+    }
+
+    // Enhanced response format
+    const response = {
+      summary: {
+        totalChecks: results.length,
+        availableCount: results.filter(r => r.available).length,
+        unavailableCount: results.filter(r => !r.available).length,
+        allAvailable: results.every(r => r.available)
+      },
+      results: results,
+      meta: {
+        processingTime: `${processingTime}ms`,
+        timestamp: new Date().toISOString(),
+        requestId: logContext.requestId
+      }
+    }
+
+    return this.result(response)
+  }
+
+  // ========================================
+  // UTILITY METHODS
+  // ========================================
+
+  /**
+   * Mask sensitive values for logging
+   */
+  static maskValue(value, type) {
+    if (type === 'email') {
+      const [local, domain] = value.split('@')
+      return `${local.substring(0, 2)}***@${domain}`
+    }
+    if (type === 'mobile') {
+      return `***${value.slice(-4)}`
+    }
+    if (type === 'username') {
+      return `${value.substring(0, 3)}***`
+    }
+    return value
+  }
+
+  /**
+   * Get cached result
+   */
+  static async getCachedResult(key) {
+    try {
+      const cached = await redisClient.get(key)
+      return cached ? JSON.parse(cached) : null
+    } catch (error) {
+      logger.warn('Cache get failed', { key, error: error.message })
+      return null
+    }
+  }
+
+  /**
+   * Cache result
+   */
+  static async cacheResult(key, result, ttl = 300) {
+    try {
+      await redisClient.setex(key, ttl, JSON.stringify(result))
+    } catch (error) {
+      logger.warn('Cache set failed', { key, error: error.message })
+    }
+  }
+}
+
+module.exports = CheckAvailabilityHandler

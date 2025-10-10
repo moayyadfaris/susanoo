@@ -1,7 +1,7 @@
 const router = require('express').Router()
 
-const { BaseController } = require(__folders.controllers + '/BaseController')
-const handlers = require(__folders.handlers + '/v1/web/auth')
+const { BaseController } = require('controllers/BaseController')
+const handlers = require('handlers/v1/web/auth')
 
 class AuthController extends BaseController {
   get router () {
@@ -33,7 +33,7 @@ class AuthController extends BaseController {
      *             fingerprint:
      *               type: string
      *         required:
-     *           - email_or_mobile_number
+     *           - email
      *           - password
      *           - fingerprint
      *     responses:

@@ -1,8 +1,8 @@
 const router = require('express').Router()
 
-const handlers = require(__folders.handlers + '/v1/web/attachments')
-const { BaseController } = require(__folders.controllers + '/BaseController')
-const config = require(__folders.config)
+const handlers = require('handlers/v1/web/attachments')
+const { BaseController } = require('controllers/BaseController')
+const config = require('config')
 const multer = require('multer')
 
 class AttachmentsController extends BaseController {

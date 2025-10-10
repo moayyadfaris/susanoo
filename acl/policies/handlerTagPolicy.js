@@ -1,7 +1,7 @@
 const { errorCodes, ErrorWrapper, assert } = require('backend-core')
 
 const permissions = require('../permissions')
-const roles = require(__folders.config).roles
+const roles = require('config').roles
 
 /**
  * @description check permissions to handler by access tag

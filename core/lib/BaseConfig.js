@@ -3,15 +3,20 @@ const pino = require('pino')
 require('dotenv').config()
 const joi = require('joi')
 
+// base logger should have own logger instance
+// because it runs before server starts, so we cant use root logger
 const warnLogger = pino({
   name: 'config-env-warning',
-  prettyPrint: {
-    translateTime: 'SYS:standard'
-  }
+  ...(process.env.NODE_ENV === 'development' && { transport: {
+    target: 'pino-pretty',
+    options: {
+      colorize: true
+    }
+  } })
 })
 
 class BaseConfig {
-  async init () {
+  async init() {
     throw new Error(`${this.constructor.name} should implement 'init' method.`)
   }
   /**
@@ -23,7 +28,7 @@ class BaseConfig {
    * @param defaultVal
    * @returns {*}
    */
-  set (env, validator, defaultVal) {
+  set(env, validator, defaultVal) {
     let value
     if (process.env[env] || (process.env[env] === '')) {
       value = process.env[env]
@@ -58,7 +63,7 @@ class BaseConfig {
    * @param val
    * @param defaultVal
    */
-  setDirect (val, validator, defaultVal) {
+  setDirect(val, validator, defaultVal) {
     let value
     if (val || (val === '')) {
       value = val
@@ -87,7 +92,7 @@ class BaseConfig {
     throw new Error('validator should be a function or joi rule.')
   }
 
-  get joi () {
+  get joi() {
     return joi
   }
 }

@@ -1,8 +1,8 @@
 const router = require('express').Router()
-const handlers = require(__folders.handlers + '/v1/web/users')
-const { BaseController } = require(__folders.controllers + '/BaseController')
+const handlers = require('handlers/v1/web/users')
+const { BaseController } = require('controllers/BaseController')
 const multer = require('multer')
-const config = require(__folders.config)
+const config = require('config')
 
 class UsersController extends BaseController {
   get router () {
@@ -208,7 +208,33 @@ class UsersController extends BaseController {
      *       '409':
      *         description: duplicate data
      */
-    router.post('/users/current/profile-image', multer(config.s3.multerConfig).single('file'), this.handlerRunner(handlers.UploadProfileImageHandler))
+    router.post('/users/current/profile-image', 
+      multer({
+        storage: multer.memoryStorage(), // Store in memory for processing
+        limits: {
+          fileSize: 5 * 1024 * 1024 // 5MB limit for profile images
+        },
+        fileFilter: function (req, file, cb) {
+          // Profile images must be images
+          if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('Profile image must be an image file'), false)
+          }
+          
+          // Check against allowed image types
+          const allowedImageTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+            'image/webp', 'image/bmp'
+          ]
+          
+          if (!allowedImageTypes.includes(file.mimetype)) {
+            return cb(new Error(`Image type ${file.mimetype} is not allowed for profile images`), false)
+          }
+          
+          cb(null, true)
+        }
+      }).single('file'),
+      config.s3.getCustomMulter().single('file'),
+      this.handlerRunner(handlers.UploadProfileImageHandler))
     /**
      * @swagger
      * /web/users/current:

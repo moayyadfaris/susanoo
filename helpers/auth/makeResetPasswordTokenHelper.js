@@ -1,11 +1,11 @@
 const jwtHelper = require('./jwtHelper')
 const { assert } = require('backend-core')
 
-const SECRET = require(__folders.config).token.resetPassword.secret
-const expiresIn = require(__folders.config).token.resetPassword.expiresIn
-const type = require(__folders.config).token.resetPassword.type
-const iss = require(__folders.config).token.jwtIss
-const UserModel = require(__folders.models + '/UserModel')
+const SECRET = require('config').token.resetPassword.secret
+const expiresIn = require('config').token.resetPassword.expiresIn
+const type = require('config').token.resetPassword.type
+const iss = require('config').token.jwtIss
+const UserModel = require('models/UserModel')
 
 /**
  * @return {Promise} string

@@ -1,9 +1,9 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
-const { checkPasswordHelper, makePasswordHashHelper } = require(__folders.helpers).authHelpers
+const BaseHandler = require('handlers/BaseHandler')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const SessionDAO = require('database/dao/SessionDAO')
+const { checkPasswordHelper, makePasswordHashHelper } = require('helpers').authHelpers
 
 class ChangePasswordHandler extends BaseHandler {
   static get accessTag () {

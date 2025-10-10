@@ -1,5 +1,5 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { redisClient } = require(__folders.handlers + '/RootProvider')
+const BaseHandler = require('handlers/BaseHandler')
+const { redisClient } = require('handlers/RootProvider')
 
 class ClearCacheHandler extends BaseHandler {
   static get accessTag () {

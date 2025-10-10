@@ -1,6 +1,6 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const UserModel = require(__folders.models + '/UserModel')
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const UserModel = require('models/UserModel')
 const { RequestRule, Rule } = require('backend-core')
 const joi = require('joi')
 

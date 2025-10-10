@@ -1,5 +1,5 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const appConfig = require(__folders.config).app
+const BaseHandler = require('handlers/BaseHandler')
+const appConfig = require('config').app
 const { RequestRule, Rule, ErrorWrapper, errorCodes } = require('backend-core')
 class GetConfigHandler extends BaseHandler {
   static get accessTag () {

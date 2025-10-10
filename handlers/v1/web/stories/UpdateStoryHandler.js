@@ -1,10 +1,10 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
-const TagDAO = require(__folders.dao + '/TagDAO')
-const StoryAttachmentDAO = require(__folders.dao + '/StoryAttachmentDAO')
-const StoryAttachmentModel = require(__folders.models + '/StoryAttachmentModel')
+const BaseHandler = require('handlers/BaseHandler')
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryModel = require('models/StoryModel')
+const TagDAO = require('database/dao/TagDAO')
+const StoryAttachmentDAO = require('database/dao/StoryAttachmentDAO')
+const StoryAttachmentModel = require('models/StoryAttachmentModel')
 const { ErrorWrapper, errorCodes } = require('backend-core')
 
 class UpdateStoryHandler extends BaseHandler {

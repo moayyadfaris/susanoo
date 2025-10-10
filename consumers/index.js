@@ -1,5 +1,5 @@
-const storyExpiration = require('./story_expiration')
+const notificationsConsumer = require('./notifications-consumer')
 
 module.exports = [
-  storyExpiration
+  notificationsConsumer
 ]

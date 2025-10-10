@@ -1,8 +1,8 @@
 const { assert } = require('backend-core')
 
-const UserDAO = require(__folders.dao + '/UserDAO')
-const UserModel = require(__folders.models + '/UserModel')
-const InterestModel = require(__folders.models + '/InterestModel')
+const UserDAO = require('database/dao/UserDAO')
+const UserModel = require('models/UserModel')
+const InterestModel = require('models/InterestModel')
 
 class UserInterestDAO extends UserDAO {
   /**

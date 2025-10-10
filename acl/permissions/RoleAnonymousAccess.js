@@ -14,6 +14,7 @@ class RoleAnonymousAccess {
       'users:remove': true,
       'users:send-verify-otp': true,
       'users:check-phone-email': true,
+      'users:check-availability': true,
       'users:update-mobile-number': true,
 
       'auth:login': true,

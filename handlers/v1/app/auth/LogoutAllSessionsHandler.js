@@ -1,5 +1,5 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const SessionDAO = require(__folders.dao + '/SessionDAO')
+const BaseHandler = require('handlers/BaseHandler')
+const SessionDAO = require('database/dao/SessionDAO')
 
 class LogoutAllSessionsHandler extends BaseHandler { // TODO logout from all sessions except current
   static get accessTag () {

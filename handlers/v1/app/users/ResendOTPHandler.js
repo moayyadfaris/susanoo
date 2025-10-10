@@ -1,9 +1,9 @@
 const { RequestRule, Rule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const { notificationClient } = require(__folders.handlers + '/RootProvider')
-const UserDAO = require(__folders.dao + '/UserDAO')
-const { makeConfirmOTPHelper } = require(__folders.helpers).authHelpers
-const { notificationType } = require(__folders.config)
+const BaseHandler = require('handlers/BaseHandler')
+const { notificationClient } = require('handlers/RootProvider')
+const UserDAO = require('database/dao/UserDAO')
+const { makeConfirmOTPHelper } = require('helpers').authHelpers
+const { notificationType } = require('config')
 class ResendOTPHandler extends BaseHandler {
   static get accessTag () {
     return 'users:resend-otp'

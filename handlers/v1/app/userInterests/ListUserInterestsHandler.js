@@ -1,6 +1,6 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const UserInterestDAO = require(__folders.dao + '/UserInterestDAO')
-const InterestDAO = require(__folders.dao + '/InterestDAO')
+const BaseHandler = require('handlers/BaseHandler')
+const UserInterestDAO = require('database/dao/UserInterestDAO')
+const InterestDAO = require('database/dao/InterestDAO')
 
 class ListUserInterestsHandler extends BaseHandler {
   static get accessTag () {

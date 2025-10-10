@@ -1,4 +1,4 @@
-const roles = require(__folders.config).roles
+const roles = require('config').roles
 const RoleAdminAccess = require('./RoleAdminAccess')
 const RoleEditorAccess = require('./RoleEditorAccess')
 const RoleUserAccess = require('./RoleUserAccess')

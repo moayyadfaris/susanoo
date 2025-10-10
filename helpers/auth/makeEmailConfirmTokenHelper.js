@@ -1,10 +1,10 @@
 const { assert } = require('backend-core')
 const jwtHelper = require('./jwtHelper')
 
-const SECRET = require(__folders.config).token.emailConfirm.secret
-const expiresIn = require(__folders.config).token.emailConfirm.expiresIn
-const type = require(__folders.config).token.emailConfirm.type
-const iss = require(__folders.config).token.jwtIss
+const SECRET = require('config').token.emailConfirm.secret
+const expiresIn = require('config').token.emailConfirm.expiresIn
+const type = require('config').token.emailConfirm.type
+const iss = require('config').token.jwtIss
 
 /**
  * @return {Promise} string

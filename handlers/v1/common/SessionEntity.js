@@ -1,9 +1,9 @@
 const { assert, ErrorWrapper, errorCodes } = require('backend-core')
 const ms = require('ms')
 const { v4: uuidV4 } = require('uuid')
-const config = require(__folders.config)
-const UserModel = require(__folders.models + '/UserModel')
-const SessionModel = require(__folders.models + '/SessionModel')
+const config = require('config')
+const UserModel = require('models/UserModel')
+const SessionModel = require('models/SessionModel')
 
 const expiredAtPeriodSec = ms(config.token.refresh.expiresIn)
 

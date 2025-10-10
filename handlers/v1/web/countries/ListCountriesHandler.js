@@ -1,5 +1,5 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const CountryDAO = require(__folders.dao + '/CountryDAO')
+const BaseHandler = require('handlers/BaseHandler')
+const CountryDAO = require('database/dao/CountryDAO')
 
 class ListCountriesHandler extends BaseHandler {
   static get accessTag () {

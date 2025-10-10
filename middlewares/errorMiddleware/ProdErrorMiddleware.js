@@ -1,6 +1,6 @@
 const ErrorResponse = require('./ErrorResponse')
 const { errorCodes, BaseMiddleware } = require('backend-core')
-const logger = require(__folders.util + '/logger')
+const logger = require('util/logger')
 
 class ProdErrorMiddleware extends BaseMiddleware {
   async init () {

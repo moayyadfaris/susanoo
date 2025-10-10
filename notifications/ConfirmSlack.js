@@ -1,7 +1,7 @@
 const { assert } = require('backend-core')
 
 const UserModel = require('../models/UserModel')
-const { app } = require(__folders.config)
+const { app } = require('config')
 
 class ConfrimSlack {
   constructor ({ to, code } = {}) {

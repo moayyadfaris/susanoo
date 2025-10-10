@@ -1,6 +1,6 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const CountryDAO = require(__folders.dao + '/CountryDAO')
-const CountryModel = require(__folders.models + '/CountryModel')
+const BaseHandler = require('handlers/BaseHandler')
+const CountryDAO = require('database/dao/CountryDAO')
+const CountryModel = require('models/CountryModel')
 const { RequestRule, Rule } = require('backend-core')
 
 class ListCountriesHandler extends BaseHandler {

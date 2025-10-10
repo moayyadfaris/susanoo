@@ -1,10 +1,10 @@
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
+const BaseHandler = require('handlers/BaseHandler')
 const { RequestRule } = require('backend-core')
-const StoryDAO = require(__folders.dao + '/StoryDAO')
-const StoryModel = require(__folders.models + '/StoryModel')
-const AttachmentModel = require(__folders.models + '/AttachmentModel')
-const StoryAttachmentDAO = require(__folders.dao + '/StoryAttachmentDAO')
-const { isOwnerPolicy } = require(__folders.policies)
+const StoryDAO = require('database/dao/StoryDAO')
+const StoryModel = require('models/StoryModel')
+const AttachmentModel = require('models/AttachmentModel')
+const StoryAttachmentDAO = require('database/dao/StoryAttachmentDAO')
+const { isOwnerPolicy } = require('acl/policies')
 
 class RemoveStoryAttachmentHandler extends BaseHandler {
   static get accessTag () {

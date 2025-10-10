@@ -1,7 +1,7 @@
 const { RequestRule } = require('backend-core')
-const BaseHandler = require(__folders.handlers + '/BaseHandler')
-const AttachmentDAO = require(__folders.dao + '/AttachmentDAO')
-const AttachmentModel = require(__folders.models + '/AttachmentModel')
+const BaseHandler = require('handlers/BaseHandler')
+const AttachmentDAO = require('database/dao/AttachmentDAO')
+const AttachmentModel = require('models/AttachmentModel')
 
 class CreateAttachmentHandler extends BaseHandler {
   static get accessTag () {

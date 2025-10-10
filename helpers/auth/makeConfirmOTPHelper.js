@@ -1,7 +1,7 @@
 const { assert } = require('backend-core')
 const otpHelper = require('./otpHelper')
-const digits = require(__folders.config).otp.digits
-const window = require(__folders.config).otp.window
+const digits = require('config').otp.digits
+const window = require('config').otp.window
 
 /**
  * @return {Promise} string
