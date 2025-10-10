@@ -228,7 +228,8 @@ class CheckLanguageMiddleware extends BaseMiddleware {
     
     try {
       this.metrics.cacheMisses++
-      const user = await UserDAO.findById(userId)
+      // Use BaseDAO helper that exists in our stack
+      const user = await UserDAO.baseGetById(userId, { includeHidden: true, throwOnNotFound: false })
       const preference = user?.preferredLanguage || user?.language || null
       
       // Cache for 30 minutes

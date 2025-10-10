@@ -4,6 +4,7 @@ const { Model } = require('objection')
 const Knex = require('knex')
 
 const { Server, assert, ConnectionPool, AuditableDAO } = require('backend-core')
+
 const controllers = require('./controllers')
 const config = require('./config')
 const middlewares = require('./middlewares')

@@ -97,8 +97,13 @@ class AuditableDAO extends Model {
       this.updatedBy = queryContext.user.id
     }
     
-    // Log creation for audit
-    this._logAuditEvent('CREATE', queryContext)
+    // Log creation for audit (only if knex is configured)
+    if (this.constructor.knex && typeof this.constructor.knex === 'function') {
+      this._logAuditEvent('CREATE', queryContext).catch(err => {
+        // Silently handle audit errors to prevent crashes
+        console.warn('Audit logging failed:', err.message)
+      })
+    }
   }
 
   /**
@@ -120,8 +125,13 @@ class AuditableDAO extends Model {
       this.updatedBy = queryContext.user.id
     }
     
-    // Log update for audit
-    this._logAuditEvent('UPDATE', queryContext)
+    // Log update for audit (only if knex is configured)
+    if (this.constructor.knex && typeof this.constructor.knex === 'function') {
+      this._logAuditEvent('UPDATE', queryContext).catch(err => {
+        // Silently handle audit errors to prevent crashes
+        console.warn('Audit logging failed:', err.message)
+      })
+    }
   }
 
   /**
@@ -338,61 +348,254 @@ class AuditableDAO extends Model {
   }
 
   /**
-   * Get audit history for a record
+   * Get audit history for a record (using unified audit system)
    */
   static async getAuditHistory(id, limit = 50) {
-    const auditTableName = `${this.tableName}_audit`
-    
     try {
       return await this.knex()
-        .table(auditTableName)
-        .where('record_id', id)
+        .select('*')
+        .from('audit_logs')
+        .where('table_name', this.tableName)
+        .where('record_id', String(id))
         .orderBy('created_at', 'desc')
         .limit(limit)
     } catch (error) {
-      logger.warn(`Audit table ${auditTableName} not found`, { error: error.message })
+      logger.warn('Failed to get audit history from unified audit_logs', { 
+        tableName: this.tableName,
+        recordId: id,
+        error: error.message 
+      })
       return []
     }
   }
 
   /**
-   * Log audit events
+   * Log audit event with unified audit system
    */
-  _logAuditEvent(operation, queryContext) {
-    const auditData = {
-      table_name: this.constructor.tableName,
-      record_id: this.id || 'new',
-      operation,
-      old_values: this.$beforeUpdatePreviousData || null,
-      new_values: this.$toJson(),
-      user_id: queryContext?.user?.id || null,
-      ip_address: queryContext?.ip || null,
-      user_agent: queryContext?.userAgent || null,
-      timestamp: new Date().toISOString()
+  async _logAuditEvent(operation, queryContext) {
+    try {
+      // Check if knex is properly configured
+      if (!this.constructor.knex || typeof this.constructor.knex !== 'function') {
+        // Silently skip audit if knex not configured
+        return
+      }
+      
+      const tableName = this.constructor.tableName
+      
+      // Check if audit is enabled for this table
+      const isEnabled = await this.constructor.knex()
+        .raw('SELECT is_audit_enabled(?)', [tableName])
+        .then(result => result.rows?.[0]?.is_audit_enabled || false)
+      
+      if (!isEnabled) {
+        return // Skip audit if disabled
+      }
+      
+      // Get audit configuration for this table
+      const auditConfig = await this.constructor.knex()
+        .select('*')
+        .from('audit_config')
+        .where('table_name', tableName)
+        .first()
+      
+      if (!auditConfig) {
+        return // No config found, skip audit
+      }
+      
+      // Check if this operation type is enabled
+      const operationEnabled = this._isOperationEnabled(operation, auditConfig)
+      if (!operationEnabled) {
+        return
+      }
+      
+      // Prepare audit data
+      const auditData = {
+        table_name: tableName,
+        record_id: String(this.id || 'new'),
+        operation,
+        old_values: this._prepareOldValues(operation),
+        new_values: this._prepareNewValues(operation, auditConfig),
+        changed_fields: this._getChangedFields(),
+        user_id: queryContext?.user?.id || null,
+        session_id: queryContext?.sessionId || null,
+        ip_address: queryContext?.ip || null,
+        user_agent: queryContext?.userAgent || null,
+        event_type: queryContext?.eventType || 'api_call',
+        metadata: this._prepareAuditMetadata(queryContext),
+        source: queryContext?.source || 'application'
+      }
+      
+      // Store audit record
+      if (auditConfig.async_logging) {
+        // Fire and forget for performance
+        setImmediate(() => this._storeAuditRecord(auditData))
+      } else {
+        await this._storeAuditRecord(auditData)
+      }
+      
+      // Log to application logger as well
+      logger.info(`Audit: ${operation} on ${tableName}`, {
+        recordId: auditData.record_id,
+        userId: auditData.user_id
+      })
+      
+    } catch (error) {
+      // Never fail the main operation due to audit issues
+      logger.error('Audit logging failed', { 
+        error: error.message,
+        table: this.constructor.tableName,
+        operation 
+      })
     }
-    
-    // Log to audit system (could be database, external service, etc.)
-    logger.info('Audit event', auditData)
-    
-    // TODO: Store in dedicated audit table
-    this._storeAuditRecord(auditData)
   }
 
   /**
-   * Store audit record in database
+   * Check if the operation is enabled in audit config
+   */
+  _isOperationEnabled(operation, auditConfig) {
+    switch (operation) {
+      case 'CREATE':
+        return auditConfig.track_creates
+      case 'UPDATE':
+        return auditConfig.track_updates
+      case 'DELETE':
+        return auditConfig.track_deletes
+      case 'RESTORE':
+        return auditConfig.track_restores
+      default:
+        return true
+    }
+  }
+
+  /**
+   * Prepare old values for audit, excluding sensitive/excluded fields
+   */
+  _prepareOldValues(operation) {
+    if (operation === 'CREATE') {
+      return null
+    }
+    
+    return this.$beforeUpdatePreviousData || this.$cloneDataBeforeUpdate || null
+  }
+
+  /**
+   * Prepare new values for audit, masking sensitive fields
+   */
+  _prepareNewValues(operation, auditConfig) {
+    if (operation === 'DELETE') {
+      return null
+    }
+    
+    const values = { ...this.$toJson() }
+    
+    // Remove excluded fields
+    if (auditConfig.excluded_fields) {
+      const excludedFields = JSON.parse(auditConfig.excluded_fields)
+      excludedFields.forEach(field => delete values[field])
+    }
+    
+    // Mask sensitive fields
+    if (auditConfig.sensitive_fields) {
+      const sensitiveFields = JSON.parse(auditConfig.sensitive_fields)
+      sensitiveFields.forEach(field => {
+        if (values[field]) {
+          values[field] = this._maskSensitiveValue(values[field])
+        }
+      })
+    }
+    
+    return values
+  }
+
+  /**
+   * Get array of changed field names for UPDATE operations
+   */
+  _getChangedFields() {
+    if (!this.$beforeUpdatePreviousData) {
+      return null
+    }
+    
+    const current = this.$toJson()
+    const previous = this.$beforeUpdatePreviousData
+    const changed = []
+    
+    Object.keys(current).forEach(key => {
+      if (JSON.stringify(current[key]) !== JSON.stringify(previous[key])) {
+        changed.push(key)
+      }
+    })
+    
+    return changed.length > 0 ? changed : null
+  }
+
+  /**
+   * Prepare additional metadata for audit record
+   */
+  _prepareAuditMetadata(queryContext) {
+    const metadata = {}
+    
+    // Add request context if available
+    if (queryContext?.requestId) {
+      metadata.requestId = queryContext.requestId
+    }
+    
+    if (queryContext?.endpoint) {
+      metadata.endpoint = queryContext.endpoint
+    }
+    
+    if (queryContext?.method) {
+      metadata.method = queryContext.method
+    }
+    
+    // Add model-specific metadata
+    if (this.version) {
+      metadata.previousVersion = this.version - 1
+      metadata.newVersion = this.version
+    }
+    
+    return Object.keys(metadata).length > 0 ? metadata : null
+  }
+
+  /**
+   * Mask sensitive values for audit logs
+   */
+  _maskSensitiveValue(value) {
+    if (typeof value === 'string') {
+      if (value.includes('@')) {
+        // Email masking: test@example.com -> t***@e***.com
+        const [local, domain] = value.split('@')
+        const [domainName, domainExt] = domain.split('.')
+        return `${local[0]}***@${domainName[0]}***.${domainExt}`
+      } else if (value.length > 4) {
+        // General string masking: keep first and last 2 chars
+        return `${value.substring(0, 2)}***${value.substring(value.length - 2)}`
+      }
+    }
+    
+    return '***MASKED***'
+  }
+
+  /**
+   * Store audit record in unified audit_logs table
    */
   async _storeAuditRecord(auditData) {
-    const auditTableName = `${this.constructor.tableName}_audit`
-    
     try {
+      if (!this.constructor.knex || typeof this.constructor.knex !== 'function') {
+        return
+      }
       await this.constructor.knex()
-        .table(auditTableName)
-        .insert(auditData)
+        .table('audit_logs')
+        .insert({
+          ...auditData,
+          created_at: this.constructor.knex().fn.now()
+        })
     } catch (error) {
       // Don't fail the main operation if audit fails
-      logger.error(`Failed to store audit record in ${auditTableName}`, { 
+      logger.error('Failed to store audit record in audit_logs', { 
         error: error.message,
-        auditData 
+        table_name: auditData.table_name,
+        record_id: auditData.record_id,
+        operation: auditData.operation
       })
     }
   }
@@ -425,10 +628,167 @@ class AuditableDAO extends Model {
     }
   }
 
+  // ====================
+  // Audit Management Utilities
+  // ====================
+
+  /**
+   * Enable or disable audit for a specific table
+   */
+  static async setAuditEnabled(tableName, enabled = true) {
+    try {
+      const result = await this.knex().raw(
+        'SELECT enable_audit_for_table(?, ?)',
+        [tableName, enabled]
+      )
+      
+      logger.info(`Audit ${enabled ? 'enabled' : 'disabled'} for table: ${tableName}`)
+      return result.rows?.[0]?.enable_audit_for_table || false
+    } catch (error) {
+      logger.error('Failed to update audit setting', { tableName, enabled, error: error.message })
+      return false
+    }
+  }
+
+  /**
+   * Check if audit is enabled for a table
+   */
+  static async isAuditEnabled(tableName) {
+    try {
+      const result = await this.knex().raw(
+        'SELECT is_audit_enabled(?)',
+        [tableName]
+      )
+      return result.rows?.[0]?.is_audit_enabled || false
+    } catch (error) {
+      logger.error('Failed to check audit status', { tableName, error: error.message })
+      return false
+    }
+  }
+
+  /**
+   * Get audit configuration for a table
+   */
+  static async getAuditConfig(tableName) {
+    try {
+      return await this.knex()
+        .select('*')
+        .from('audit_config')
+        .where('table_name', tableName)
+        .first()
+    } catch (error) {
+      logger.error('Failed to get audit config', { tableName, error: error.message })
+      return null
+    }
+  }
+
+  /**
+   * Update audit configuration for a table
+   */
+  static async updateAuditConfig(tableName, config) {
+    try {
+      const updated = await this.knex()('audit_config')
+        .where('table_name', tableName)
+        .update({
+          ...config,
+          updated_at: this.knex().fn.now()
+        })
+      
+      if (updated === 0) {
+        // Insert new config if it doesn't exist
+        await this.knex()('audit_config').insert({
+          table_name: tableName,
+          ...config,
+          created_at: this.knex().fn.now(),
+          updated_at: this.knex().fn.now()
+        })
+      }
+      
+      logger.info('Audit configuration updated', { tableName, config })
+      return true
+    } catch (error) {
+      logger.error('Failed to update audit config', { tableName, config, error: error.message })
+      return false
+    }
+  }
+
+  /**
+   * Get audit statistics
+   */
+  static async getAuditStats() {
+    try {
+      // Check if knex is properly configured
+      if (!this.knex() || typeof this.knex !== 'function') {
+        logger.warn('AuditableDAO: knex not properly configured, skipping audit stats')
+        return []
+      }
+      
+      const result = await this.knex().raw('SELECT * FROM get_audit_stats()')
+      return result.rows || []
+    } catch (error) {
+      logger.error('Failed to get audit stats', { error: error.message })
+      return []
+    }
+  }
+
+  /**
+   * Clean up old audit logs based on retention policies
+   */
+  static async cleanupOldAuditLogs() {
+    try {
+      const result = await this.knex().raw('SELECT cleanup_audit_logs()')
+      const deletedCount = result.rows?.[0]?.cleanup_audit_logs || 0
+      
+      logger.info('Audit cleanup completed', { deletedCount })
+      return deletedCount
+    } catch (error) {
+      logger.error('Failed to cleanup audit logs', { error: error.message })
+      return 0
+    }
+  }
+
+  /**
+   * Get recent audit activity across all tables
+   */
+  static async getRecentAuditActivity(limit = 100) {
+    try {
+      return await this.knex()
+        .select([
+          'audit_logs.*',
+          'audit_config.is_enabled as audit_enabled'
+        ])
+        .from('audit_logs')
+        .leftJoin('audit_config', 'audit_logs.table_name', 'audit_config.table_name')
+        .orderBy('audit_logs.created_at', 'desc')
+        .limit(limit)
+    } catch (error) {
+      logger.error('Failed to get recent audit activity', { error: error.message })
+      return []
+    }
+  }
+
+  /**
+   * Bulk enable/disable audit for multiple tables
+   */
+  static async bulkSetAuditEnabled(tableNames, enabled = true) {
+    const results = {}
+    
+    for (const tableName of tableNames) {
+      results[tableName] = await this.setAuditEnabled(tableName, enabled)
+    }
+    
+    logger.info(`Bulk audit ${enabled ? 'enabled' : 'disabled'}`, { tableNames, results })
+    return results
+  }
+
+  // ====================
+  // GDPR and Data Management
+  // ====================
+
   /**
    * GDPR compliance - anonymize user data
    */
-  static async anonymizeUserData(userId, trx = null) {
+  static async anonymizeUserData(userId) {
     const anonymizedData = {
       updatedAt: new Date().toISOString(),
       updatedBy: 'SYSTEM_GDPR',

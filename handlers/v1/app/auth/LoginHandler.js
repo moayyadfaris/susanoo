@@ -61,11 +61,14 @@ class LoginHandler extends BaseHandler {
       fingerprint: ctx.body.fingerprint,
       timestamp: new Date().toISOString()
     }
+    
 
     // Get user by email only (no mobile number support)
     let user
     try {
+       
       user = await UserDAO.getByEmail(ctx.body.email)
+      console.log('Login user22222:', user)
     } catch (error) {
       // Enhanced security: Don't reveal whether email exists
       throw new ErrorWrapper({ 
@@ -73,7 +76,7 @@ class LoginHandler extends BaseHandler {
         message: 'Invalid email or password'
       })
     }
-
+    console.log('Login user:', user)
     // Verify password with enhanced error handling
     try {
       await checkPasswordHelper(ctx.body.password, user.passwordHash)

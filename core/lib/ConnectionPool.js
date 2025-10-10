@@ -1,5 +1,4 @@
 const { Logger } = require('./Logger')
-const knex = require('knex')
 
 // Create logger instance for enterprise connection pool
 const logger = new Logger({
@@ -218,12 +217,55 @@ class ConnectionPool {
         if (typeof target[prop] === 'function') {
           return (...args) => {
             const result = target[prop](...args)
-            
-            // Monitor query execution if it returns a promise
+
+            // Do NOT trigger execution here for thenables (QueryBuilder/Raw); instead,
+            // wrap the then() to measure once the query actually runs.
             if (result && typeof result.then === 'function') {
-              return this._monitorQuery(result, poolName, pool)
+              const startTime = Date.now()
+              const originalThen = result.then.bind(result)
+
+              // Patch then() to collect metrics on resolve/reject without
+              // altering user-provided handlers semantics.
+              result.then = (onFulfilled, onRejected) => {
+                return originalThen(
+                  (res) => {
+                    const duration = Date.now() - startTime
+                    // Update metrics and slow query counters
+                    pool.metrics.queryCount++
+                    this.metrics.queryCount++
+                    pool.metrics.avgResponseTime = (pool.metrics.avgResponseTime + duration) / 2
+
+                    if (duration > this.config.monitoring.slowQueryThreshold) {
+                      pool.metrics.slowQueryCount++
+                      this.metrics.slowQueries++
+                      if (this.config.monitoring.logLevel !== 'silent') {
+                        logger.warn('Slow query detected', {
+                          pool: poolName,
+                          duration,
+                          threshold: this.config.monitoring.slowQueryThreshold
+                        })
+                      }
+                    }
+
+                    return onFulfilled ? onFulfilled(res) : res
+                  },
+                  (err) => {
+                    pool.metrics.errorCount++
+                    this.metrics.connectionErrors++
+                    const duration = Date.now() - startTime
+                    if (this.config.monitoring.logLevel !== 'silent') {
+                      logger.error('Database query error', {
+                        pool: poolName,
+                        error: err.message,
+                        duration
+                      })
+                    }
+                    return onRejected ? onRejected(err) : Promise.reject(err)
+                  }
+                )
+              }
             }
-            
+
             return result
           }
         }
