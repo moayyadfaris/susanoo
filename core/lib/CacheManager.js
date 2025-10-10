@@ -1,21 +1,27 @@
 const NodeCache = require('node-cache')
-const logger = require('../../util/logger')
+const { Logger } = require('./Logger')
+
+// Create logger instance for enterprise cache
+const logger = new Logger({
+  appName: 'SusanooAPI-EnterpriseCache',
+  raw: process.env.NODE_ENV !== 'development'
+})
 
 /**
- * EnterpriseCacheService - Multi-level caching with enterprise features
+ * CacheManager - Multi-level caching service with performance monitoring
  * 
  * Features:
- * - Memory cache (L1) + Redis cache (L2)
- * - Cache warming and preloading
- * - Smart invalidation strategies
- * - Performance monitoring
- * - Cache hit/miss analytics
- * - Distributed cache coordination
- * - Cache versioning
+ * - L1 (Memory) + L2 (Redis) caching architecture
+ * - Automatic cache warming strategies
+ * - Performance metrics and monitoring
+ * - Pattern-based invalidation
+ * - Namespace support for multi-tenancy
+ * - Cache-aside and write-through patterns
+ * - Configurable TTL and eviction policies
  * 
  * @version 1.0.0
  */
-class EnterpriseCacheService {
+class CacheManager {
   constructor(config = {}) {
     this.config = {
       // Memory cache configuration (L1)
@@ -593,4 +599,4 @@ class EnterpriseCacheService {
   }
 }
 
-module.exports = EnterpriseCacheService
+module.exports = CacheManager

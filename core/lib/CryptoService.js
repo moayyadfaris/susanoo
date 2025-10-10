@@ -1,24 +1,31 @@
 const crypto = require('crypto')
-const logger = require('../../util/logger')
+const { Logger } = require('./Logger')
+
+// Create logger instance for enterprise encryption
+const logger = new Logger({
+  appName: 'SusanooAPI-EnterpriseEncryption',
+  raw: process.env.NODE_ENV !== 'development'
+})
 
 /**
- * EnterpriseEncryption - Field-level encryption service
+ * CryptoService - Advanced encryption service for PII data protection
  * 
  * Features:
- * - AES-256-GCM encryption for maximum security
- * - Key rotation and management
- * - PII field encryption
- * - Transparent encryption/decryption
- * - GDPR compliance utilities
+ * - AES-256-GCM encryption with authentication
+ * - PBKDF2 key derivation with salt
+ * - Searchable encryption using HMAC
+ * - Key rotation support
+ * - GDPR-compliant anonymization
+ * - Field-level encryption for databases
  * 
  * @version 1.0.0
  */
-class EnterpriseEncryption {
+class CryptoService {
   constructor(config = {}) {
     this.config = {
       algorithm: config.algorithm || 'aes-256-gcm',
       keySize: config.keySize || 32, // 256 bits
-      ivSize: config.ivSize || 16,   // 128 bits
+      ivSize: config.ivSize || 16, // 128 bits
       tagSize: config.tagSize || 16, // 128 bits
       masterKey: config.masterKey || process.env.ENCRYPTION_MASTER_KEY,
       keyRotationDays: config.keyRotationDays || 90,
@@ -391,4 +398,4 @@ class EnterpriseEncryption {
   }
 }
 
-module.exports = EnterpriseEncryption
+module.exports = CryptoService

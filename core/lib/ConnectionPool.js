@@ -1,8 +1,14 @@
-const { createLogger } = require('../../util/logger')
-const logger = createLogger('DatabaseConnectionPool')
+const { Logger } = require('./Logger')
+const knex = require('knex')
+
+// Create logger instance for enterprise connection pool
+const logger = new Logger({
+  appName: 'SusanooAPI-EnterprisePool',
+  raw: process.env.NODE_ENV !== 'development'
+})
 
 /**
- * EnterpriseConnectionPool - Advanced database connection management
+ * ConnectionPool - Advanced database connection management
  * 
  * Features:
  * - Connection pooling with health monitoring
@@ -14,7 +20,7 @@ const logger = createLogger('DatabaseConnectionPool')
  * 
  * @version 1.0.0
  */
-class EnterpriseConnectionPool {
+class ConnectionPool {
   constructor(config = {}) {
     this.config = {
       // Primary (write) database
@@ -41,7 +47,6 @@ class EnterpriseConnectionPool {
         reapIntervalMillis: config.pool?.reapIntervalMillis || 1000,
         createRetryIntervalMillis: config.pool?.createRetryIntervalMillis || 200,
         afterCreate: this._afterCreate.bind(this),
-        beforeDestroy: this._beforeDestroy.bind(this),
         ...config.pool
       },
       
@@ -305,7 +310,7 @@ class EnterpriseConnectionPool {
           pool.knex.raw('SELECT 1 as health_check'),
           new Promise((_, reject) => 
             setTimeout(() => reject(new Error('Health check timeout')), 
-            this.config.healthCheck.timeout)
+              this.config.healthCheck.timeout)
           )
         ])
         
@@ -491,4 +496,4 @@ class EnterpriseConnectionPool {
   }
 }
 
-module.exports = EnterpriseConnectionPool
+module.exports = ConnectionPool

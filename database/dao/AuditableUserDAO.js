@@ -1,11 +1,17 @@
-const EnterpriseBaseDAO = require('../../core/lib/EnterpriseBaseDAO')
-const EnterpriseBaseModel = require('../../core/lib/EnterpriseBaseModel')
-const EnterpriseEncryption = require('../../core/lib/EnterpriseEncryption')
-const EnterpriseCacheService = require('../../core/lib/EnterpriseCacheService')
-const logger = require('../../util/logger')
+const AuditableDAO = require('../../core/lib/AuditableDAO')
+const ValidatedModel = require('../../core/lib/ValidatedModel')
+const CryptoService = require('../../core/lib/CryptoService')
+const CacheManager = require('../../core/lib/CacheManager')
+const { Logger } = require('../../core/lib/Logger')
+
+// Create logger instance for enterprise user DAO
+const logger = new Logger({
+  appName: 'SusanooAPI-AuditableUserDAO',
+  raw: process.env.NODE_ENV !== 'development'
+})
 
 /**
- * EnterpriseUserDAO - Enhanced User DAO with enterprise features
+ * AuditableUserDAO - Enhanced User DAO with enterprise features
  * 
  * Features:
  * - Field-level encryption for PII
@@ -19,7 +25,7 @@ const logger = require('../../util/logger')
  * @extends EnterpriseBaseDAO
  * @version 1.0.0
  */
-class EnterpriseUserDAO extends EnterpriseBaseDAO {
+class AuditableUserDAO extends AuditableDAO {
   static get tableName() {
     return 'users'
   }
@@ -45,7 +51,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
   static get relationMappings() {
     return {
       stories: {
-        relation: EnterpriseBaseDAO.HasManyRelation,
+        relation: AuditableDAO.HasManyRelation,
         modelClass: `${__dirname}/EnterpriseStoryDAO`,
         join: {
           from: 'users.id',
@@ -55,7 +61,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       },
       
       interests: {
-        relation: EnterpriseBaseDAO.ManyToManyRelation,
+        relation: AuditableDAO.ManyToManyRelation,
         modelClass: `${__dirname}/InterestDAO`,
         join: {
           from: 'users.id',
@@ -69,7 +75,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       },
       
       country: {
-        relation: EnterpriseBaseDAO.BelongsToOneRelation,
+        relation: AuditableDAO.BelongsToOneRelation,
         filter: (query) => query.select('id', 'name'),
         modelClass: `${__dirname}/CountryDAO`,
         join: {
@@ -79,7 +85,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       },
       
       profileImage: {
-        relation: EnterpriseBaseDAO.BelongsToOneRelation,
+        relation: AuditableDAO.BelongsToOneRelation,
         modelClass: `${__dirname}/EnterpriseAttachmentDAO`,
         join: {
           from: 'users.profileImageId',
@@ -89,8 +95,8 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       },
       
       sessions: {
-        relation: EnterpriseBaseDAO.HasManyRelation,
-        modelClass: `${__dirname}/EnterpriseSessionDAO`,
+        relation: AuditableDAO.BelongsToOneRelation,
+        modelClass: `${__dirname}/SessionDAO`,
         join: {
           from: 'users.id',
           to: 'sessions.userId'
@@ -104,13 +110,13 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
    * Initialize enterprise services
    */
   static initialize(config = {}) {
-    this.encryption = new EnterpriseEncryption(config.encryption)
-    this.cacheService = new EnterpriseCacheService(config.cache)
+    this.encryption = new CryptoService(config.encryption)
+    this.cacheService = new CacheManager(config.cache)
     
     // Register cache warming strategies
     this._registerCacheWarmingStrategies()
     
-    logger.info('EnterpriseUserDAO initialized with enterprise features')
+    logger.info('AuditableUserDAO initialized with enhanced features')
   }
 
   /**
@@ -154,7 +160,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
   static async create(data, userId = null, options = {}) {
     try {
       // Validate data
-      const validationResult = await EnterpriseBaseModel.validateWithContext(data, {
+      const validationResult = await ValidatedModel.validateWithContext(data, {
         operation: 'create',
         userId
       })
@@ -164,7 +170,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       }
       
       // Use sanitized and normalized data
-      const processedData = { ...validationResult.normalizedData }
+      let processedData = { ...validationResult.normalizedData }
       
       // Encrypt PII fields
       if (this.encryption) {
@@ -379,7 +385,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       }
       
       // Validate update data
-      const validationResult = await EnterpriseBaseModel.validateWithContext(data, {
+      const validationResult = await ValidatedModel.validateWithContext(data, {
         operation: 'update',
         userId,
         currentData: currentUser
@@ -406,12 +412,6 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       }
       
       // Update with audit context and optimistic locking
-      const auditContext = {
-        user: { id: userId },
-        ip: options.ip,
-        userAgent: options.userAgent
-      }
-      
       const updatedRows = await this.updateWithAudit(
         id,
         processedData,
@@ -466,7 +466,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
       if (this.encryption) {
         anonymizedData = this.encryption.anonymizePIIFields(user, this.piiFields)
       } else {
-        anonymizedData = EnterpriseBaseModel.anonymizePIIData(user)
+        anonymizedData = ValidatedModel.anonymizePIIData(user)
       }
       
       // Add GDPR metadata
@@ -652,7 +652,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
     if (!this.cacheService) return
     
     // Popular users strategy
-    this.cacheService.registerWarmingStrategy('popular_users', async (cache) => {
+    this.cacheService.registerWarmingStrategy('popular_users', async () => {
       const popularUsers = await this.query()
         .select('users.*')
         .leftJoin('stories', 'users.id', 'stories.userId')
@@ -670,7 +670,7 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
     })
     
     // Recent active users strategy
-    this.cacheService.registerWarmingStrategy('recent_active_users', async (cache) => {
+    this.cacheService.registerWarmingStrategy('recent_active_users', async () => {
       const recentUsers = await this.query()
         .whereNull('deletedAt')
         .where('isActive', true)
@@ -687,4 +687,4 @@ class EnterpriseUserDAO extends EnterpriseBaseDAO {
   }
 }
 
-module.exports = EnterpriseUserDAO
+module.exports = AuditableUserDAO

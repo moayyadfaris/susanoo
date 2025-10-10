@@ -495,15 +495,15 @@ class Server {
       ...DEFAULT_CONFIG.helmet,
       contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
         directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'cdnjs.cloudflare.com'],
-          scriptSrc: ["'self'", "'unsafe-inline'", 'cdnjs.cloudflare.com'],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'", 'cdnjs.cloudflare.com'],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"]
+          defaultSrc: ['\'self\''],
+          styleSrc: ['\'self\'', '\'unsafe-inline\'', 'cdnjs.cloudflare.com'],
+          scriptSrc: ['\'self\'', '\'unsafe-inline\'', 'cdnjs.cloudflare.com'],
+          imgSrc: ['\'self\'', 'data:', 'https:'],
+          connectSrc: ['\'self\''],
+          fontSrc: ['\'self\'', 'cdnjs.cloudflare.com'],
+          objectSrc: ['\'none\''],
+          mediaSrc: ['\'self\''],
+          frameSrc: ['\'none\'']
         }
       } : false
     }))

@@ -1,18 +1,18 @@
-# Enterprise Database Layer Documentation
+# Enhanced Database Layer Documentation
 
 ## Overview
 
-The Susanoo Enterprise Database Layer provides a comprehensive, production-ready enhancement to the existing database architecture with enterprise-grade features including audit trails, field-level encryption, multi-level caching, soft deletes, and GDPR compliance.
+The Susanoo Enhanced Database Layer provides a comprehensive, production-ready enhancement to the existing database architecture with enterprise-grade features including audit trails, field-level encryption, multi-level caching, soft deletes, and GDPR compliance.
 
 ## Architecture
 
 ### Core Components
 
-1. **EnterpriseBaseDAO** - Enhanced base Data Access Object with enterprise features
-2. **EnterpriseBaseModel** - Advanced validation and modeling with enterprise capabilities
-3. **EnterpriseEncryption** - Field-level encryption service for PII protection
-4. **EnterpriseCacheService** - Multi-level caching with performance monitoring
-5. **EnterpriseConnectionPool** - Advanced database connection management
+1. **AuditableDAO** - Enhanced base Data Access Object with audit trails and monitoring
+2. **ValidatedModel** - Advanced validation and modeling with context awareness
+3. **CryptoService** - Field-level encryption service for PII protection
+4. **CacheManager** - Multi-level caching with performance monitoring
+5. **ConnectionPool** - Advanced database connection management
 
 ### Key Features
 
@@ -30,9 +30,9 @@ The Susanoo Enterprise Database Layer provides a comprehensive, production-ready
 ### 1. Enhanced DAO Implementation
 
 ```javascript
-const EnterpriseBaseDAO = require('../core/lib/EnterpriseBaseDAO')
+const AuditableDAO = require('../core/lib/AuditableDAO')
 
-class UserDAO extends EnterpriseBaseDAO {
+class UserDAO extends AuditableDAO {
   static get tableName() {
     return 'users'
   }
@@ -60,16 +60,36 @@ class UserDAO extends EnterpriseBaseDAO {
   static async anonymizeUser(id, userId) {
     return await this.anonymizeUserData(id, userId)
   }
+
+  // Use read replica for performance
+  static async getActiveUsers() {
+    const readConnection = this.getReadConnection()
+    return await readConnection.table('users')
+      .where('deleted_at', null)
+      .where('is_active', true)
+  }
+
+  // Use write connection for updates
+  static async updateUserStatus(id, status, userId) {
+    const writeConnection = this.getWriteConnection()
+    return await writeConnection.table('users')
+      .where('id', id)
+      .update({
+        status,
+        updated_by: userId,
+        updated_at: new Date()
+      })
+  }
 }
 ```
 
 ### 2. Field-Level Encryption
 
 ```javascript
-const EnterpriseEncryption = require('../core/lib/EnterpriseEncryption')
+const CryptoService = require('../core/lib/CryptoService')
 
 // Initialize encryption service
-const encryption = new EnterpriseEncryption({
+const encryption = new CryptoService({
   masterKey: process.env.ENCRYPTION_MASTER_KEY
 })
 
@@ -95,10 +115,10 @@ const anonymized = encryption.anonymizePIIFields(userData, ['name', 'email'])
 ### 3. Multi-Level Caching
 
 ```javascript
-const EnterpriseCacheService = require('../core/lib/EnterpriseCacheService')
+const CacheManager = require('../core/lib/CacheManager')
 
 // Initialize cache service
-const cache = new EnterpriseCacheService({
+const cache = new CacheManager({
   memory: { enabled: true, stdTTL: 300 },
   redis: { enabled: true, stdTTL: 3600 }
 })
@@ -124,9 +144,9 @@ console.log(`Hit ratio: ${metrics.hitRatio}`)
 ### 4. Advanced Validation
 
 ```javascript
-const EnterpriseBaseModel = require('../core/lib/EnterpriseBaseModel')
+const ValidatedModel = require('../core/lib/ValidatedModel')
 
-class UserModel extends EnterpriseBaseModel {
+class UserModel extends ValidatedModel {
   static get schema() {
     return {
       email: new this.Rule({
@@ -235,10 +255,10 @@ class UserDAO extends BaseDAO {
   }
 }
 
-// After (enterprise DAO)
-const EnterpriseBaseDAO = require('../core/lib/EnterpriseBaseDAO')
+// After (enhanced DAO)
+const AuditableDAO = require('../core/lib/AuditableDAO')
 
-class UserDAO extends EnterpriseBaseDAO {
+class UserDAO extends AuditableDAO {
   static get tableName() { return 'users' }
   static get piiFields() { return ['email', 'name', 'mobileNumber'] }
   
@@ -251,28 +271,49 @@ class UserDAO extends EnterpriseBaseDAO {
 ### Step 3: Initialize Enterprise Services
 
 ```javascript
-// In your application startup
-const EnterpriseEncryption = require('./core/lib/EnterpriseEncryption')
-const EnterpriseCacheService = require('./core/lib/EnterpriseCacheService')
-const EnterpriseConnectionPool = require('./core/lib/EnterpriseConnectionPool')
+// In your application startup (main.js)
+const { ConnectionPool, AuditableDAO } = require('backend-core')
 
-// Initialize services
-const encryption = new EnterpriseEncryption({
-  masterKey: process.env.ENCRYPTION_MASTER_KEY
+// Initialize connection pool with primary and replica configuration
+const connectionPool = new ConnectionPool({
+  primary: {
+    host: config.knex.connection.host,
+    port: config.knex.connection.port,
+    database: config.knex.connection.database,
+    user: config.knex.connection.user,
+    password: config.knex.connection.password,
+    charset: config.knex.connection.charset
+  },
+  replicas: [
+    // Optional read replicas for scaling
+    // {
+    //   host: 'replica1.db.com',
+    //   port: 5432,
+    //   database: 'myapp',
+    //   user: 'reader',
+    //   password: 'password'
+    // }
+  ],
+  pool: {
+    min: 2,
+    max: 20
+  },
+  healthCheck: {
+    enabled: true,
+    interval: 30000
+  }
 })
 
-const cache = new EnterpriseCacheService({
-  memory: { enabled: true, stdTTL: 300 },
-  redis: { enabled: true, stdTTL: 3600 }
-})
+// Initialize the connection pool
+await connectionPool.initialize()
 
-const connectionPool = new EnterpriseConnectionPool({
-  primary: { /* database config */ },
-  replicas: [ /* replica configs */ ]
-})
+// Set the connection pool for all enhanced DAOs
+AuditableDAO.setConnectionPool(connectionPool)
 
-// Initialize enterprise DAOs
-UserDAO.initialize({ encryption, cache })
+// Set up Objection.js with primary connection
+const knexInstance = connectionPool.getWriteConnection()
+Model.knex(knexInstance)
+```
 ```
 
 ## Performance Monitoring
@@ -430,7 +471,7 @@ const passwordRule = new EnterpriseBaseModel.Rule({
 
 ```javascript
 // Enable debug logging
-const cache = new EnterpriseCacheService({
+const cache = new CacheManager({
   monitoring: { 
     enabled: true, 
     logLevel: 'debug' 
@@ -438,13 +479,13 @@ const cache = new EnterpriseCacheService({
 })
 
 // Check health status
-const health = await EnterpriseBaseDAO.healthCheck()
+const health = await AuditableDAO.healthCheck()
 console.log('Database health:', health)
 ```
 
 ## API Reference
 
-### EnterpriseBaseDAO Methods
+### AuditableDAO Methods
 
 - `createWithAudit(data, userId, trx)` - Create with audit trail
 - `updateWithAudit(id, data, userId, version, trx)` - Update with optimistic locking
@@ -453,7 +494,7 @@ console.log('Database health:', health)
 - `getAuditHistory(id, limit)` - Get change history
 - `anonymizeUserData(userId, trx)` - GDPR anonymization
 
-### EnterpriseEncryption Methods
+### CryptoService Methods
 
 - `encrypt(value, keyId)` - Encrypt single value
 - `decrypt(encryptedValue)` - Decrypt single value
@@ -462,7 +503,7 @@ console.log('Database health:', health)
 - `anonymizePIIFields(data, fields)` - GDPR anonymization
 - `rotateKeys()` - Rotate encryption keys
 
-### EnterpriseCacheService Methods
+### CacheManager Methods
 
 - `get(key, options)` - Get from cache
 - `set(key, value, ttl, options)` - Set cache value
@@ -473,4 +514,4 @@ console.log('Database health:', health)
 
 ## Conclusion
 
-The Enterprise Database Layer provides a comprehensive foundation for production applications requiring security, performance, and compliance. All features are designed to be backward-compatible and can be gradually adopted in existing applications.
+The Enhanced Database Layer provides a comprehensive foundation for production applications requiring security, performance, and compliance. All features are designed to be backward-compatible and can be gradually adopted in existing applications.

@@ -3,7 +3,7 @@ require('dotenv').config()
 const { Model } = require('objection')
 const Knex = require('knex')
 
-const { Server, assert } = require('backend-core')
+const { Server, assert, ConnectionPool, AuditableDAO } = require('backend-core')
 const controllers = require('./controllers')
 const config = require('./config')
 const middlewares = require('./middlewares')
@@ -13,6 +13,7 @@ const logger = require('./util/logger')
 // Global state management
 let server = null
 let knexInstance = null
+let connectionPool = null
 
 /**
  * Main application entry point
@@ -65,7 +66,34 @@ async function validateEnvironment() {
  */
 async function initializeDatabase() {
   try {
-    knexInstance = Knex(config.knex)
+    // Initialize Connection Pool
+    connectionPool = new ConnectionPool({
+      primary: {
+        host: config.knex.connection.host,
+        port: config.knex.connection.port,
+        database: config.knex.connection.database,
+        user: config.knex.connection.user,
+        password: config.knex.connection.password,
+        charset: config.knex.connection.charset
+      },
+      pool: {
+        min: config.knex.pool?.min || 2,
+        max: config.knex.pool?.max || 20
+      },
+      healthCheck: {
+        enabled: true,
+        interval: 30000
+      }
+    })
+
+    // Initialize the connection pool
+    await connectionPool.initialize()
+    
+    // Set the connection pool for all enterprise DAOs
+    AuditableDAO.setConnectionPool(connectionPool)
+    
+    // Get the primary connection for Objection.js
+    knexInstance = connectionPool.getWriteConnection()
     Model.knex(knexInstance)
     
     // Test database connection
@@ -76,7 +104,8 @@ async function initializeDatabase() {
       host: config.knex.connection.host,
       port: config.knex.connection.port,
       database: config.knex.connection.database,
-      user: config.knex.connection.user
+      user: config.knex.connection.user,
+      poolStatus: 'Connection Pool Active'
     })
     
   } catch (error) {
@@ -210,7 +239,16 @@ async function gracefulShutdown(exitCode = 0) {
     )
   }
   
-  // Close database connection if initialized
+  // Close connection pool if initialized
+  if (connectionPool && typeof connectionPool.shutdown === 'function') {
+    shutdownPromises.push(
+      connectionPool.shutdown()
+        .then(() => logger.info('Connection pool closed successfully'))
+        .catch(error => logger.error('Error closing connection pool', { error: error.message }))
+    )
+  }
+  
+  // Close database connection if initialized (fallback)
   if (knexInstance && typeof knexInstance.destroy === 'function') {
     shutdownPromises.push(
       knexInstance.destroy()

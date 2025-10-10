@@ -1,8 +1,8 @@
 const joi = require('joi')
-const { BaseModel } = require('backend-core')
+const { BaseModel } = require('./BaseModel')
 
 /**
- * EnterpriseBaseModel - Enhanced base model with enterprise validation
+ * ValidatedModel - Enhanced base model with enterprise validation
  * 
  * Features:
  * - Advanced validation with context awareness
@@ -15,7 +15,7 @@ const { BaseModel } = require('backend-core')
  * @extends BaseModel
  * @version 1.0.0
  */
-class EnterpriseBaseModel extends BaseModel {
+class ValidatedModel extends BaseModel {
   /**
    * Enhanced Rule class with enterprise features
    */
@@ -476,4 +476,4 @@ class EnterpriseBaseModel extends BaseModel {
   }
 }
 
-module.exports = EnterpriseBaseModel
+module.exports = ValidatedModel

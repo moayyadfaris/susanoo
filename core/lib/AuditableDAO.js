@@ -1,9 +1,17 @@
 const { Model } = require('objection')
 const { v4: uuidV4 } = require('uuid')
-const logger = require('../../util/logger')
+const { BaseDAO } = require('./BaseDAO')
+const CryptoService = require('./CryptoService')
+const { Logger } = require('./Logger')
+
+// Create logger instance for enterprise DAO
+const logger = new Logger({
+  appName: 'SusanooAPI-EnterpriseDAO',
+  raw: process.env.NODE_ENV !== 'development'
+})
 
 /**
- * EnterpriseBaseDAO - Enhanced base DAO with enterprise features
+ * AuditableDAO - Enhanced base DAO with enterprise features
  * 
  * Features:
  * - Audit trails (who, when, what changed)
@@ -17,7 +25,38 @@ const logger = require('../../util/logger')
  * @extends Model
  * @version 1.0.0
  */
-class EnterpriseBaseDAO extends Model {
+class AuditableDAO extends Model {
+  // Static reference to enterprise connection pool
+  static enterpriseConnectionPool = null
+
+  /**
+   * Set the enterprise connection pool for all DAOs
+   * @param {EnterpriseConnectionPool} connectionPool
+   */
+  static setConnectionPool(connectionPool) {
+    this.enterpriseConnectionPool = connectionPool
+  }
+
+  /**
+   * Get read connection (replica if available, otherwise primary)
+   */
+  static getReadConnection() {
+    if (this.enterpriseConnectionPool) {
+      return this.enterpriseConnectionPool.getReadConnection()
+    }
+    return this.knex()
+  }
+
+  /**
+   * Get write connection (always primary)
+   */
+  static getWriteConnection() {
+    if (this.enterpriseConnectionPool) {
+      return this.enterpriseConnectionPool.getWriteConnection()
+    }
+    return this.knex()
+  }
+
   /**
    * Common schema properties for all enterprise tables
    */
@@ -466,4 +505,4 @@ class EnterpriseBaseDAO extends Model {
   }
 }
 
-module.exports = EnterpriseBaseDAO
+module.exports = AuditableDAO
