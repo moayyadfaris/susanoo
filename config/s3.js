@@ -3,7 +3,7 @@ const { ErrorWrapper } = require('../core/lib/ErrorWrapper')
 const errorCodes = require('../core/lib/errorCodes')
 const { v4: uuidV4 } = require('uuid')
 const path = require('path')
-const aws = require('aws-sdk')
+const { S3Client } = require('@aws-sdk/client-s3')
 const logger = require('../util/logger')
 const S3UploadClient = require('../clients/S3UploadClient')
 const CustomMulterS3 = require('../middlewares/CustomMulterS3')
@@ -82,43 +82,29 @@ class S3Config extends BaseConfig {
    */
   initializeS3Client() {
     try {
-      // Configure AWS SDK v2 with proper credentials and settings
-      aws.config.update({
-        accessKeyId: this.accessKeyId,
-        secretAccessKey: this.secretAccessKey,
+      // Create S3 client with enhanced configuration (AWS SDK v3)
+      const s3Client = new S3Client({
         region: this.region,
-        signatureVersion: 'v4'
+        credentials: {
+          accessKeyId: this.accessKeyId,
+          secretAccessKey: this.secretAccessKey
+        },
+        requestHandler: {
+          requestTimeout: 30000, // 30 seconds timeout
+          connectionTimeout: 5000 // 5 seconds connection timeout
+        },
+        maxAttempts: 3
       })
 
-      // Create S3 client with enhanced configuration
-      const s3Client = new aws.S3({
-        apiVersion: '2006-03-01',
-        region: this.region,
-        accessKeyId: this.accessKeyId,
-        secretAccessKey: this.secretAccessKey,
-        httpOptions: {
-          timeout: 30000, // 30 seconds timeout
-          connectTimeout: 5000 // 5 seconds connection timeout
-        },
-        maxRetries: 3,
-        retryDelayOptions: {
-          customBackoff: function(retryCount) {
-            return Math.pow(2, retryCount) * 100 // Exponential backoff
-          }
-        },
-        s3ForcePathStyle: false,
-        s3BucketEndpoint: false
-      })
-
-      // Test that the client has the expected methods
-      if (typeof s3Client.upload !== 'function') {
-        throw new Error('S3 client missing required upload method')
+      // Test that the client has required methods (AWS SDK v3)
+      if (typeof s3Client.send !== 'function') {
+        throw new Error('S3 client missing required send method')
       }
 
       logger.info('S3 client initialized successfully', { 
         region: this.region, 
         bucket: this.bucket,
-        awsVersion: aws.VERSION || 'unknown'
+        awsVersion: 'v3'
       })
 
       return s3Client
@@ -338,11 +324,13 @@ class S3Config extends BaseConfig {
 
 
   /**
-   * Test S3 connection
+   * Test S3 connection with AWS SDK v3
    */
   async testConnection() {
     try {
-      await this.s3Client.headBucket({ Bucket: this.bucket }).promise()
+      const { HeadBucketCommand } = require('@aws-sdk/client-s3')
+      const command = new HeadBucketCommand({ Bucket: this.bucket })
+      await this.s3Client.send(command)
       logger.info('S3 connection test successful', { bucket: this.bucket })
       return true
     } catch (error) {

@@ -1,4 +1,5 @@
-const AWS = require('aws-sdk')
+const { S3Client: AWSS3Client, PutObjectCommand, DeleteObjectsCommand, GetObjectCommand } = require('@aws-sdk/client-s3')
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
 const { assert, AbstractLogger } = require('backend-core')
 const $ = Symbol('private scope')
 
@@ -10,13 +11,14 @@ class S3Client {
     assert.string(options.bucket, { notEmpty: true })
     assert.instanceOf(options.logger, AbstractLogger)
 
-    AWS.config.update({
-      accessKeyId: options.access,
-      secretAccessKey: options.secret
-    })
-
     this[$] = {
-      client: new AWS.S3(),
+      client: new AWSS3Client({
+        credentials: {
+          accessKeyId: options.access,
+          secretAccessKey: options.secret
+        },
+        region: options.region || 'us-east-1'
+      }),
       bucket: options.bucket,
       logger: options.logger
     }
@@ -30,45 +32,44 @@ class S3Client {
     }
     assert.string(fileName, { notEmpty: true })
 
-    return new Promise((resolve, reject) => {
-      const params = {
+    try {
+      const command = new PutObjectCommand({
         Bucket: this[$].bucket,
         Key: fileName,
         Body: buffer,
         ContentType: 'image/jpeg'
-      }
-
-      this[$].client.upload(params, (error, data) => {
-        if (error) {
-          this[$].logger.error(`${this.constructor.name}: unable to upload objects`, error)
-          return reject(error)
-        }
-        resolve(data.Location)
       })
-    })
+
+      const result = await this[$].client.send(command)
+      const location = `https://${this[$].bucket}.s3.amazonaws.com/${fileName}`
+      
+      this[$].logger.debug(`${this.constructor.name}: Successfully uploaded ${fileName}`)
+      return location
+    } catch (error) {
+      this[$].logger.error(`${this.constructor.name}: unable to upload objects`, error)
+      throw error
+    }
   }
 
   async batchRemove (keysArr) {
     assert.array(keysArr, { of: [String], notEmpty: true })
 
-    return new Promise((resolve, reject) => {
-      const params = {
+    try {
+      const command = new DeleteObjectsCommand({
         Bucket: this[$].bucket,
         Delete: {
           Objects: keysArr.map(fileKey => ({ Key: fileKey })),
           Quiet: false
         }
-      }
-
-      this[$].client.deleteObjects(params, (error, data) => {
-        if (error) {
-          this[$].logger.error(`${this.constructor.name}: unable to remove objects`, error)
-          return reject(error)
-        }
-
-        resolve(data)
       })
-    })
+
+      const result = await this[$].client.send(command)
+      this[$].logger.debug(`${this.constructor.name}: Successfully deleted ${keysArr.length} objects`)
+      return result
+    } catch (error) {
+      this[$].logger.error(`${this.constructor.name}: unable to remove objects`, error)
+      throw error
+    }
   }
 }
 

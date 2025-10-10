@@ -6,7 +6,8 @@
   "dependencies": {
     "joi": "^18.0.1",
     "@sentry/node": "^10.17.0",
-    "aws-sdk": "^2.1692.0",
+    "@aws-sdk/client-s3": "^3.687.0",
+    "@aws-sdk/s3-request-presigner": "^3.687.0",
     "body-parser": "^1.20.3",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",

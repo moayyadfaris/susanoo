@@ -1,21 +1,21 @@
 const { ErrorWrapper, errorCodes } = require('backend-core')
-const aws = require('aws-sdk')
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3')
 const { v4: uuidV4 } = require('uuid')
 const path = require('path')
 const logger = require('../util/logger')
 
 /**
- * S3UploadClient - Modern S3 upload handler without multer-s3 dependency
+ * S3UploadClient - Modern S3 upload handler with AWS SDK v3
  * 
  * Features:
- * - Direct S3 uploads using AWS SDK v2
+ * - Direct S3 uploads using AWS SDK v3
  * - File validation and security
  * - Progress tracking
  * - Metadata management
  * - Error handling and recovery
  * - Multi-part upload support for large files
  * 
- * @version 1.0.0
+ * @version 2.0.0
  */
 class S3UploadClient {
   constructor(config) {
