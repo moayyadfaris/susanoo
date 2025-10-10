@@ -35,7 +35,6 @@ class QueryMiddleware extends BaseMiddleware {
       // Security settings
       enableSanitization: options.enableSanitization !== false,
       enableValidation: options.enableValidation !== false,
-      enableRateLimiting: options.enableRateLimiting || false,
       
       // Metadata settings
       addProcessingMetadata: options.addProcessingMetadata || false, // Disabled by default
@@ -418,11 +417,6 @@ class QueryMiddleware extends BaseMiddleware {
    * Applies security measures to the request
    */
   async applySecurity(req) {
-    // Rate limiting preparation
-    if (this.config.enableRateLimiting) {
-      req.rateLimitKey = this.generateRateLimitKey(req)
-    }
-    
     // Add security headers
     req.securityContext = {
       ip: req.ip || req.connection.remoteAddress,
@@ -549,15 +543,6 @@ class QueryMiddleware extends BaseMiddleware {
    */
   generateRequestId() {
     return crypto.randomBytes(8).toString('hex')
-  }
-  
-  /**
-   * Generates rate limit key
-   */
-  generateRateLimitKey(req) {
-    const ip = req.ip || req.connection.remoteAddress || 'unknown'
-    const userAgent = req.userAgent || 'unknown'
-    return crypto.createHash('md5').update(`${ip}:${userAgent}`).digest('hex')
   }
   
   /**

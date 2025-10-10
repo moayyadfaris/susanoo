@@ -424,6 +424,13 @@ class Server {
         // Add request ID for tracing
         req.id = require('crypto').randomBytes(16).toString('hex')
         
+        // Set application-specific headers
+        res.setHeader('X-Request-ID', req.id)
+        res.setHeader('Server', 'SusanooAPIServer')
+        res.setHeader('X-Node-Version', process.version)
+        res.setHeader('X-Environment', process.env.NODE_ENV || 'development')
+        res.setHeader('X-Timestamp', new Date().toISOString())
+        
         // Track response time
         res.on('finish', () => {
           const duration = performance.now() - startTime

@@ -1,5 +1,6 @@
 const { BaseMiddleware, ErrorWrapper, errorCodes } = require('backend-core')
 const logger = require('../util/logger')
+const crypto = require('crypto')
 
 /**
  * Enhanced ContentTypeMiddleware - Advanced content type validation and security
@@ -83,7 +84,7 @@ class ContentTypeMiddleware extends BaseMiddleware {
   handler() {
     return async (req, res, next) => {
       const startTime = Date.now()
-      const requestId = req.requestId || this.generateRequestId()
+      const requestId = req.requestMetadata?.id || req.id || req.requestId || crypto.randomBytes(16).toString('hex')
       
       try {
         // Enhanced request logging
@@ -311,9 +312,6 @@ class ContentTypeMiddleware extends BaseMiddleware {
   completeRequest(req, res, next, startTime, requestId) {
     const processingTime = Date.now() - startTime
     
-    // Add security headers
-    this.addSecurityHeaders(res)
-    
     // Log successful validation
     logger.debug('Content type middleware completed', {
       requestId,
@@ -324,25 +322,6 @@ class ContentTypeMiddleware extends BaseMiddleware {
 
     next()
   }
-
-  /**
-   * Add security headers
-   */
-  addSecurityHeaders(res) {
-    // Prevent MIME type sniffing
-    res.setHeader('X-Content-Type-Options', 'nosniff')
-    
-    // Add frame options for security
-    if (!res.getHeader('X-Frame-Options')) {
-      res.setHeader('X-Frame-Options', 'DENY')
-    }
-    
-    // Add XSS protection
-    if (!res.getHeader('X-XSS-Protection')) {
-      res.setHeader('X-XSS-Protection', '1; mode=block')
-    }
-  }
-
   /**
    * Normalize content type by removing parameters
    */
@@ -382,12 +361,6 @@ class ContentTypeMiddleware extends BaseMiddleware {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  /**
-   * Generate unique request ID
-   */
-  generateRequestId() {
-    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
 }
 
 module.exports = { ContentTypeMiddleware }
