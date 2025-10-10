@@ -18,7 +18,7 @@ class AppConfig extends BaseConfig {
     this.resetPasswordUrl = this.set('RESET_PASSWORD_URL', this.joi.string())
     this.qrCodeServiceToken = this.set('QR_CODE_SERVICE_TOKEN', this.joi.string())
     this.socketPort = this.set('SOCKET_PORT', this.joi.number().port().required(), 7000)
-    this.cookieSecret = this.set('COOKIE_SECRET', this.joi.string().min(10))
+    this.cookieSecret = this.set('COOKIE_SECRET', this.joi.string().min(32))
   }
 
   async init () {
