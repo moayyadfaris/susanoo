@@ -258,13 +258,13 @@ describe('👤 User Creation API Tests', function() {
 
     it('should reject weak passwords', async function() {
       const weakPasswords = [
-        'short',           // Too short
-        'nouppercase123',  // No uppercase
-        'NOLOWERCASE123',  // No lowercase
-        'NoNumbers!',      // No numbers
-        'NoSpecial123',    // No special characters
-        '12345678',        // Only numbers
-        'abcdefgh'         // Only letters
+        'short', // Too short
+        'nouppercase123', // No uppercase
+        'NOLOWERCASE123', // No lowercase
+        'NoNumbers!', // No numbers
+        'NoSpecial123', // No special characters
+        '12345678', // Only numbers
+        'abcdefgh' // Only letters
       ]
       
       for (const weakPassword of weakPasswords) {
@@ -285,11 +285,11 @@ describe('👤 User Creation API Tests', function() {
 
     it('should reject invalid mobile number formats', async function() {
       const invalidMobileNumbers = [
-        '123',              // Too short
+        '123', // Too short
         '123456789012345678', // Too long
-        'abc1234567',       // Contains letters
-        '',                 // Empty
-        '+++1234567890'     // Invalid characters
+        'abc1234567', // Contains letters
+        '', // Empty
+        '+++1234567890' // Invalid characters
       ]
       
       for (const invalidMobile of invalidMobileNumbers) {
@@ -309,12 +309,12 @@ describe('👤 User Creation API Tests', function() {
 
     it('should reject invalid name formats', async function() {
       const invalidNames = [
-        'A',                    // Too short
-        'A'.repeat(51),         // Too long
-        'Test123',              // Contains numbers
-        'Test@User',            // Invalid characters
-        '',                     // Empty
-        '   ',                  // Only spaces
+        'A', // Too short
+        'A'.repeat(51), // Too long
+        'Test123', // Contains numbers
+        'Test@User', // Invalid characters
+        '', // Empty
+        '   ', // Only spaces
         'Test  Multiple  Spaces' // Multiple spaces (should be normalized)
       ]
       
@@ -626,7 +626,7 @@ describe('👤 User Creation API Tests', function() {
     it('should prevent SQL injection in user data', async function() {
       const userData = TestDataFactory.generateUserData({
         countryId: validCountry.id,
-        name: "Robert'; DROP TABLE users; --"
+        name: 'Robert\'; DROP TABLE users; --'
       })
       
       const response = await chai.request(baseUrl)

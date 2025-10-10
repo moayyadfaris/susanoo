@@ -10,7 +10,7 @@ exports.up = function(knex) {
       table.timestamp('createdAt').defaultTo(knex.fn.now()).notNull()
       table.timestamp('updatedAt').defaultTo(knex.fn.now()).notNull()
     })
-};
+}
 
 exports.down = knex => knex.schema.dropTable('attachments')
 

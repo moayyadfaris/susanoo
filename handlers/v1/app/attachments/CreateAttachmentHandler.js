@@ -656,12 +656,12 @@ class CreateAttachmentHandler extends BaseHandler {
    */
   static containsMaliciousPatterns(fileName) {
     const maliciousPatterns = [
-      /\.\./,  // Directory traversal
-      /<script/i,  // Script injection
-      /javascript:/i,  // JavaScript protocol
-      /vbscript:/i,   // VBScript protocol
-      /\0/,    // Null byte
-      /[<>:"|?*]/  // Invalid filename characters
+      /\.\./, // Directory traversal
+      /<script/i, // Script injection
+      /javascript:/i, // JavaScript protocol
+      /vbscript:/i, // VBScript protocol
+      /\0/, // Null byte
+      /[<>:"|?*]/ // Invalid filename characters
     ]
 
     return maliciousPatterns.some(pattern => pattern.test(fileName))

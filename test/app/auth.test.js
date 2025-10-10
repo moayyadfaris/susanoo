@@ -33,7 +33,7 @@ describe('[APP:] AUTH CONTROLLER', function () {
       chai.request(appUrl)
         .post('/api/v1/auth/login')
         .set('content-type', 'application/json')
-        .send({ password: testPassword, email_or_mobile_number: "fake@susano.dev", fingerprint })
+        .send({ password: testPassword, email_or_mobile_number: 'fake@susano.dev', fingerprint })
         .end((err, res) => {
           expect(err).to.be.null
           expect(res.status).to.equal(404)

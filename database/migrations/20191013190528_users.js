@@ -18,8 +18,8 @@ exports.up = (knex, Promise) => {
       table.string('resetPasswordOTP')
       table.string('resetPasswordCode')
       table.boolean('isVerified').notNull().defaultTo(false)
-      table.string('verifyCode');
-      table.text('updateToken');
+      table.string('verifyCode')
+      table.text('updateToken')
       table.text('emailConfirmToken')
       table.boolean('isActive').defaultTo(true)
       table.integer('countryId').references('id').inTable('countries')

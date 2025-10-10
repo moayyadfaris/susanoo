@@ -41,7 +41,7 @@ exports.up = function(knex) {
     
     console.log('✅ Added enhanced user fields: referralCode, acceptedTermsAt, acceptedPrivacyAt, marketingConsent, verifyCodeSentAt, metadata')
   })
-};
+}
 
 /**
  * @param { import("knex").Knex } knex
@@ -59,4 +59,4 @@ exports.down = function(knex) {
     
     console.log('✅ Removed enhanced user fields')
   })
-};
+}

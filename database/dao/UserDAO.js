@@ -209,9 +209,9 @@ class UserDAO extends BaseDAO {
       ]
       
       const allColumns = ['id', 'name', 'bio', 'role', 'email', 'mobileNumber', 'isVerified', 
-                         'isActive', 'countryId', 'deviceId', 'preferredLanguage', 
-                         'isConfirmedRegistration', 'createdAt', 'updatedAt', 'newMobileNumber',
-                         'profileImageId', 'lastLogoutAt']
+        'isActive', 'countryId', 'deviceId', 'preferredLanguage', 
+        'isConfirmedRegistration', 'createdAt', 'updatedAt', 'newMobileNumber',
+        'profileImageId', 'lastLogoutAt']
       
       const safeColumns = allColumns.filter(col => !sensitiveFields.includes(col))
       query = query.select(safeColumns)
@@ -304,9 +304,9 @@ class UserDAO extends BaseDAO {
       
       // Get all column names and exclude sensitive ones - based on actual migration
       const allColumns = ['id', 'name', 'bio', 'role', 'email', 'mobileNumber', 'isVerified', 
-                         'isActive', 'countryId', 'deviceId', 'preferredLanguage', 
-                         'isConfirmedRegistration', 'createdAt', 'updatedAt', 'newMobileNumber',
-                         'profileImageId', 'lastLogoutAt']
+        'isActive', 'countryId', 'deviceId', 'preferredLanguage', 
+        'isConfirmedRegistration', 'createdAt', 'updatedAt', 'newMobileNumber',
+        'profileImageId', 'lastLogoutAt']
       
       const safeColumns = allColumns.filter(col => !sensitiveFields.includes(col))
       query = query.select(safeColumns.map(col => `users.${col}`))

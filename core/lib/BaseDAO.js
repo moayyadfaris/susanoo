@@ -307,8 +307,8 @@ class BaseDAO extends Model {
       if (!options.includeHidden && this.hiddenFields && this.tableName === 'users') {
         // For user table, exclude sensitive fields
         const selectFields = ['id', 'name', 'bio', 'role', 'email', 'mobileNumber', 
-                             'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
-                             'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
+          'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
+          'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
         query = query.select(selectFields)
       }
       
@@ -341,8 +341,8 @@ class BaseDAO extends Model {
       if (!options.includeHidden && this.hiddenFields && this.tableName === 'users') {
         // For user table, exclude sensitive fields
         const selectFields = ['id', 'name', 'bio', 'role', 'email', 'mobileNumber', 
-                             'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
-                             'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
+          'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
+          'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
         query = query.select(selectFields)
       }
       
@@ -359,7 +359,7 @@ class BaseDAO extends Model {
     } catch (error) {
       throw this.enhanceError(error, 'baseGetWhere', { where, options })
     }
-  }  /**
+  } /**
    * Enhanced list method with advanced filtering and pagination
    */
   static async baseGetList(params = {}) {
@@ -411,8 +411,8 @@ class BaseDAO extends Model {
       if (this.hiddenFields && this.tableName === 'users') {
         // For user table, exclude sensitive fields
         const selectFields = ['id', 'name', 'bio', 'role', 'email', 'mobileNumber', 
-                             'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
-                             'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
+          'isVerified', 'isActive', 'countryId', 'preferredLanguage', 
+          'profileImageId', 'lastLogoutAt', 'createdAt', 'updatedAt']
         query = query.select(selectFields)
       }
       

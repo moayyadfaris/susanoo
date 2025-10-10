@@ -21,7 +21,7 @@
     "coverage": "NODE_PATH=. nyc --reporter=html --reporter=text mocha test/**/*.test.js",
     "update:packages": "node wipe-dependencies.js && rm -rf node_modules && npm update --save-dev && npm update --save"
   },
-  "husky1": {
+  "husky": {
     "hooks": {
       "pre-commit": "npm run lint"
     }

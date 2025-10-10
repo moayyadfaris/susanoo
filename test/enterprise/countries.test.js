@@ -364,7 +364,7 @@ describe('🌍 Countries API Tests', function() {
     it('should handle SQL injection attempts in search', async function() {
       const response = await chai.request(baseUrl)
         .get('/api/v1/countries')
-        .query({ search: "'; DROP TABLE countries; --" })
+        .query({ search: '\'; DROP TABLE countries; --' })
 
       // Should either return empty results or validate input safely
       expect(response.status).to.be.oneOf([200, 400])

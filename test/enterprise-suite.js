@@ -25,12 +25,12 @@ const testConfig = {
 
 // Test suites in order of execution
 const testSuites = [
-  'enterprise/countries.test.js',     // No auth required - run first
+  'enterprise/countries.test.js', // No auth required - run first
   'enterprise/availability.test.js', // No auth required  
-  'enterprise/users.test.js',        // User creation
-  'enterprise/auth.test.js',         // Authentication
+  'enterprise/users.test.js', // User creation
+  'enterprise/auth.test.js', // Authentication
   'enterprise/user-retrieval.test.js', // User access
-  'enterprise/attachments.test.js'   // File uploads
+  'enterprise/attachments.test.js' // File uploads
 ]
 
 /**

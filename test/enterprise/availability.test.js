@@ -602,7 +602,7 @@ describe('📧 User Availability API Tests', function() {
         .post('/api/v1/users/availability')
         .set('Content-Type', 'application/json')
         .send({
-          email: "test@example.com'; DROP TABLE users; --"
+          email: 'test@example.com\'; DROP TABLE users; --'
         })
 
       // Should either validate as invalid email or handle safely
