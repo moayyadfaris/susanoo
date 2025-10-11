@@ -358,6 +358,41 @@ class RedisClient extends EventEmitter {
       throw error
     }
   }
+
+  /**
+   * Atomic increment of a key
+   */
+  async incr(key) {
+    assert.string(key, { required: true, notEmpty: true })
+    await this.ensureConnection()
+    try {
+      this.incrementMetrics('commands')
+      const result = await this[$].client.incr(key)
+      this[$].logger.debug('Redis INCR operation completed', { key, result })
+      return result
+    } catch (error) {
+      this.handleError('incr', error, { key })
+      throw error
+    }
+  }
+
+  /**
+   * Set key expiration in seconds
+   */
+  async expire(key, seconds) {
+    assert.string(key, { required: true, notEmpty: true })
+    assert.integer(seconds, { required: true, min: 1 })
+    await this.ensureConnection()
+    try {
+      this.incrementMetrics('commands')
+      const result = await this[$].client.expire(key, seconds)
+      this[$].logger.debug('Redis EXPIRE operation completed', { key, seconds, result })
+      return result
+    } catch (error) {
+      this.handleError('expire', error, { key, seconds })
+      throw error
+    }
+  }
   
   /**
    * Health check

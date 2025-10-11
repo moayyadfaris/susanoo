@@ -436,18 +436,46 @@ class ConnectionPool {
    */
   getMetrics() {
     this._updateConnectionMetrics()
-    
+
+    const nowIso = new Date().toISOString()
     const poolMetrics = {}
+
     for (const [name, pool] of this.pools.entries()) {
+      const clientPool = pool?.knex?.client?.pool
+      let used = 0
+      let free = 0
+
+      try {
+        used = typeof clientPool?.numUsed === 'function' ? clientPool.numUsed() : 0
+        free = typeof clientPool?.numFree === 'function' ? clientPool.numFree() : 0
+      } catch {
+        // ignore pool stats errors; keep zeros
+      }
+
       poolMetrics[name] = {
-        isHealthy: pool.isHealthy,
-        lastHealthCheck: pool.lastHealthCheck,
-        ...pool.metrics
+        isHealthy: !!pool.isHealthy,
+        lastHealthCheck: pool.lastHealthCheck ? new Date(pool.lastHealthCheck).toISOString() : null,
+        connections: {
+          used,
+          free,
+          total: used + free
+        },
+        config: {
+          host: pool?.config?.host,
+          database: pool?.config?.database
+        },
+        queryCount: pool.metrics?.queryCount || 0,
+        errorCount: pool.metrics?.errorCount || 0,
+        slowQueryCount: pool.metrics?.slowQueryCount || 0,
+        avgResponseTime: pool.metrics?.avgResponseTime || 0
       }
     }
-    
+
     return {
-      overall: { ...this.metrics },
+      overall: {
+        ...this.metrics,
+        timestamp: nowIso
+      },
       pools: poolMetrics
     }
   }

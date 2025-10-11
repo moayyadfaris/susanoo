@@ -97,9 +97,7 @@ class UserDAO extends BaseDAO {
 
   static async getByEmail (email, throwError = true) {
     assert.validate(email, UserModel.schema.email, { required: true })
-    console.log('� UserDAO.getByEmail called with email:', email)
     const data = await this.query().where({ email }).first()
-    console.log('� UserDAO.getByEmail found user:', data ? data.id : 'not found')
     if (throwError) {
       if (!data) throw this.errorEmptyResponse()
     }

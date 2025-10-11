@@ -25,6 +25,12 @@ class TokenConfig extends BaseConfig {
       expiresIn: this.set('TOKEN_REFRESH_EXP', this.joi.string().regex(expiresInRegexp).required())
     }
 
+    // Optional shorter refresh expiry for non-remember-me sessions
+    // If not set, code will fall back to TOKEN_REFRESH_EXP
+    this.refreshShort = {
+      expiresIn: this.set('TOKEN_REFRESH_SHORT_EXP', this.joi.string().regex(expiresInRegexp), this.refresh.expiresIn)
+    }
+
     this.resetPassword = {
       type: 'TOKEN_TYPE_RESET_PASSWORD',
       secret: this.set('TOKEN_RESET_PASSWORD_SECRET', this.joi.string().min(30).max(100).required()),

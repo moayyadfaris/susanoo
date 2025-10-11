@@ -54,10 +54,17 @@ const DEFAULT_CONFIG = Object.freeze({
   helmet: {
     contentSecurityPolicy: process.env.NODE_ENV === 'production',
     crossOriginEmbedderPolicy: false,
-    hsts: process.env.NODE_ENV === 'production',
+    // Enable HSTS only in production with safe defaults (seconds)
+    hsts: process.env.NODE_ENV === 'production' ? {
+      maxAge: 15552000, // 180 days
+      includeSubDomains: true,
+      preload: false
+    } : false,
     noSniff: true,
     frameguard: { action: 'deny' },
-    xssFilter: true
+    // Conservative default; adjust if you need referrers
+    referrerPolicy: { policy: 'no-referrer' }
+    
   }
 })
 
@@ -123,7 +130,13 @@ class Server {
     corsOptions = DEFAULT_CONFIG.cors,
     rateLimitOptions = DEFAULT_CONFIG.rateLimit,
     enableMetrics = true,
-    enableSwagger = true
+    enableSwagger = true,
+    metricsProviders = [],
+    // Readiness checks: functions or { name, checker }
+    readinessChecks = [],
+    readinessTimeoutMs = 2000,
+    // Prometheus text-format metrics
+    enablePrometheus = process.env.ENABLE_PROMETHEUS === '1'
   }) {
     // Enhanced parameter validation
     this.validateParameters({
@@ -138,7 +151,11 @@ class Server {
       corsOptions,
       rateLimitOptions,
       enableMetrics,
-      enableSwagger
+      enableSwagger,
+      metricsProviders,
+      readinessChecks,
+      readinessTimeoutMs,
+      enablePrometheus
     })
     
     // Initialize private scope
@@ -155,7 +172,11 @@ class Server {
         corsOptions,
         rateLimitOptions,
         enableMetrics,
-        enableSwagger
+        enableSwagger,
+        metricsProviders,
+        readinessChecks,
+        readinessTimeoutMs,
+        enablePrometheus
       },
       app: null,
       server: null,
@@ -181,8 +202,7 @@ class Server {
       nodeVersion: process.version
     })
     
-    // Return the promise from start method
-    return this.start()
+    // Do not start automatically; caller should invoke start()
   }
   
   /**
@@ -201,7 +221,11 @@ class Server {
     corsOptions,
     rateLimitOptions,
     enableMetrics,
-    enableSwagger
+    enableSwagger,
+    metricsProviders,
+    readinessChecks,
+    readinessTimeoutMs,
+    enablePrometheus
   }) {
     // Basic parameter validation
     assert.integer(port, { required: true, positive: true })
@@ -245,41 +269,41 @@ class Server {
     if (rateLimitOptions && !validator.isObject(rateLimitOptions)) {
       throw new Error('Rate limit options must be an object')
     }
-  }
-  
-  /**
-   * Get server configuration and runtime statistics
-   * @returns {Object} Configuration and statistics
-   */
-  getStatus() {
-    const config = this[$].config
-    const metrics = this[$].metrics
-    
-    return {
-      config: {
-        port: config.port,
-        host: config.host,
-        environment: process.env.NODE_ENV || 'development',
-        enableRateLimit: config.enableRateLimit,
-        enableMetrics: config.enableMetrics,
-        enableSwagger: config.enableSwagger
-      },
-      runtime: {
-        uptime: Date.now() - this[$].startTime,
-        isShuttingDown: this[$].isShuttingDown,
-        nodeVersion: process.version,
-        pid: process.pid,
-        memory: process.memoryUsage(),
-        ...(metrics && {
-          metrics: {
-            ...metrics,
-            averageResponseTime: metrics.requests > 0 ? 
-              (Date.now() - metrics.startTime) / metrics.requests : 0,
-            errorRate: metrics.requests > 0 ? 
-              (metrics.errors / metrics.requests * 100).toFixed(2) + '%' : '0%'
-          }
-        })
+
+    // Optional metrics providers validation
+    if (metricsProviders) {
+      if (!Array.isArray(metricsProviders)) {
+        throw new Error('metricsProviders must be an array when provided')
       }
+      for (const [i, p] of metricsProviders.entries()) {
+        const isFunc = typeof p === 'function'
+        const isObj = p && typeof p === 'object'
+        const hasCollector = isObj && typeof p.collector === 'function'
+        if (!isFunc && !hasCollector) {
+          throw new Error(`metricsProviders[${i}] must be a function or an object with a collector() function`)
+        }
+      }
+    }
+
+    // Readiness checks validation
+    if (readinessChecks) {
+      if (!Array.isArray(readinessChecks)) {
+        throw new Error('readinessChecks must be an array when provided')
+      }
+      for (const [i, c] of readinessChecks.entries()) {
+        const isFunc = typeof c === 'function'
+        const isObj = c && typeof c === 'object'
+        const hasChecker = isObj && typeof c.checker === 'function'
+        if (!isFunc && !hasChecker) {
+          throw new Error(`readinessChecks[${i}] must be a function or an object with a checker() function`)
+        }
+      }
+    }
+    if (readinessTimeoutMs !== undefined && !Number.isFinite(readinessTimeoutMs)) {
+      throw new Error('readinessTimeoutMs must be a finite number when provided')
+    }
+    if (enablePrometheus !== undefined && typeof enablePrometheus !== 'boolean') {
+      throw new Error('enablePrometheus must be a boolean when provided')
     }
   }
   
@@ -322,7 +346,9 @@ class Server {
       this.setup404Handler()
       
       // Setup signal handlers for graceful shutdown
-      this.setupSignalHandlers()
+      if (process.env.SERVER_HANDLE_SIGNALS === '1') {
+        this.setupSignalHandlers()
+      }
       
       // Start listening
       return new Promise((resolve, reject) => {
@@ -543,11 +569,7 @@ class Server {
     }))
     
     // Cookie parsing with enhanced security
-    app.use(cookieParser(config.cookieSecret, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict'
-    }))
+    app.use(cookieParser(config.cookieSecret))
     
     // Compression with optimized settings
     app.use(compression({
@@ -608,11 +630,41 @@ class Server {
           message: 'Server is shutting down'
         })
       }
-      
-      res.status(200).json({
-        status: 'READY',
-        timestamp: new Date().toISOString()
-      })
+      // Run dependency checks if configured
+      const { readinessChecks, readinessTimeoutMs } = config
+      if (Array.isArray(readinessChecks) && readinessChecks.length > 0) {
+        const results = []
+        const withTimeout = (p) => Promise.race([
+          Promise.resolve().then(p),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), readinessTimeoutMs))
+        ])
+
+        Promise.allSettled(
+          readinessChecks.map((c, idx) => {
+            const name = (typeof c === 'function') ? (c.name || `check_${idx}`) : (c.name || `check_${idx}`)
+            const checker = (typeof c === 'function') ? c : c.checker
+            return withTimeout(() => checker()).then(val => ({ name, ok: val !== false, detail: val })).catch(err => ({ name, ok: false, error: err?.message || 'failed' }))
+          })
+        ).then(settled => {
+          for (const s of settled) {
+            if (s.status === 'fulfilled') results.push(s.value)
+            else results.push({ ok: false, error: s.reason?.message || 'failed' })
+          }
+          const anyFail = results.some(r => r.ok === false)
+          const payload = {
+            status: anyFail ? 'NOT_READY' : 'READY',
+            timestamp: new Date().toISOString(),
+            checks: results
+          }
+          res.status(anyFail ? 503 : 200).json(payload)
+        }).catch(err => {
+          this.logger.error('Readiness checks execution error', { error: err?.message })
+          res.status(503).json({ status: 'NOT_READY', error: 'readiness_checks_failed' })
+        })
+        return
+      }
+
+      res.status(200).json({ status: 'READY', timestamp: new Date().toISOString() })
     })
     
     // Liveness probe for Kubernetes/Docker
@@ -837,8 +889,27 @@ class Server {
       
       // Metrics endpoint (if metrics enabled)
       if (config.enableMetrics) {
-        app.get('/metrics', (req, res) => {
+        app.get('/metrics', async (req, res) => {
           const status = this.getStatus()
+
+          // Collect external provider metrics if any
+          const providers = config.metricsProviders || []
+          const providerResults = {}
+
+          // Run providers concurrently; tolerate failures
+          await Promise.allSettled(
+            providers.map(async (p, idx) => {
+              const name = (typeof p === 'function' ? (p.name || `provider_${idx}`) : (p.name || `provider_${idx}`))
+              const collector = typeof p === 'function' ? p : p.collector
+              try {
+                const data = await Promise.resolve(collector())
+                providerResults[name] = data
+              } catch (err) {
+                providerResults[name] = { error: err?.message || 'collection_failed' }
+              }
+            })
+          )
+
           res.json({
             metrics: this[$].metrics || {},
             system: {
@@ -847,11 +918,76 @@ class Server {
               status: status.status,
               port: status.port,
               environment: status.environment
-            }
+            },
+            ...(Object.keys(providerResults).length > 0 && { providers: providerResults })
           })
         })
         
         this.logger.debug('Metrics endpoint enabled at /metrics')
+      }
+
+      // Optional Prometheus text-format metrics
+      if (config.enablePrometheus && config.enableMetrics) {
+        app.get('/metrics/prom', async (req, res) => {
+          const status = this.getStatus()
+          const lines = []
+          const push = (k, v, labels) => {
+            const labelStr = labels && Object.keys(labels).length > 0
+              ? '{' + Object.entries(labels).map(([lk, lv]) => `${lk}="${String(lv).replace(/"/g, '\\"')}"`).join(',') + '}'
+              : ''
+            lines.push(`${k}${labelStr} ${v}`)
+          }
+
+          // Basic gauges
+          push('app_uptime_seconds', status.uptime)
+          push('app_memory_rss_mb', status.memory.rss)
+          push('app_memory_heap_used_mb', status.memory.heapUsed)
+
+          // Internal counters if available
+          if (this[$].metrics) {
+            push('http_requests_total', this[$].metrics.requests)
+            push('http_errors_total', this[$].metrics.errors)
+          }
+
+          // Provider: dbPool and loginHandler (if present)
+          const providers = (this[$].config.metricsProviders || [])
+          for (const p of providers) {
+            const name = (typeof p === 'function') ? (p.name || 'provider') : (p.name || 'provider')
+            const collector = (typeof p === 'function') ? p : p.collector
+            try {
+              const data = await Promise.resolve(collector())
+              // Specific mapping for known dbPool shape
+              if (name === 'dbPool' && data && data.overall && data.pools) {
+                push('db_total_connections', data.overall.totalConnections)
+                push('db_active_connections', data.overall.activeConnections)
+                push('db_idle_connections', data.overall.idleConnections)
+                for (const [poolName, pm] of Object.entries(data.pools)) {
+                  push('db_pool_connections_used', pm.connections.used, { pool: poolName })
+                  push('db_pool_connections_free', pm.connections.free, { pool: poolName })
+                  push('db_pool_queries_total', pm.queryCount, { pool: poolName })
+                  push('db_pool_errors_total', pm.errorCount, { pool: poolName })
+                  push('db_pool_slow_queries_total', pm.slowQueryCount, { pool: poolName })
+                }
+              } else if (name === 'loginHandler' && data) {
+                // Map login handler in-memory counters
+                const s = Number(data.successTotal || 0)
+                const f = Number(data.failureTotal || 0)
+                const pv = Number(data.pendingVerificationTotal || 0)
+                const lpt = Number(data.lastProcessingTimeMs || 0)
+                push('auth_login_success_total', isNaN(s) ? 0 : s)
+                push('auth_login_failure_total', isNaN(f) ? 0 : f)
+                push('auth_login_pending_verification_total', isNaN(pv) ? 0 : pv)
+                push('auth_login_last_processing_time_ms', isNaN(lpt) ? 0 : lpt)
+              }
+            } catch {
+              // ignore provider errors for prom export
+            }
+          }
+
+          res.setHeader('Content-Type', 'text/plain; version=0.0.4')
+          res.send(lines.join('\n') + '\n')
+        })
+        this.logger.debug('Prometheus metrics endpoint enabled at /metrics/prom')
       }
       
       // Users management page (with error handling)
@@ -943,7 +1079,7 @@ class Server {
     })
     
     // Handle unhandled promise rejections
-    process.on('unhandledRejection', async (reason, promise) => {
+    process.on('unhandledRejection', async (reason) => {
       this.logger.error('Unhandled promise rejection, shutting down...', {
         reason: reason instanceof Error ? reason.message : reason,
         stack: reason instanceof Error ? reason.stack : undefined

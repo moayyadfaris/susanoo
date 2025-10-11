@@ -1,9 +1,11 @@
 require('dotenv').config()
 
 const { Model } = require('objection')
-const Knex = require('knex')
 
 const { Server, assert, ConnectionPool, AuditableDAO } = require('backend-core')
+const LoginHandler = require('./handlers/v1/app/auth/LoginHandler')
+const { RedisClient } = require('./clients')
+const pkg = require('./package.json')
 
 const controllers = require('./controllers')
 const config = require('./config')
@@ -15,24 +17,50 @@ const logger = require('./util/logger')
 let server = null
 let knexInstance = null
 let connectionPool = null
+let shuttingDown = false
+
+function nsToMs(ns) {
+  return Math.round(Number(ns) / 1e6)
+}
+
+function getBuildInfo() {
+  return {
+    app: config?.app?.name || 'SusanooAPI',
+    version: pkg.version,
+    node: process.version,
+    pid: process.pid,
+    env: config?.app?.nodeEnv,
+    commit: process.env.GIT_COMMIT || null,
+    host: config?.app?.host,
+    port: config?.app?.port
+  }
+}
 
 /**
  * Main application entry point
  */
 async function main() {
   try {
+    const t0 = process.hrtime.bigint()
+    process.title = `${config?.app?.name || 'SusanooAPI'}:${process.env.NODE_ENV || 'development'}`
+    logger.info('Starting application...', getBuildInfo())
+
     // Validate environment before starting
     await validateEnvironment()
+    const tAfterEnv = process.hrtime.bigint()
     
     // Initialize configuration
     await config.mainInit()
     logger.info('Configuration initialized successfully')
+    const tAfterConfig = process.hrtime.bigint()
     
     // Initialize database
     await initializeDatabase()
+    const tAfterDb = process.hrtime.bigint()
     
     // Initialize server
     await initializeServer()
+    const tAfterServer = process.hrtime.bigint()
     
     // Setup graceful shutdown handlers
     setupGracefulShutdown()
@@ -40,7 +68,16 @@ async function main() {
     logger.info('Application started successfully', {
       host: config.app.host,
       port: config.app.port,
-      environment: config.app.nodeEnv
+      environment: config.app.nodeEnv,
+      timings: {
+        validateEnv: `${nsToMs(tAfterEnv - t0)}ms`,
+        configInit: `${nsToMs(tAfterConfig - tAfterEnv)}ms`,
+        dbInit: `${nsToMs(tAfterDb - tAfterConfig)}ms`,
+        serverInit: `${nsToMs(tAfterServer - tAfterDb)}ms`,
+        totalStartup: `${nsToMs(tAfterServer - t0)}ms`
+      },
+      build: getBuildInfo(),
+      memory: process.memoryUsage()
     })
     
   } catch (error) {
@@ -58,7 +95,16 @@ async function validateEnvironment() {
   if (missingVars.length > 0) {
     throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`)
   }
-  
+  // Validate critical config values
+  const missingConfig = []
+  if (!config?.app?.cookieSecret) missingConfig.push('config.app.cookieSecret')
+  if (!config?.knex?.connection?.host) missingConfig.push('config.knex.connection.host')
+  if (!config?.knex?.connection?.database) missingConfig.push('config.knex.connection.database')
+  if (!config?.knex?.connection?.user) missingConfig.push('config.knex.connection.user')
+  if (missingConfig.length) {
+    throw new Error(`Missing required configuration: ${missingConfig.join(', ')}`)
+  }
+
   logger.debug('Environment validation passed')
 }
 
@@ -126,16 +172,80 @@ async function initializeServer() {
       middlewares,
       errorMiddleware,
       cookieSecret: config.app.cookieSecret,
-      logger
+      logger,
+      metricsProviders: [
+        {
+          name: 'dbPool',
+          collector: () => {
+            try {
+              return connectionPool?.getMetrics?.() || { error: 'no_connection_pool' }
+            } catch (e) {
+              return { error: e?.message || 'collection_failed' }
+            }
+          }
+        },
+        {
+          name: 'loginHandler',
+          collector: () => {
+            try {
+              return LoginHandler?.getMetrics?.() || { error: 'no_metrics' }
+            } catch (e) {
+              return { error: e?.message || 'collection_failed' }
+            }
+          }
+        }
+      ],
+      readinessChecks: [
+        {
+          name: 'db',
+          checker: async () => {
+            try {
+              await knexInstance.raw('select 1')
+              return true
+            } catch {
+              return false
+            }
+          }
+        },
+        {
+          name: 'redis',
+          checker: async () => {
+            try {
+              // If Redis config is missing, treat as not-applicable (ready)
+              if (!config?.redis?.host || !config?.redis?.port) return true
+
+              const rc = new RedisClient({
+                host: config.redis.host,
+                port: config.redis.port,
+                password: config.redis.password,
+                logger,
+                lazyConnect: true
+              })
+              await rc.connect()
+              const health = await rc.healthCheck()
+              await rc.shutdown()
+              return health?.status === 'healthy'
+            } catch {
+              return false
+            }
+          }
+        }
+      ],
+      enablePrometheus: process.env.ENABLE_PROMETHEUS === '1'
     })
     
-    // Wait for the server to start
-    await server
+    // Explicitly start the server
+    await server.start()
     
     logger.info('Server initialized successfully', {
       host: config.app.host,
       port: config.app.port,
-      name: config.app.name
+      name: config.app.name,
+      urls: {
+        local: `http://${config.app.host}:${config.app.port}`,
+        health: `http://${config.app.host}:${config.app.port}/health-check`,
+        swagger: `http://${config.app.host}:${config.app.port}/api-docs`
+      }
     })
     
     // Log token configurations in debug mode
@@ -192,6 +302,8 @@ function setupGracefulShutdown() {
   
   signals.forEach(signal => {
     process.on(signal, async () => {
+      if (shuttingDown) return
+      shuttingDown = true
       logger.info(`Received ${signal}, initiating graceful shutdown...`)
       await gracefulShutdown(0)
     })
@@ -199,21 +311,52 @@ function setupGracefulShutdown() {
   
   // Handle uncaught exceptions
   process.on('uncaughtException', async (error) => {
+    if (shuttingDown) return
     logger.error('Uncaught exception occurred', {
       error: error.message,
       stack: error.stack
     })
+    shuttingDown = true
     await gracefulShutdown(1)
   })
   
   // Handle unhandled promise rejections
-  process.on('unhandledRejection', async (reason, promise) => {
-    logger.error('Unhandled promise rejection', {
-      reason,
-      promise
-    })
+  process.on('unhandledRejection', async (reason) => {
+    if (shuttingDown) return
+    const reasonInfo = reason instanceof Error ? { message: reason.message, stack: reason.stack } : { reason }
+    logger.error('Unhandled promise rejection', { ...reasonInfo })
+    shuttingDown = true
     await gracefulShutdown(1)
   })
+
+  // Log warnings (e.g., DeprecationWarning)
+  process.on('warning', (warning) => {
+    // Suppress noisy Node.js deprecation for multipleResolves unless explicitly debugging
+    if (
+      warning?.name === 'DeprecationWarning' &&
+      typeof warning?.message === 'string' &&
+      warning.message.includes('multipleResolves') &&
+      process.env.DEBUG_MULTIPLE_RESOLVES !== '1'
+    ) {
+      return
+    }
+    logger.warn('Process warning', { name: warning.name, message: warning.message, stack: warning.stack })
+  })
+
+  // Help with tools like nodemon to exit cleanly
+  process.on('SIGUSR2', async () => {
+    if (shuttingDown) return
+    shuttingDown = true
+    logger.info('Received SIGUSR2 (restart), initiating graceful shutdown...')
+    await gracefulShutdown(0)
+  })
+
+  // Diagnostic for multiple resolve/reject of the same promise (opt-in)
+  if (process.env.DEBUG_MULTIPLE_RESOLVES === '1') {
+    process.on('multipleResolves', (type, _promise, reason) => {
+      logger.warn('Multiple promise resolves detected', { type, reason: reason?.message || reason })
+    })
+  }
 }
 
 /**
