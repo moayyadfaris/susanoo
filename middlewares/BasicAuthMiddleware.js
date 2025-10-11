@@ -1,6 +1,5 @@
 
 const { BaseMiddleware } = require('backend-core')
-const logger = require('../util/logger')
 const { basicAuth, basicAuthRoutes } = require('../config')
 const { stripTrailingSlash } = require('helpers').commonHelpers
 const NodeCache = require('node-cache')
@@ -57,8 +56,6 @@ class BasicAuthMiddleware extends BaseMiddleware {
       uniqueIPs: new Set(),
       uniqueUsers: new Set()
     }
-    
-    // Security configuration
     this.config = {
       maxFailedAttempts: 5,
       lockoutDuration: 900, // 15 minutes
@@ -92,10 +89,10 @@ class BasicAuthMiddleware extends BaseMiddleware {
       
       // Pre-hash configured credentials for secure comparison
       await this.prepareCredentials()
-      
-      logger.info(`${this.constructor.name} initialization completed successfully`)
+
+      this.logger.info(`${this.constructor.name} initialization completed successfully`)
     } catch (error) {
-      logger.error(`${this.constructor.name} initialization failed:`, error)
+      this.logger.error(`${this.constructor.name} initialization failed:`, error)
       throw error
     }
   }
@@ -106,32 +103,34 @@ class BasicAuthMiddleware extends BaseMiddleware {
       if (basicAuth.password && !basicAuth.hashedPassword) {
         const saltRounds = 12
         basicAuth.hashedPassword = await bcrypt.hash(basicAuth.password, saltRounds)
-        logger.debug('Basic auth credentials prepared securely')
+        this.logger.debug('Basic auth credentials prepared securely')
       }
     } catch (error) {
-      logger.error('Failed to prepare credentials:', error)
+      this.logger.error('Failed to prepare credentials:', error)
       throw error
     }
   }
 
   startSecurityMonitoring() {
     // Log security metrics every 10 minutes
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       this.logSecurityMetrics()
-    }, 600000)
+    }, 600000))
     
     // Clear old metrics every hour
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       this.metrics.uniqueIPs.clear()
       this.metrics.uniqueUsers.clear()
-    }, 3600000)
+    }, 3600000))
   }
 
   setupCleanupTasks() {
     // Cleanup expired entries every 5 minutes
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       this.cleanupExpiredEntries()
-    }, 300000)
+    }, 300000))
   }
 
   logSecurityMetrics() {
@@ -146,7 +145,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
       ? (this.metrics.successfulAuth / this.metrics.totalRequests * 100).toFixed(2)
       : 0
     
-    logger.info('BasicAuthMiddleware Security Metrics:', {
+    this.logger.info('BasicAuthMiddleware Security Metrics:', {
       performance: {
         ...this.metrics,
         successRate: `${successRate}%`,
@@ -169,7 +168,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         }
       }
     } catch (error) {
-      logger.error('Failed to cleanup expired entries:', error)
+      this.logger.error('Failed to cleanup expired entries:', error)
     }
   }
 
@@ -271,7 +270,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
     this.authAttempts.set(attemptKey, attemptData, this.config.lockoutDuration)
     this.metrics.failedAuth++
     
-    logger.warn('Failed authentication attempt recorded', {
+    this.logger.warn('Failed authentication attempt recorded', {
       clientIP,
       username: username || 'unknown',
       reason,
@@ -325,7 +324,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
       
       return result
     } catch (error) {
-      logger.error('Credential validation error:', error)
+      this.logger.error('Credential validation error:', error)
       return { valid: false, reason: 'Validation error' }
     }
   }
@@ -402,7 +401,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         
         // Rate limiting checks
         if (this.isIPRateLimited(clientIP)) {
-          logger.warn('IP rate limit exceeded', {
+          this.logger.warn('IP rate limit exceeded', {
             clientIP,
             userAgent,
             url,
@@ -420,7 +419,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         const parsedAuth = this.parseAuthHeader(authHeader)
         
         if (parsedAuth.error) {
-          logger.warn('Invalid authorization header', {
+          this.logger.warn('Invalid authorization header', {
             error: parsedAuth.error,
             clientIP,
             userAgent,
@@ -447,7 +446,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         // Check for suspicious patterns
         const suspiciousCheck = this.detectSuspiciousPatterns(username, password, userAgent)
         if (suspiciousCheck.suspicious) {
-          logger.error('Suspicious authentication attempt detected', {
+          this.logger.error('Suspicious authentication attempt detected', {
             clientIP,
             username,
             pattern: suspiciousCheck.pattern,
@@ -466,7 +465,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         
         // Check for brute force attempts
         if (this.isBruteForceAttempt(clientIP, username)) {
-          logger.error('Brute force attempt detected', {
+          this.logger.error('Brute force attempt detected', {
             clientIP,
             username,
             userAgent,
@@ -481,7 +480,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         
         // User-specific rate limiting
         if (this.isUserRateLimited(username)) {
-          logger.warn('User rate limit exceeded', {
+          this.logger.warn('User rate limit exceeded', {
             username,
             clientIP,
             requestId
@@ -499,7 +498,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
         if (!validation.valid) {
           this.recordFailedAttempt(clientIP, username, validation.reason)
           
-          logger.warn('Authentication failed', {
+          this.logger.warn('Authentication failed', {
             username,
             reason: validation.reason,
             clientIP,
@@ -553,7 +552,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
           (this.metrics.averageResponseTime + processingTime) / 2
         
         if (this.config.enableDetailedLogging) {
-          logger.info('Basic authentication successful', {
+          this.logger.info('Basic authentication successful', {
             username,
             clientIP,
             userAgent,
@@ -568,7 +567,7 @@ class BasicAuthMiddleware extends BaseMiddleware {
       } catch (error) {
         const processingTime = performance.now() - startTime
         
-        logger.error('BasicAuthMiddleware error', {
+        this.logger.error('BasicAuthMiddleware error', {
           error: error.message,
           stack: error.stack,
           clientIP,
@@ -603,10 +602,10 @@ class BasicAuthMiddleware extends BaseMiddleware {
         }
       }
       
-      logger.info(`Reset ${resetCount} failed attempts for identifier: ${identifier}`)
+      this.logger.info(`Reset ${resetCount} failed attempts for identifier: ${identifier}`)
       return resetCount
     } catch (error) {
-      logger.error('Failed to reset attempts:', error)
+      this.logger.error('Failed to reset attempts:', error)
       throw error
     }
   }
@@ -636,17 +635,30 @@ class BasicAuthMiddleware extends BaseMiddleware {
     }
   }
 
+  // Metrics provider
+  getMetrics() {
+    return {
+      ...this.metrics,
+      uniqueIPsCount: this.metrics.uniqueIPs.size,
+      uniqueUsersCount: this.metrics.uniqueUsers.size
+    }
+  }
+
   // Cleanup method for graceful shutdown
   async cleanup() {
     try {
+      if (this._intervals && this._intervals.length) {
+        for (const id of this._intervals) clearInterval(id)
+        this._intervals = []
+      }
       this.authAttempts.flushAll()
       this.ipRateLimit.flushAll()
       this.userRateLimit.flushAll()
       this.credentialsCache.flushAll()
       
-      logger.info(`${this.constructor.name} cleanup completed`)
+      this.logger.info(`${this.constructor.name} cleanup completed`)
     } catch (error) {
-      logger.error(`${this.constructor.name} cleanup failed:`, error)
+      this.logger.error(`${this.constructor.name} cleanup failed:`, error)
     }
   }
 }

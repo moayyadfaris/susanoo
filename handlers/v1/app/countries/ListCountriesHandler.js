@@ -1,8 +1,6 @@
 const { RequestRule, ErrorWrapper, errorCodes, Rule } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
 const CountryDAO = require('database/dao/CountryDAO')
-const { redisClient } = require('handlers/RootProvider')
-const logger = require('util/logger')
 
 /**
  * ListCountriesHandler - Enhanced country listing with comprehensive features
@@ -183,29 +181,30 @@ class ListCountriesHandler extends BaseHandler {
   static async run(ctx) {
     const startTime = Date.now()
     const logContext = {
-      requestId: ctx.requestId,
-      ip: ctx.ip,
-      userAgent: ctx.headers?.['user-agent']
+      requestId: ctx.requestMetadata?.id || ctx.requestId,
+      ip: ctx.requestMetadata?.ip || ctx.ip,
+      userAgent: ctx.requestMetadata?.userAgent || ctx.headers?.['user-agent']
     }
 
     try {
-      logger.info('Country list request initiated', {
+      this.logger.info('Country list request initiated', {
         ...logContext,
-        query: this.sanitizeLogQuery(ctx.query)
+        query: this.sanitizeLogQuery(ctx.processedQuery || ctx.query)
       })
 
-      // Parse and prepare query parameters
-      const queryParams = await this.prepareQueryParams(ctx.query, logContext)
+      // Parse and prepare query parameters (prefer processedQuery from middleware)
+      const rawQuery = ctx.processedQuery || ctx.query || {}
+      const queryParams = await this.prepareQueryParams(rawQuery, logContext)
       
       // Execute the enhanced DAO query
-      const data = await this.retrieveCountryData(queryParams, logContext)
+      const data = await this.retrieveCountryData(queryParams)
       
       // Format and enhance the response
       const formattedData = await this.formatResponse(data, queryParams, logContext)
 
       // Performance monitoring
       const duration = Date.now() - startTime
-      logger.info('Country list request completed', {
+      this.logger.info('Country list request completed', {
         ...logContext,
         duration,
         totalResults: data.total,
@@ -247,13 +246,13 @@ class ListCountriesHandler extends BaseHandler {
       const duration = Date.now() - startTime
       
       // Comprehensive error logging
-      logger.error('Country list request failed', {
+      this.logger.error('Country list request failed', {
         ...logContext,
         error: error.message,
         errorCode: error.code,
         stack: error.stack,
         duration,
-        query: this.sanitizeLogQuery(ctx.query)
+        query: this.sanitizeLogQuery(ctx.processedQuery || ctx.query)
       })
 
       if (error instanceof ErrorWrapper) {
@@ -279,19 +278,20 @@ class ListCountriesHandler extends BaseHandler {
   static async prepareQueryParams(query, logContext) {
     try {
       // Log the incoming query for debugging
-      logger.debug('Preparing query parameters', { 
+      this.logger.debug('Preparing query parameters', { 
         ...logContext, 
         rawQuery: query 
       })
 
       const params = {
-        page: parseInt(query.page) || 0,
-        limit: parseInt(query.limit) || 1000,
-        search: query.search?.trim(),
-        filter: { ...query.filter },
+        page: Number.isFinite(parseInt(query.page)) ? parseInt(query.page) : 0,
+        limit: Number.isFinite(parseInt(query.limit)) ? parseInt(query.limit) : 1000,
+        search: typeof query.search === 'string' ? query.search.trim() : query.search,
+        filter: { ...(query.filter || {}) },
         format: query.format || 'full',
         groupBy: query.groupBy,
-        useCache: query.useCache !== false, // Default to true
+        // coerce useCache: default true unless explicitly false/'false'
+        useCache: (query.useCache === undefined) ? true : (query.useCache === true || query.useCache === 'true'),
         orderByField: 'name',
         orderByDirection: 'asc'
       }
@@ -317,13 +317,13 @@ class ListCountriesHandler extends BaseHandler {
           
           if (allowedFilters.includes(filterKey)) {
             params.filter[filterKey] = query[key]
-            logger.debug('Parsed bracket filter', { 
+            this.logger.debug('Parsed bracket filter', { 
               ...logContext, 
               filterKey, 
               filterValue: query[key] 
             })
           } else {
-            logger.warn('Invalid filter key in bracket notation', { 
+            this.logger.warn('Invalid filter key in bracket notation', { 
               ...logContext, 
               filterKey, 
               allowedFilters 
@@ -350,8 +350,11 @@ class ListCountriesHandler extends BaseHandler {
         }
       }
 
-      // Apply default active filter if not specified
-      if (!params.filter.hasOwnProperty('isActive')) {
+      // Normalize and default active filter
+      if (Object.prototype.hasOwnProperty.call(params.filter, 'isActive')) {
+        const v = params.filter.isActive
+        params.filter.isActive = (v === true || v === 'true')
+      } else {
         params.filter.isActive = true
       }
 
@@ -360,7 +363,7 @@ class ListCountriesHandler extends BaseHandler {
         params.limit = 1000
       }
 
-      logger.debug('Prepared query parameters', { 
+      this.logger.debug('Prepared query parameters', { 
         ...logContext, 
         preparedParams: params 
       })
@@ -368,7 +371,7 @@ class ListCountriesHandler extends BaseHandler {
       return params
 
     } catch (error) {
-      logger.error('Failed to prepare query parameters', {
+      this.logger.error('Failed to prepare query parameters', {
         ...logContext,
         error: error.message,
         rawQuery: query
@@ -389,7 +392,7 @@ class ListCountriesHandler extends BaseHandler {
   /**
    * Retrieve country data using appropriate method (cached or direct)
    */
-  static async retrieveCountryData(params, logContext) {
+  static async retrieveCountryData(params) {
     try {
       if (params.useCache) {
         return await CountryDAO.getCachedList(params)
@@ -454,7 +457,7 @@ class ListCountriesHandler extends BaseHandler {
       }
 
     } catch (error) {
-      logger.warn('Failed to format response, returning raw data', {
+      this.logger.warn('Failed to format response, returning raw data', {
         ...logContext,
         error: error.message
       })
@@ -492,14 +495,7 @@ class ListCountriesHandler extends BaseHandler {
    * Group countries by geographical region
    */
   static groupByRegion(results) {
-    const regionMappings = {
-      'Europe': ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'UA', 'VA'],
-      'Asia': ['AF', 'AM', 'AZ', 'BD', 'BH', 'BN', 'BT', 'CN', 'GE', 'HK', 'ID', 'IL', 'IN', 'IQ', 'IR', 'JO', 'JP', 'KG', 'KH', 'KP', 'KR', 'KW', 'KZ', 'LA', 'LB', 'LK', 'MM', 'MN', 'MO', 'MV', 'MY', 'NP', 'OM', 'PH', 'PK', 'PS', 'QA', 'SA', 'SG', 'SY', 'TH', 'TJ', 'TL', 'TM', 'TR', 'TW', 'UZ', 'VN', 'YE'],
-      'Africa': ['AO', 'BF', 'BI', 'BJ', 'BW', 'CD', 'CF', 'CG', 'CI', 'CM', 'CV', 'DJ', 'DZ', 'EG', 'EH', 'ER', 'ET', 'GA', 'GH', 'GM', 'GN', 'GQ', 'GW', 'KE', 'KM', 'LR', 'LS', 'LY', 'MA', 'MG', 'ML', 'MR', 'MU', 'MW', 'MZ', 'NA', 'NE', 'NG', 'RW', 'SC', 'SD', 'SL', 'SN', 'SO', 'SS', 'ST', 'SZ', 'TD', 'TG', 'TN', 'TZ', 'UG', 'ZA', 'ZM', 'ZW'],
-      'North America': ['AG', 'BB', 'BZ', 'CA', 'CR', 'CU', 'DM', 'DO', 'GD', 'GT', 'HN', 'HT', 'JM', 'KN', 'LC', 'MX', 'NI', 'PA', 'SV', 'TT', 'US', 'VC'],
-      'South America': ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'FK', 'GF', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'],
-      'Oceania': ['AS', 'AU', 'CK', 'FJ', 'FM', 'GU', 'KI', 'MH', 'MP', 'NC', 'NF', 'NR', 'NU', 'NZ', 'PF', 'PG', 'PN', 'PW', 'SB', 'TK', 'TO', 'TV', 'VU', 'WF', 'WS']
-    }
+    const regionMappings = REGION_MAPPINGS
 
     const grouped = {}
     
@@ -533,6 +529,16 @@ class ListCountriesHandler extends BaseHandler {
     
     return sanitized
   }
+}
+
+// Hoisted region mappings to avoid per-request allocation
+const REGION_MAPPINGS = {
+  'Europe': ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'UA', 'VA'],
+  'Asia': ['AF', 'AM', 'AZ', 'BD', 'BH', 'BN', 'BT', 'CN', 'GE', 'HK', 'ID', 'IL', 'IN', 'IQ', 'IR', 'JO', 'JP', 'KG', 'KH', 'KP', 'KR', 'KW', 'KZ', 'LA', 'LB', 'LK', 'MM', 'MN', 'MO', 'MV', 'MY', 'NP', 'OM', 'PH', 'PK', 'PS', 'QA', 'SA', 'SG', 'SY', 'TH', 'TJ', 'TL', 'TM', 'TR', 'TW', 'UZ', 'VN', 'YE'],
+  'Africa': ['AO', 'BF', 'BI', 'BJ', 'BW', 'CD', 'CF', 'CG', 'CI', 'CM', 'CV', 'DJ', 'DZ', 'EG', 'EH', 'ER', 'ET', 'GA', 'GH', 'GM', 'GN', 'GQ', 'GW', 'KE', 'KM', 'LR', 'LS', 'LY', 'MA', 'MG', 'ML', 'MR', 'MU', 'MW', 'MZ', 'NA', 'NE', 'NG', 'RW', 'SC', 'SD', 'SL', 'SN', 'SO', 'SS', 'ST', 'SZ', 'TD', 'TG', 'TN', 'TZ', 'UG', 'ZA', 'ZM', 'ZW'],
+  'North America': ['AG', 'BB', 'BZ', 'CA', 'CR', 'CU', 'DM', 'DO', 'GD', 'GT', 'HN', 'HT', 'JM', 'KN', 'LC', 'MX', 'NI', 'PA', 'SV', 'TT', 'US', 'VC'],
+  'South America': ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'FK', 'GF', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'],
+  'Oceania': ['AS', 'AU', 'CK', 'FJ', 'FM', 'GU', 'KI', 'MH', 'MP', 'NC', 'NF', 'NR', 'NU', 'NZ', 'PF', 'PG', 'PN', 'PW', 'SB', 'TK', 'TO', 'TV', 'VU', 'WF', 'WS']
 }
 
 module.exports = ListCountriesHandler

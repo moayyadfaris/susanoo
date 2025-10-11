@@ -694,6 +694,10 @@ class Server {
     
     try {
       logger.debug(`Initializing ${middlewares.length} middlewares...`)
+      // Track runtime middleware instances for diagnostics/metrics
+      if (!this[$].runtimeMiddlewares) {
+        this[$].runtimeMiddlewares = new Map()
+      }
       
       for (const [index, Middleware] of middlewares.entries()) {
         const middlewareStartTime = performance.now()
@@ -717,6 +721,13 @@ class Server {
         
         await middleware.init()
         this[$].app.use(middleware.handler())
+        // Store instance by class name (last one wins if duplicates)
+        try {
+          const key = Middleware.name || `middleware_${index}`
+          this[$].runtimeMiddlewares.set(key, middleware)
+        } catch {
+          // best-effort: ignore index tracking errors
+        }
         
         const duration = performance.now() - middlewareStartTime
         logger.debug(`Middleware ${Middleware.name} initialized successfully`, {
@@ -736,6 +747,17 @@ class Server {
       })
       throw new Error(`Middleware initialization failed: ${error.message}`)
     }
+  }
+
+  // Expose runtime middleware instances for metrics providers
+  getRuntimeMiddlewareInstances() {
+    const out = {}
+    if (this[$].runtimeMiddlewares) {
+      for (const [k, v] of this[$].runtimeMiddlewares.entries()) {
+        out[k] = v
+      }
+    }
+    return out
   }
   
   /**
@@ -949,7 +971,7 @@ class Server {
             push('http_errors_total', this[$].metrics.errors)
           }
 
-          // Provider: dbPool and loginHandler (if present)
+          // Provider: dbPool, loginHandler, and middlewareMetrics (if present)
           const providers = (this[$].config.metricsProviders || [])
           for (const p of providers) {
             const name = (typeof p === 'function') ? (p.name || 'provider') : (p.name || 'provider')
@@ -978,6 +1000,24 @@ class Server {
                 push('auth_login_failure_total', isNaN(f) ? 0 : f)
                 push('auth_login_pending_verification_total', isNaN(pv) ? 0 : pv)
                 push('auth_login_last_processing_time_ms', isNaN(lpt) ? 0 : lpt)
+              } else if (name === 'middlewareMetrics' && data && typeof data === 'object') {
+                // Each key is a middleware name; map common counters with labels
+                for (const [mwName, mw] of Object.entries(data)) {
+                  if (!mw || typeof mw !== 'object') continue
+                  const labels = { middleware: mwName }
+                  // Try standard counters if present
+                  if ('totalRequests' in mw) push('middleware_requests_total', Number(mw.totalRequests || 0), labels)
+                  if ('authenticatedRequests' in mw) push('middleware_authenticated_requests_total', Number(mw.authenticatedRequests || 0), labels)
+                  if ('anonymousRequests' in mw) push('middleware_anonymous_requests_total', Number(mw.anonymousRequests || 0), labels)
+                  if ('failedAttempts' in mw) push('middleware_failed_attempts_total', Number(mw.failedAttempts || 0), labels)
+                  if ('cacheHits' in mw) push('middleware_cache_hits_total', Number(mw.cacheHits || 0), labels)
+                  if ('cacheMisses' in mw) push('middleware_cache_misses_total', Number(mw.cacheMisses || 0), labels)
+                  if ('securityEvents' in mw) push('middleware_security_events_total', Number(mw.securityEvents || 0), labels)
+                  if ('blockedRequests' in mw) push('middleware_blocked_requests_total', Number(mw.blockedRequests || 0), labels)
+                  if ('averageProcessingTime' in mw) push('middleware_average_processing_time_ms', Number(mw.averageProcessingTime || 0), labels)
+                  if ('authenticationRate' in mw) push('middleware_authentication_rate', Number(mw.authenticationRate || 0), labels)
+                  if ('cacheHitRate' in mw) push('middleware_cache_hit_rate', Number(mw.cacheHitRate || 0), labels)
+                }
               }
             } catch {
               // ignore provider errors for prom export

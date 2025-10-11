@@ -193,6 +193,30 @@ async function initializeServer() {
               return { error: e?.message || 'collection_failed' }
             }
           }
+        },
+        {
+          name: 'middlewareMetrics',
+          collector: () => {
+            try {
+              // Pull instances from registry if available
+              const registry = require('./middlewares').getMiddlewareRegistry?.()
+              const instances = registry?.getMiddlewareInstances?.()
+              if (!instances || instances.size === 0) return { error: 'no_instances' }
+              const out = {}
+              for (const [name, inst] of instances.entries()) {
+                if (typeof inst.getMetrics === 'function') {
+                  try {
+                    out[name] = inst.getMetrics()
+                  } catch (err) {
+                    out[name] = { error: err?.message || 'collection_failed' }
+                  }
+                }
+              }
+              return out
+            } catch (e) {
+              return { error: e?.message || 'collection_failed' }
+            }
+          }
         }
       ],
       readinessChecks: [

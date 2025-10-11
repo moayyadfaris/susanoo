@@ -1,5 +1,4 @@
 const { BaseMiddleware, ErrorWrapper, errorCodes } = require('backend-core')
-const logger = require('../util/logger')
 const crypto = require('crypto')
 
 /**
@@ -77,8 +76,8 @@ class ContentTypeMiddleware extends BaseMiddleware {
       }
     }
 
-    logger.debug(`${this.constructor.name} initialized with enhanced validation...`)
-    logger.debug('Supported content types:', Object.keys(this.config.contentTypes))
+    this.logger.debug(`${this.constructor.name} initialized with enhanced validation...`)
+    this.logger.debug('Supported content types:', Object.keys(this.config.contentTypes))
   }
 
   handler() {
@@ -88,17 +87,19 @@ class ContentTypeMiddleware extends BaseMiddleware {
       
       try {
         // Enhanced request logging
-        logger.debug('Content type validation started', {
+        this.logger.debug('Content type validation started', {
           requestId,
           method: req.method,
           url: req.url,
+          ip: req.requestMetadata?.ip || req.ip,
+          userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown',
           contentType: req.headers['content-type'],
           contentLength: req.headers['content-length']
         })
 
         // Skip validation for methods that don't require body
         if (this.config.methodsWithoutBody.includes(req.method)) {
-          logger.debug('Skipping content type validation for method without body', {
+          this.logger.debug('Skipping content type validation for method without body', {
             requestId,
             method: req.method
           })
@@ -115,10 +116,12 @@ class ContentTypeMiddleware extends BaseMiddleware {
         this.completeRequest(req, res, next, startTime, requestId)
 
       } catch (error) {
-        logger.error('Content type validation failed', {
+        this.logger.error('Content type validation failed', {
           requestId,
           method: req.method,
           url: req.url,
+          ip: req.requestMetadata?.ip || req.ip,
+          userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown',
           error: error.message,
           contentType: req.headers['content-type'],
           processingTime: Date.now() - startTime
@@ -193,7 +196,7 @@ class ContentTypeMiddleware extends BaseMiddleware {
       config: typeConfig
     }
 
-    logger.debug('Content type validation passed', {
+    this.logger.debug('Content type validation passed', {
       requestId,
       validatedType: supportedType,
       originalType: contentType
@@ -242,7 +245,7 @@ class ContentTypeMiddleware extends BaseMiddleware {
         }
       }
 
-      logger.debug('Content length validation passed', {
+      this.logger.debug('Content length validation passed', {
         requestId,
         contentLength: this.formatBytes(contentLength),
         contentType
@@ -262,11 +265,11 @@ class ContentTypeMiddleware extends BaseMiddleware {
     )
     
     if (isBlocked) {
-      logger.warn('Blocked content type detected', {
+      this.logger.warn('Blocked content type detected', {
         requestId,
         contentType,
-        clientIp: req.ip || req.connection?.remoteAddress,
-        userAgent: req.headers['user-agent']
+        clientIp: req.requestMetadata?.ip || req.ip || req.connection?.remoteAddress,
+        userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown'
       })
       
       throw new ErrorWrapper({
@@ -284,7 +287,8 @@ class ContentTypeMiddleware extends BaseMiddleware {
     // Validate content encoding
     const contentEncoding = req.headers['content-encoding']
     if (contentEncoding) {
-      const allowedEncodings = ['gzip', 'deflate', 'br']
+      // Include 'identity' per RFC 7231 as an explicit no-encoding
+      const allowedEncodings = ['gzip', 'deflate', 'br', 'identity']
       const encodings = contentEncoding.split(',').map(e => e.trim().toLowerCase())
       
       const hasInvalidEncoding = encodings.some(encoding => 
@@ -313,9 +317,12 @@ class ContentTypeMiddleware extends BaseMiddleware {
     const processingTime = Date.now() - startTime
     
     // Log successful validation
-    logger.debug('Content type middleware completed', {
+    this.logger.debug('Content type middleware completed', {
       requestId,
       method: req.method,
+      url: req.url,
+      ip: req.requestMetadata?.ip || req.ip,
+      userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown',
       processingTime: `${processingTime}ms`,
       contentType: req.validatedContentType?.type || 'none'
     })
@@ -359,6 +366,16 @@ class ContentTypeMiddleware extends BaseMiddleware {
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // Metrics export (lightweight)
+  getMetrics() {
+    // This middleware currently logs but doesn’t track counters; expose minimal info
+    return {
+      totalRequests: undefined,
+      blockedTypes: this.config.security.blockedContentTypes.length,
+      maxContentLength: this.config.security.maxContentLength
+    }
   }
 
 }

@@ -1,10 +1,8 @@
 const { RequestRule, ErrorWrapper, errorCodes, Rule } = require('backend-core')
-const { log } = require('console')
 const BaseHandler = require('handlers/BaseHandler')
 const SessionDAO = require('database/dao/SessionDAO')
 const AuthModel = require('models/AuthModel')
 const UserDAO = require('database/dao/UserDAO')
-const logger = require('util/logger')
 
 /**
  * LogoutHandler - Secure user session termination with comprehensive audit trail
@@ -100,7 +98,7 @@ class LogoutHandler extends BaseHandler {
     }
 
     try {
-      logger.info('Logout process initiated', logContext)
+      this.logger.info('Logout process initiated', logContext)
 
       // Enhanced input validation and security checks
       await this.validateLogoutRequest(ctx, logContext)
@@ -116,7 +114,7 @@ class LogoutHandler extends BaseHandler {
 
       // Performance monitoring
       const duration = Date.now() - startTime
-      logger.info('Logout completed successfully', {
+      this.logger.info('Logout completed successfully', {
         ...logContext,
         duration,
         sessionsInvalidated: logoutResult.sessionsInvalidated,
@@ -144,7 +142,7 @@ class LogoutHandler extends BaseHandler {
       const duration = Date.now() - startTime
       
       // Comprehensive error logging
-      logger.error('Logout process failed', {
+      this.logger.error('Logout process failed', {
         ...logContext,
         error: error.message,
         errorCode: error.code,
@@ -154,7 +152,7 @@ class LogoutHandler extends BaseHandler {
 
       // Audit failed logout attempt
       await this.auditLogoutFailure(ctx, error, logContext).catch(auditError => {
-        logger.error('Failed to audit logout failure', { 
+        this.logger.error('Failed to audit logout failure', { 
           ...logContext, 
           auditError: auditError.message 
         })
@@ -229,7 +227,7 @@ class LogoutHandler extends BaseHandler {
     // Rate limiting check (if user has too many recent logout attempts)
     await this.checkLogoutRateLimit(currentUser.id, ip, logContext)
 
-    logger.debug('Logout request validation passed', logContext)
+    this.logger.debug('Logout request validation passed', logContext)
   }
 
   /**
@@ -286,7 +284,7 @@ class LogoutHandler extends BaseHandler {
         })
       }
 
-      logger.debug('Session validated successfully', {
+      this.logger.debug('Session validated successfully', {
         ...logContext,
         sessionId: session.id,
         sessionCreatedAt: session.createdAt
@@ -326,7 +324,7 @@ class LogoutHandler extends BaseHandler {
         sessionsInvalidated = result.affectedRows || result.length || 1
         message = `User logged out from all devices (${sessionsInvalidated} sessions invalidated)`
         
-        logger.info('All user sessions invalidated', {
+        this.logger.info('All user sessions invalidated', {
           ...logContext,
           sessionsInvalidated
         })
@@ -340,7 +338,7 @@ class LogoutHandler extends BaseHandler {
         sessionsInvalidated = 1
         message = 'User logged out from current session'
        
-        logger.info('Current session invalidated', {
+        this.logger.info('Current session invalidated', {
           ...logContext,
           sessionId: session.id
         })         
@@ -400,7 +398,7 @@ class LogoutHandler extends BaseHandler {
       }
     } catch (error) {
       // Don't fail logout for rate limit check errors, just log
-      logger.warn('Rate limit check failed', {
+      this.logger.warn('Rate limit check failed', {
         ...logContext,
         error: error.message
       })
@@ -420,11 +418,11 @@ class LogoutHandler extends BaseHandler {
         await RedisClient.del(`user:${userId}:permissions`)
         await RedisClient.del(`user:${userId}:sessions`)
         
-        logger.debug('User cache cleared', { ...logContext, userId })
+        this.logger.debug('User cache cleared', { ...logContext, userId })
       }
     } catch (error) {
       // Don't fail logout for cache clear errors
-      logger.warn('Failed to clear user cache', {
+      this.logger.warn('Failed to clear user cache', {
         ...logContext,
         error: error.message,
         userId
@@ -452,13 +450,13 @@ class LogoutHandler extends BaseHandler {
       }
 
       // Store audit log (this could be enhanced with a dedicated audit service)
-      logger.info('Logout audit - success', auditData)
+      this.logger.info('Logout audit - success', auditData)
       
       // Could also store in dedicated audit table
       // await AuditDAO.create(auditData)
       
     } catch (error) {
-      logger.error('Failed to audit logout success', {
+      this.logger.error('Failed to audit logout success', {
         ...logContext,
         error: error.message
       })
@@ -483,10 +481,10 @@ class LogoutHandler extends BaseHandler {
         requestId: ctx.requestId
       }
 
-      logger.warn('Logout audit - failure', auditData)
+      this.logger.warn('Logout audit - failure', auditData)
       
     } catch (auditError) {
-      logger.error('Failed to audit logout failure', {
+      this.logger.error('Failed to audit logout failure', {
         ...logContext,
         auditError: auditError.message
       })

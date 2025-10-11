@@ -1,5 +1,4 @@
 const { BaseMiddleware, ErrorWrapper, errorCodes } = require('backend-core')
-const logger = require('../util/logger')
 const { performance } = require('perf_hooks')
 const DOMPurify = require('isomorphic-dompurify')
 const xss = require('xss')
@@ -186,7 +185,11 @@ class SanitizeMiddleware extends BaseMiddleware {
         // Sanitize query parameters
         if (req.query && Object.keys(req.query).length > 0) {
           const queryResult = this.sanitizeObject(req.query, 'query', requestId)
-          req.query = queryResult.sanitized
+          // Do not reassign req.query (may be a getter). Mutate in place and also attach processed copy.
+          const currentKeys = Object.keys(req.query)
+          for (const k of currentKeys) delete req.query[k]
+          Object.assign(req.query, queryResult.sanitized)
+          req.processedQuery = { ...req.query }
           sanitizationPerformed = queryResult.modified || sanitizationPerformed
           securityViolations = securityViolations.concat(queryResult.violations)
         }
@@ -237,7 +240,7 @@ class SanitizeMiddleware extends BaseMiddleware {
 
         // Log sanitization activity
         if (this.config.logSanitizationEvents && (sanitizationPerformed || securityViolations.length > 0)) {
-          logger.debug('Request sanitization completed', {
+          this.logger.debug('Request sanitization completed', {
             requestId,
             sanitized: sanitizationPerformed,
             violations: securityViolations.length,
@@ -248,7 +251,7 @@ class SanitizeMiddleware extends BaseMiddleware {
         this.completeRequest(req, next, processingStart)
 
       } catch (error) {
-        logger.error('SanitizeMiddleware error', {
+        this.logger.error('SanitizeMiddleware error', {
           requestId,
           error: error.message,
           stack: error.stack,
@@ -277,14 +280,14 @@ class SanitizeMiddleware extends BaseMiddleware {
     let violations = []
 
     for (const [key, value] of Object.entries(obj)) {
-      // Sanitize key
-      const sanitizedKey = this.sanitizeString(key, `${context}.key`, requestId)
+      // Sanitize key using a permissive strategy (allow common query key syntax like brackets)
+      const sanitizedKey = this.sanitizeKey(key, `${context}.key`, requestId)
       if (sanitizedKey.modified) {
         modified = true
         violations = violations.concat(sanitizedKey.violations)
       }
 
-      // Sanitize value
+      // Sanitize value (full strategy with security checks)
       const sanitizedValue = this.sanitizeValue(value, `${context}.${key}`, requestId, depth + 1)
       sanitized[sanitizedKey.sanitized] = sanitizedValue.sanitized
       
@@ -434,6 +437,58 @@ class SanitizeMiddleware extends BaseMiddleware {
         violations.push({ type: 'command_injection_attempt', context, severity: 'critical' })
         this.metrics.commandInjectionAttempts++
       }
+    }
+
+    return { sanitized, modified, violations }
+  }
+
+  /**
+   * Sanitize an object key with a permissive policy
+   * - Allows common characters used in query keys: letters, digits, underscore, dash, dot, and square brackets
+   * - Applies length, null byte removal, and Unicode normalization
+   * - Does NOT run SQL/XSS/path/command injection checks to avoid false positives on keys
+   * @private
+   */
+  sanitizeKey(str, context) {
+    if (typeof str !== 'string') {
+      str = String(str)
+    }
+
+    let sanitized = str
+    let modified = false
+    const violations = []
+
+    // Enforce reasonable max length (use maxStringLength for simplicity)
+    if (sanitized.length > this.config.maxStringLength) {
+      sanitized = sanitized.substring(0, this.config.maxStringLength)
+      modified = true
+      violations.push({ type: 'key_length_trimmed', context, severity: 'low' })
+    }
+
+    // Remove null bytes
+    if (this.config.removeNullBytes && sanitized.includes('\0')) {
+      sanitized = sanitized.replace(/\0/g, '')
+      modified = true
+      violations.push({ type: 'null_bytes_removed', context, severity: 'medium' })
+    }
+
+    // Normalize Unicode
+    if (this.config.normalizeUnicode) {
+      const normalized = sanitized.normalize('NFKC')
+      if (normalized !== sanitized) {
+        sanitized = normalized
+        modified = true
+      }
+    }
+
+    // Restrict to allowed key characters; replace disallowed with underscore
+    // Allowed characters: letters, digits, underscore, dot, square brackets, hyphen
+    // Put ']' first to treat it as a literal, '-' last to avoid range semantics
+    const allowedClass = /^[\]A-Za-z0-9_.[\]-]+$/
+    if (!allowedClass.test(sanitized)) {
+      sanitized = sanitized.replace(/[^\]A-Za-z0-9_.[\]-]/g, '_')
+      modified = true
+      violations.push({ type: 'invalid_key_chars_replaced', context, severity: 'low' })
     }
 
     return { sanitized, modified, violations }
@@ -655,7 +710,7 @@ class SanitizeMiddleware extends BaseMiddleware {
       return acc
     }, {})
 
-    logger.warn('Security violations detected during sanitization', {
+    this.logger.warn('Security violations detected during sanitization', {
       requestId,
       ip: req.requestMetadata?.ip,
       userAgent: req.requestMetadata?.userAgent,
@@ -673,7 +728,7 @@ class SanitizeMiddleware extends BaseMiddleware {
    */
   logSecurityEvent(eventType, details) {
     if (this.config.enableSecurityLogging) {
-      logger.info('Sanitization security event', {
+      this.logger.info('Sanitization security event', {
         event: eventType,
         ...details,
         timestamp: new Date().toISOString()
@@ -695,7 +750,7 @@ class SanitizeMiddleware extends BaseMiddleware {
 
     // Log slow sanitization
     if (this.config.logSlowSanitization && processingTime > 50) {
-      logger.warn('Slow sanitization detected', {
+      this.logger.warn('Slow sanitization detected', {
         processingTime: `${processingTime.toFixed(2)}ms`,
         method: req.method,
         url: req.originalUrl

@@ -1,14 +1,16 @@
-const logger = require('../util/logger')
+const defaultLogger = require('../util/logger')
+const os = require('os')
 const { performance } = require('perf_hooks')
 
 // Enhanced middleware registry with dependency management and optimization
 class MiddlewareRegistry {
-  constructor() {
+  constructor({ logger } = {}) {
     this.middlewares = new Map()
     this.initializationOrder = []
     this.dependencies = new Map()
     this.initialized = false
     this.initializationTime = 0
+    this.logger = logger || defaultLogger
     
     // Performance and monitoring
     this.metrics = {
@@ -20,6 +22,15 @@ class MiddlewareRegistry {
     }
     
     this.registerMiddlewares()
+  }
+
+  getLogContext(extra = {}) {
+    return {
+      env: process.env.NODE_ENV,
+      hostname: os.hostname(),
+      pid: process.pid,
+      ...extra
+    }
   }
 
   registerMiddlewares() {
@@ -91,7 +102,7 @@ class MiddlewareRegistry {
     // Sort by priority for initialization order
     this.calculateInitializationOrder()
     
-    logger.info(`Middleware registry initialized with ${this.middlewares.size} middlewares`)
+    this.logger.info(`Middleware registry initialized with ${this.middlewares.size} middlewares`, this.getLogContext())
   }
 
   registerMiddleware(definition) {
@@ -111,9 +122,9 @@ class MiddlewareRegistry {
       this.dependencies.set(definition.name, definition.dependencies || [])
       this.metrics.totalMiddlewares++
 
-      logger.debug(`Registered middleware: ${definition.name}`)
+      this.logger.debug(`Registered middleware: ${definition.name}`)
     } catch (error) {
-      logger.error(`Failed to register middleware ${definition.name}:`, error)
+      this.logger.error(`Failed to register middleware ${definition.name}:`, error)
       this.metrics.failedInitializations++
     }
   }
@@ -152,17 +163,17 @@ class MiddlewareRegistry {
     }
 
     this.initializationOrder = order
-    logger.debug('Middleware initialization order calculated:', order)
+    this.logger.debug('Middleware initialization order calculated:', { order, ...this.getLogContext() })
   }
 
   async initializeMiddlewares() {
     if (this.initialized) {
-      logger.warn('Middlewares already initialized')
+      this.logger.warn('Middlewares already initialized', this.getLogContext())
       return this.getMiddlewareArray()
     }
 
     const startTime = performance.now()
-    logger.info('Starting middleware initialization...')
+    this.logger.info('Starting middleware initialization...', this.getLogContext())
 
     for (const middlewareName of this.initializationOrder) {
       await this.initializeMiddleware(middlewareName)
@@ -174,11 +185,12 @@ class MiddlewareRegistry {
     // Calculate average initialization time
     this.metrics.averageInitTime = this.initializationTime / this.metrics.totalMiddlewares
 
-    logger.info(`Middleware initialization completed in ${this.initializationTime.toFixed(2)}ms`, {
+    this.logger.info(`Middleware initialization completed in ${this.initializationTime.toFixed(2)}ms`, {
       totalMiddlewares: this.metrics.totalMiddlewares,
       initializedMiddlewares: this.metrics.initializedMiddlewares,
       failedInitializations: this.metrics.failedInitializations,
-      averageInitTime: `${this.metrics.averageInitTime.toFixed(2)}ms`
+      averageInitTime: `${this.metrics.averageInitTime.toFixed(2)}ms`,
+      ...this.getLogContext()
     })
 
     return this.getMiddlewareArray()
@@ -187,7 +199,7 @@ class MiddlewareRegistry {
   async initializeMiddleware(middlewareName) {
     const middlewareConfig = this.middlewares.get(middlewareName)
     if (!middlewareConfig) {
-      logger.error(`Middleware not found: ${middlewareName}`)
+      this.logger.error(`Middleware not found: ${middlewareName}`)
       return
     }
 
@@ -198,7 +210,7 @@ class MiddlewareRegistry {
     const startTime = performance.now()
     
     try {
-      logger.debug(`Initializing middleware: ${middlewareName}`)
+      this.logger.debug(`Initializing middleware: ${middlewareName}`, this.getLogContext({ middlewareName }))
 
       // Check dependencies
       const dependencies = this.dependencies.get(middlewareName) || []
@@ -223,7 +235,7 @@ class MiddlewareRegistry {
 
       this.metrics.initializedMiddlewares++
 
-      logger.debug(`Middleware initialized successfully: ${middlewareName} (${middlewareConfig.initTime.toFixed(2)}ms)`)
+      this.logger.debug(`Middleware initialized successfully: ${middlewareName} (${middlewareConfig.initTime.toFixed(2)}ms)`, this.getLogContext({ middlewareName, initTimeMs: middlewareConfig.initTime }))
       
       return instance
       
@@ -241,7 +253,7 @@ class MiddlewareRegistry {
         timestamp: new Date().toISOString()
       })
 
-      logger.error(`Failed to initialize middleware ${middlewareName}:`, error)
+      this.logger.error(`Failed to initialize middleware ${middlewareName}:`, error)
       throw error
     }
   }
@@ -254,7 +266,7 @@ class MiddlewareRegistry {
       if (config && config.initialized && config.instance) {
         middlewareArray.push(config.class)
       } else {
-        logger.warn(`Middleware not available in array: ${middlewareName}`)
+        this.logger.warn(`Middleware not available in array: ${middlewareName}`, this.getLogContext({ middlewareName }))
       }
     }
 
@@ -333,33 +345,33 @@ class MiddlewareRegistry {
   }
 
   async cleanup() {
-    logger.info('Starting middleware cleanup...')
+    this.logger.info('Starting middleware cleanup...', this.getLogContext())
     
     for (const [middlewareName, config] of this.middlewares) {
       if (config.instance && typeof config.instance.cleanup === 'function') {
         try {
           await config.instance.cleanup()
-          logger.debug(`Middleware cleaned up: ${middlewareName}`)
+          this.logger.debug(`Middleware cleaned up: ${middlewareName}`, this.getLogContext({ middlewareName }))
         } catch (error) {
-          logger.error(`Failed to cleanup middleware ${middlewareName}:`, error)
+          this.logger.error(`Failed to cleanup middleware ${middlewareName}:`, error)
         }
       }
     }
 
     this.initialized = false
-    logger.info('Middleware cleanup completed')
+    this.logger.info('Middleware cleanup completed', this.getLogContext())
   }
 }
 
 // Create global registry instance
-const registry = new MiddlewareRegistry()
+const registry = new MiddlewareRegistry({ logger: defaultLogger })
 
 // Enhanced middleware initialization with error handling and monitoring
 async function initializeMiddlewares() {
   try {
     return await registry.initializeMiddlewares()
   } catch (error) {
-    logger.error('Critical middleware initialization failure:', error)
+    registry.logger.error('Critical middleware initialization failure:', error)
     throw error
   }
 }
@@ -369,7 +381,7 @@ async function shutdownMiddlewares() {
   try {
     await registry.cleanup()
   } catch (error) {
-    logger.error('Error during middleware shutdown:', error)
+    registry.logger.error('Error during middleware shutdown:', error)
   }
 }
 
@@ -395,14 +407,13 @@ const middlewareClasses = [
   require('./BasicAuthMiddleware').BasicAuthMiddleware
 ]
 
-// Enhanced exports
+// Enhanced exports (backward compatible default array export)
 module.exports = middlewareClasses
-
-// Enhanced module exports for new features
+// Named helpers and types
+module.exports.getMiddlewareRegistry = getMiddlewareRegistry
 module.exports.initializeMiddlewares = initializeMiddlewares
 module.exports.shutdownMiddlewares = shutdownMiddlewares
 module.exports.getMiddlewareHealth = getMiddlewareHealth
-module.exports.getMiddlewareRegistry = getMiddlewareRegistry
 module.exports.MiddlewareRegistry = MiddlewareRegistry
 
 // Auto-initialize middlewares disabled - let server handle initialization

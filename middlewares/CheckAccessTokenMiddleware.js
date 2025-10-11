@@ -2,7 +2,6 @@ const { errorCodes, ErrorWrapper, BaseMiddleware } = require('backend-core')
 const { jwtHelper } = require('helpers').authHelpers
 const SECRET = require('config').token.access.secret
 const roles = require('config').roles
-const logger = require('../util/logger')
 const { performance } = require('perf_hooks')
 const NodeCache = require('node-cache')
 const crypto = require('crypto')
@@ -155,7 +154,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
         // Check rate limiting for this client
         if (this.config.enableRateLimiting && this.isRateLimited(req)) {
           this.metrics.failedAttempts++
-          logger.warn('Rate limit exceeded for authentication attempts', {
+          this.logger.warn('Rate limit exceeded for authentication attempts', {
             requestId,
             ip: req.requestMetadata?.ip,
             userAgent: req.requestMetadata?.userAgent
@@ -283,7 +282,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
 
     // Check query parameter (less secure, log warning)
     if (req.query && req.query.token) {
-      logger.warn('Token provided via query parameter (insecure)', {
+      this.logger.warn('Token provided via query parameter (insecure)', {
         requestId: req.requestMetadata?.id,
         ip: req.requestMetadata?.ip
       })
@@ -350,7 +349,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
       if (this.config.enablePerformanceMonitoring) {
         const validationTime = performance.now() - validationStart
         if (validationTime > 100) { // Log slow validations
-          logger.warn('Slow token validation', {
+          this.logger.warn('Slow token validation', {
             validationTime: `${validationTime.toFixed(2)}ms`,
             tokenSize: token.length
           })
@@ -489,7 +488,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
     this.metrics.securityEvents++
     this.recordFailedAttempt(req)
     
-    logger.warn('Token security violation detected', {
+    this.logger.warn('Token security violation detected', {
       requestId,
       reason,
       ip: req.requestMetadata?.ip,
@@ -504,7 +503,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
   handleGeneralError(error, req, next, requestId, startTime) {
     const processingTime = performance.now() - startTime
     
-    logger.error('CheckAccessTokenMiddleware error', {
+    this.logger.error('CheckAccessTokenMiddleware error', {
       requestId,
       error: error.message,
       stack: error.stack,
@@ -531,7 +530,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
       ...additionalData
     }
 
-    logger.info('Authentication event', logData)
+    this.logger.info('Authentication event', logData)
   }
 
   /**
@@ -548,7 +547,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
 
     // Log performance if monitoring enabled
     if (this.config.enablePerformanceMonitoring && processingTime > 50) {
-      logger.debug('CheckAccessTokenMiddleware performance', {
+      this.logger.debug('CheckAccessTokenMiddleware performance', {
         processingTime: `${processingTime.toFixed(2)}ms`,
         result,
         cacheHitRate: this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses)
@@ -581,7 +580,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
     const cacheKey = this.generateCacheKey(token)
     this.tokenCache.del(cacheKey)
     
-    logger.info('Token blacklisted', { tokenHash: tokenHash.substring(0, 16) })
+    this.logger.info('Token blacklisted', { tokenHash: tokenHash.substring(0, 16) })
   }
 
   /**
@@ -591,7 +590,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
     this.tokenCache.flushAll()
     this.blacklistCache.flushAll()
     this.failedAttempts.flushAll()
-    logger.info('Authentication middleware caches cleared')
+    this.logger.info('Authentication middleware caches cleared')
   }
 }
 

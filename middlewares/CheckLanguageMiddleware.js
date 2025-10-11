@@ -1,5 +1,4 @@
 const { BaseMiddleware } = require('backend-core')
-const logger = require('../util/logger')
 const UserDAO = require('database/dao/UserDAO')
 const NodeCache = require('node-cache')
 const { performance } = require('perf_hooks')
@@ -84,9 +83,9 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       // Start performance monitoring
       this.startMetricsCollection()
       
-      logger.info(`${this.constructor.name} initialization completed successfully`)
+      this.logger.info(`${this.constructor.name} initialization completed successfully`)
     } catch (error) {
-      logger.error(`${this.constructor.name} initialization failed:`, error)
+      this.logger.error(`${this.constructor.name} initialization failed:`, error)
       throw error
     }
   }
@@ -103,18 +102,19 @@ class CheckLanguageMiddleware extends BaseMiddleware {
         this.languageCache.set(`region:${region}`, lang)
       }
       
-      logger.debug('Language caches warmed up successfully')
+      this.logger.debug('Language caches warmed up successfully')
     } catch (error) {
-      logger.error('Failed to warm up language caches:', error)
+      this.logger.error('Failed to warm up language caches:', error)
       throw error
     }
   }
 
   startMetricsCollection() {
     // Log metrics every 5 minutes
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       this.logMetrics()
-    }, 300000)
+    }, 300000))
   }
 
   logMetrics() {
@@ -124,7 +124,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       updateRateLimit: this.updateRateLimit.getStats()
     }
     
-    logger.info('CheckLanguageMiddleware Metrics:', {
+    this.logger.info('CheckLanguageMiddleware Metrics:', {
       performance: this.metrics,
       cacheStats
     })
@@ -212,7 +212,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       
       return null
     } catch (error) {
-      logger.warn('Failed to parse Accept-Language header:', acceptLanguage, error)
+      this.logger.warn('Failed to parse Accept-Language header:', acceptLanguage, error)
       return null
     }
   }
@@ -237,7 +237,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       
       return preference
     } catch (error) {
-      logger.error(`Failed to get user language preference for user ${userId}:`, error)
+      this.logger.error(`Failed to get user language preference for user ${userId}:`, error)
       this.metrics.errors++
       return null
     }
@@ -248,7 +248,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
     const lastUpdate = this.updateRateLimit.get(rateLimitKey)
     
     if (lastUpdate) {
-      logger.warn('Rate limit exceeded for language update', {
+      this.logger.warn('Rate limit exceeded for language update', {
         userId,
         language,
         requestId,
@@ -268,7 +268,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       
       this.metrics.languageUpdates++
       
-      logger.info('User language preference updated', {
+      this.logger.info('User language preference updated', {
         userId,
         language,
         requestId
@@ -276,7 +276,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
       
       return true
     } catch (error) {
-      logger.error('Failed to update user language preference', {
+      this.logger.error('Failed to update user language preference', {
         userId,
         language,
         requestId,
@@ -319,7 +319,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
             languageSource = queryLanguage ? 'query' : (headerLanguage ? 'header' : 'body')
             this.metrics.languageValidations++
           } else {
-            logger.warn('Invalid language code detected', {
+            this.logger.warn('Invalid language code detected', {
               language: requestedLanguage,
               reason: validation.reason,
               requestId,
@@ -362,7 +362,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
             // Add user's current language preference to request
             req.userLanguagePreference = currentUserLanguage
           } catch (error) {
-            logger.error('Failed to handle user language preference', {
+            this.logger.error('Failed to handle user language preference', {
               userId: req.currentUser.id,
               requestId,
               error: error.message
@@ -385,7 +385,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
             ip: req.ip
           })
           
-          logger.warn('Suspicious language request detected', {
+          this.logger.warn('Suspicious language request detected', {
             requestedLanguage,
             resolvedLanguage,
             securityHash,
@@ -400,7 +400,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
         this.metrics.averageProcessingTime = 
           (this.metrics.averageProcessingTime + processingTime) / 2
         
-        logger.debug('Language processing completed', {
+        this.logger.debug('Language processing completed', {
           requestedLanguage,
           resolvedLanguage,
           languageSource,
@@ -413,7 +413,7 @@ class CheckLanguageMiddleware extends BaseMiddleware {
         this.metrics.errors++
         const processingTime = performance.now() - startTime
         
-        logger.error('CheckLanguageMiddleware error', {
+        this.logger.error('CheckLanguageMiddleware error', {
           error: error.message,
           stack: error.stack,
           processingTime: `${processingTime.toFixed(2)}ms`,
@@ -431,18 +431,22 @@ class CheckLanguageMiddleware extends BaseMiddleware {
     }
   }
 
-  // Cleanup method for graceful shutdown
   async cleanup() {
     try {
+      if (this._intervals && this._intervals.length) {
+        for (const id of this._intervals) clearInterval(id)
+        this._intervals = []
+      }
       this.languageCache.flushAll()
       this.userLanguageCache.flushAll()
       this.updateRateLimit.flushAll()
-      
-      logger.info(`${this.constructor.name} cleanup completed`)
+      this.logger.info(`${this.constructor.name} cleanup completed`)
     } catch (error) {
-      logger.error(`${this.constructor.name} cleanup failed:`, error)
+      this.logger.error(`${this.constructor.name} cleanup failed:`, error)
     }
   }
+
+  
 
   // Health check method
   getHealthStatus() {

@@ -1,6 +1,6 @@
 const config = require('config')
 const { BaseMiddleware } = require('backend-core')
-const logger = require('../util/logger')
+// const logger = require('../util/logger')
 const { performance } = require('perf_hooks')
 const crypto = require('crypto')
 
@@ -81,7 +81,7 @@ class InitMiddleware extends BaseMiddleware {
       lastResetTime: Date.now()
     }
 
-    logger.info(`${this.constructor.name} initialized with enterprise features`, {
+    this.logger.info(`${this.constructor.name} initialized with enterprise features`, {
       performanceMonitoring: this.config.enablePerformanceMonitoring,
       securityLogging: this.config.enableSecurityLogging,
       environment: process.env.NODE_ENV || 'development'
@@ -123,7 +123,6 @@ class InitMiddleware extends BaseMiddleware {
         if (this.config.generateCorrelationId) {
           res.header('X-Correlation-ID', correlationId)
         }
-        
         // Add debug headers in development
         if (this.config.enableDebugHeaders) {
           res.header('X-Node-Version', process.version)
@@ -150,7 +149,7 @@ class InitMiddleware extends BaseMiddleware {
         this.updateMetrics(processingStart)
         
         // Log request initialization
-        logger.debug('Request initialized', {
+        this.logger.debug('Request initialized', {
           requestId,
           correlationId,
           method: req.method,
@@ -162,7 +161,7 @@ class InitMiddleware extends BaseMiddleware {
 
         next()
       } catch (error) {
-        logger.error('InitMiddleware error', {
+        this.logger.error('InitMiddleware error', {
           error: error.message,
           stack: error.stack,
           method: req.method,
@@ -203,7 +202,6 @@ class InitMiddleware extends BaseMiddleware {
            req.connection?.socket?.remoteAddress ||
            'unknown'
   }
-
   /**
    * Perform security checks on incoming request
    * @private
@@ -243,7 +241,7 @@ class InitMiddleware extends BaseMiddleware {
     if (securityEvents.length > 0) {
       this.metrics.securityEvents += securityEvents.length
       
-      logger.warn('Security events detected', {
+      this.logger.warn('Security events detected', {
         requestId: req.requestMetadata?.id,
         ip: req.requestMetadata?.ip,
         method: req.method,
@@ -274,9 +272,14 @@ class InitMiddleware extends BaseMiddleware {
    * Setup performance monitoring
    * @private
    */
+  /**
+   * Setup performance monitoring
+   * @private
+   */
   setupPerformanceMonitoring(req, res) {
     const originalSend = res.send
     const startTime = performance.now()
+    const self = this
     
     res.send = function(data) {
       const processingTime = performance.now() - startTime
@@ -284,9 +287,8 @@ class InitMiddleware extends BaseMiddleware {
       // Add performance headers
       res.header('X-Response-Time', `${processingTime.toFixed(2)}ms`)
       
-      // Log slow requests
       if (processingTime > 1000) { // > 1 second
-        logger.warn('Slow request detected', {
+        self.logger.warn('Slow request detected', {
           requestId: req.requestMetadata?.id,
           method: req.method,
           url: req.originalUrl,

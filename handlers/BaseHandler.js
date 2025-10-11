@@ -1,8 +1,18 @@
 const joi = require('joi')
 const { Rule, RequestRule, assert } = require('backend-core')
 const crypto = require('crypto')
+const appLogger = require('util/logger')
 
 class BaseHandler {
+  /**
+   * Shared application logger for static handler methods
+   * Handlers commonly implement static methods (e.g., run), so expose
+   * a static logger that proxies to the app-wide logger instance.
+   */
+  static get logger () {
+    return appLogger
+  }
+
   /**
    * Enhanced base query parameters with comprehensive validation
    */
@@ -638,7 +648,7 @@ class BaseHandler {
     
     const cloned = {}
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         cloned[key] = this.deepClone(obj[key])
       }
     }

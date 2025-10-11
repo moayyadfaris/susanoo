@@ -83,15 +83,16 @@ class DevErrorMiddleware extends BaseMiddleware {
 
   startMetricsCollection() {
     // Log error metrics every 10 minutes in development
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       this.logErrorMetrics()
-    }, 600000)
+    }, 600000))
     
     // Cleanup old error dumps every hour
     if (this.config.enableErrorDumping) {
-      setInterval(() => {
+      this._intervals.push(setInterval(() => {
         this.cleanupOldErrorDumps()
-      }, 3600000)
+      }, 3600000))
     }
   }
 
@@ -314,10 +315,10 @@ class DevErrorMiddleware extends BaseMiddleware {
         const logData = {
           ...errorRes.toLogFormat(),
           request: {
-            method: req.method,
-            url: req.originalUrl,
-            userAgent: req.headers['user-agent'],
-            ip: req.ip
+            method: req?.method,
+            url: req?.originalUrl,
+            userAgent: (req && req.headers && (req.headers['user-agent'] || req.headers['User-Agent'])) || 'unknown',
+            ip: req?.ip
           }
         }
         
@@ -418,6 +419,18 @@ class DevErrorMiddleware extends BaseMiddleware {
           }
         }
       }
+    }
+  }
+
+  async cleanup() {
+    try {
+      if (this._intervals && this._intervals.length) {
+        for (const id of this._intervals) clearInterval(id)
+        this._intervals = []
+      }
+      this.logger.info(`${this.constructor.name} cleanup completed`)
+    } catch (error) {
+      this.logger.error(`${this.constructor.name} cleanup failed:`, error)
     }
   }
 

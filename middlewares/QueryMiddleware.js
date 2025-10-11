@@ -1,5 +1,4 @@
 const { BaseMiddleware, ErrorWrapper, errorCodes } = require('backend-core')
-const logger = require('../util/logger')
 const crypto = require('crypto')
 
 /**
@@ -44,10 +43,19 @@ class QueryMiddleware extends BaseMiddleware {
       enableCompression: options.enableCompression || false,
       enableLogging: options.enableLogging !== false
     }
+
+    // Lightweight metrics
+    this.metrics = {
+      totalRequests: 0,
+      processedGets: 0,
+      sanitizedQueries: 0,
+      errors: 0,
+      averageProcessingTime: 0
+    }
   }
   
   async init() {
-    logger.debug(`${this.constructor.name} initialized with config:`, {
+    this.logger.debug(`${this.constructor.name} initialized with config:`, {
       supportedLanguages: this.config.supportedLanguages,
       defaultLanguage: this.config.defaultLanguage,
       maxLimit: this.config.maxLimit,
@@ -61,6 +69,7 @@ class QueryMiddleware extends BaseMiddleware {
       const startTime = Date.now()
       
       try {
+        this.metrics.totalRequests++
         // Generate request ID for tracking
         req.queryProcessingId = this.generateRequestId()
         
@@ -68,7 +77,16 @@ class QueryMiddleware extends BaseMiddleware {
         await this.processHeaders(req)
         
         // Process and validate query parameters
-        await this.processQueryParameters(req)
+        const before = JSON.stringify(req.query)
+        const processed = await this.processQueryParameters(req)
+        // Non-breaking: keep existing req.query behavior but also expose processedQuery
+        if (processed && typeof processed === 'object') {
+          req.processedQuery = processed
+        } else {
+          req.processedQuery = req.query
+        }
+        if (req.method === 'GET') this.metrics.processedGets++
+        if (before !== JSON.stringify(req.query)) this.metrics.sanitizedQueries++
         
         // Apply security measures
         await this.applySecurity(req)
@@ -78,8 +96,11 @@ class QueryMiddleware extends BaseMiddleware {
           this.logQueryProcessing(req, Date.now() - startTime)
         }
         
+        const dur = Date.now() - startTime
+        this.metrics.averageProcessingTime = (this.metrics.averageProcessingTime + dur) / 2
         next()
       } catch (error) {
+        this.metrics.errors++
         this.handleError(error, req, next, Date.now() - startTime)
       }
     }
@@ -169,31 +190,8 @@ class QueryMiddleware extends BaseMiddleware {
       // Clean up legacy parameters
       this.cleanupLegacyParameters(processedQuery)
       
-      // Safely replace query - handle getter-only property
-      try {
-        // Try direct assignment first
-        req.query = processedQuery
-      } catch (error) {
-        // If direct assignment fails, use Object.defineProperty
-        try {
-          Object.defineProperty(req, 'query', {
-            value: processedQuery,
-            writable: true,
-            enumerable: true,
-            configurable: true
-          })
-        } catch (defineError) {
-          // Last resort: modify existing query object in place
-          if (typeof req.query === 'object' && req.query !== null) {
-            // Clear existing properties
-            Object.keys(req.query).forEach(key => {
-              delete req.query[key]
-            })
-            // Copy new properties
-            Object.assign(req.query, processedQuery)
-          }
-        }
-      }
+      // DO NOT replace req.query; return processed object and let caller assign processedQuery
+      return processedQuery
       
     } else {
       // For non-GET requests, still sanitize query if present
@@ -201,30 +199,8 @@ class QueryMiddleware extends BaseMiddleware {
         const sanitizedQuery = this.sanitizeQuery(req.query)
         const finalQuery = Object.assign({}, sanitizedQuery)
         
-        try {
-          // Try direct assignment first
-          req.query = finalQuery
-        } catch (error) {
-          // If direct assignment fails, use Object.defineProperty
-          try {
-            Object.defineProperty(req, 'query', {
-              value: finalQuery,
-              writable: true,
-              enumerable: true,
-              configurable: true
-            })
-          } catch (defineError) {
-            // Last resort: modify existing query object in place
-            if (typeof req.query === 'object' && req.query !== null) {
-              // Clear existing properties
-              Object.keys(req.query).forEach(key => {
-                delete req.query[key]
-              })
-              // Copy new properties
-              Object.assign(req.query, finalQuery)
-            }
-          }
-        }
+        // Non-GET: also avoid replacing req.query; return processed for consistency
+        return finalQuery
       }
     }
   }
@@ -476,7 +452,7 @@ class QueryMiddleware extends BaseMiddleware {
       return
     }
     
-    for (const [key, value] of Object.entries(filter)) {
+    for (const [, value] of Object.entries(filter)) {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         // Check for filter operators
         const operators = Object.keys(value)
@@ -549,10 +525,12 @@ class QueryMiddleware extends BaseMiddleware {
    * Logs query processing information
    */
   logQueryProcessing(req, processingTime) {
-    logger.debug('Query processing completed', {
+    this.logger.debug('Query processing completed', {
       requestId: req.queryProcessingId,
       method: req.method,
       url: req.url,
+      ip: req.requestMetadata?.ip || req.ip,
+      userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown',
       language: req.language,
       processingTime: `${processingTime}ms`,
       queryParams: Object.keys(req.query).length,
@@ -569,16 +547,22 @@ class QueryMiddleware extends BaseMiddleware {
    * Handles errors during query processing
    */
   handleError(error, req, next, processingTime) {
-    logger.error('Query processing failed', {
+    this.logger.error('Query processing failed', {
       requestId: req.queryProcessingId,
       method: req.method,
       url: req.url,
+      ip: req.requestMetadata?.ip || req.ip,
+      userAgent: req.requestMetadata?.userAgent || req.headers['user-agent'] || 'unknown',
       processingTime: `${processingTime}ms`,
       error: error.message,
       stack: error.stack
     })
     
     next(error)
+  }
+
+  getMetrics() {
+    return this.metrics
   }
 }
 

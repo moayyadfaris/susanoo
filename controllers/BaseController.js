@@ -90,11 +90,13 @@ class BaseController {
    * Validates handler structure and requirements
    */
   validateHandler(handler) {
-    if (!handler.hasOwnProperty('accessTag')) {
+    //     if (!handler.hasOwnProperty('accessTag')) {
+    if (!Object.prototype.hasOwnProperty.call(handler, 'accessTag')) {
       throw new Error(`'accessTag' getter not declared in invoked '${handler.name}' handler`)
     }
 
-    if (!handler.hasOwnProperty('run')) {
+    //     if (!handler.hasOwnProperty('run')) {
+    if (!Object.prototype.hasOwnProperty.call(handler, 'run')) {
       throw new Error(`'run' method not declared in invoked '${handler.name}' handler`)
     }
     
@@ -121,6 +123,7 @@ class BaseController {
       currentUser: req.currentUser,
       body: req.body,
       query: req.query,
+      processedQuery: req.processedQuery,
       params: req.params,
       ip: this.getClientIP(req),
       method: req.method,
@@ -203,6 +206,7 @@ class BaseController {
   /**
    * Validates CSRF token
    */
+  // eslint-disable-next-line no-unused-vars
   validateCSRFToken(req) {
     // Implementation depends on your CSRF strategy
     // This is a placeholder for CSRF validation
@@ -232,6 +236,7 @@ class BaseController {
   /**
    * Gets rate limiting information
    */
+  // eslint-disable-next-line no-unused-vars
   async getRateLimitInfo(ip) {
     // Placeholder for rate limiting logic
     return {
@@ -319,7 +324,8 @@ class BaseController {
     const validationPromises = []
     
     if (handler.validationRules.query) {
-      validationPromises.push(this.validateSchemaAsync(ctx.query, handler.validationRules.query, 'query', ctx))
+      const sourceQuery = ctx.processedQuery || ctx.query || {}
+      validationPromises.push(this.validateSchemaAsync(sourceQuery, handler.validationRules.query, 'query', ctx))
     }
     if (handler.validationRules.params) {
       validationPromises.push(this.validateSchemaAsync(ctx.params, handler.validationRules.params, 'params', ctx))

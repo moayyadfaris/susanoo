@@ -1,6 +1,6 @@
 const ErrorResponse = require('./ErrorResponse')
 const { errorCodes, BaseMiddleware } = require('backend-core')
-const logger = require('util/logger')
+const os = require('os')
 const { performance } = require('perf_hooks')
 const crypto = require('crypto')
 
@@ -62,9 +62,9 @@ class ProdErrorMiddleware extends BaseMiddleware {
       // Start production monitoring
       this.startProductionMonitoring()
       
-      logger.info(`${this.constructor.name} initialized with production monitoring`)
+      this.logger.info(`${this.constructor.name} initialized with production monitoring`)
     } catch (error) {
-      logger.error(`${this.constructor.name} initialization failed:`, error)
+      this.logger.error(`${this.constructor.name} initialization failed:`, error)
       throw error
     }
   }
@@ -114,8 +114,13 @@ class ProdErrorMiddleware extends BaseMiddleware {
       aggregatedErrorTypes: this.errorAggregation.size,
       alertState: this.alertState
     }
-    
-    logger.info('ProdErrorMiddleware Metrics:', metrics)
+    const context = {
+      env: process.env.NODE_ENV,
+      hostname: os.hostname(),
+      pid: process.pid
+    }
+
+    this.logger.info('ProdErrorMiddleware Metrics:', { metrics, context })
     
     // Check for alert conditions
     this.checkAlertThresholds()
@@ -162,7 +167,7 @@ class ProdErrorMiddleware extends BaseMiddleware {
   }
 
   triggerCriticalAlert(message) {
-    logger.error('CRITICAL ALERT:', {
+    this.logger.error('CRITICAL ALERT:', {
       message,
       criticalErrorCount: this.alertState.criticalErrorCount,
       threshold: this.config.criticalErrorThreshold,
@@ -175,7 +180,7 @@ class ProdErrorMiddleware extends BaseMiddleware {
   }
 
   triggerErrorRateAlert(message) {
-    logger.warn('ERROR RATE ALERT:', {
+    this.logger.warn('ERROR RATE ALERT:', {
       message,
       errorRate: this.alertState.errorRate,
       threshold: this.config.errorRateThreshold,
@@ -288,6 +293,7 @@ class ProdErrorMiddleware extends BaseMiddleware {
   }
 
   handler() {
+    // eslint-disable-next-line no-unused-vars
     return async (error, req, res, next) => {
       const startTime = performance.now()
       const requestId = req.requestId || crypto.randomUUID()
@@ -343,9 +349,9 @@ class ProdErrorMiddleware extends BaseMiddleware {
           }
           
           if (errorRes.status >= 500) {
-            logger.error('Server Error:', logData)
+            this.logger.error('Server Error:', logData)
           } else {
-            logger.warn('Client Error:', logData)
+            this.logger.warn('Client Error:', logData)
           }
         }
         
@@ -361,7 +367,7 @@ class ProdErrorMiddleware extends BaseMiddleware {
         
       } catch (middlewareError) {
         // Fallback error handling
-        logger.error('Error in ProdErrorMiddleware:', {
+        this.logger.error('Error in ProdErrorMiddleware:', {
           middlewareError: middlewareError.message,
           originalError: error.message,
           requestId
@@ -409,12 +415,12 @@ class ProdErrorMiddleware extends BaseMiddleware {
     this.alertState.criticalErrorCount = 0
     this.alertState.errorRate = 0
     
-    logger.info('Production error alerts reset manually')
+    this.logger.info('Production error alerts reset manually')
   }
 
   async clearErrorAggregation() {
     this.errorAggregation.clear()
-    logger.info('Error aggregation data cleared manually')
+    this.logger.info('Error aggregation data cleared manually')
   }
 }
 

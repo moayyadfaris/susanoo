@@ -1,5 +1,4 @@
 const { BaseMiddleware } = require('backend-core')
-const logger = require('../util/logger')
 const cacheRoutes = require('../config').cacheRoutes
 const { redisClient } = require('handlers/RootProvider')
 const { stripTrailingSlash } = require('helpers').commonHelpers
@@ -73,13 +72,14 @@ class CacheMiddleware extends BaseMiddleware {
   async init() {
     try {
       // Initialize cache warming and cleanup
+      this._intervals = this._intervals || []
       await this.setupCacheWarming()
       this.startMetricsCollection()
       this.setupCacheCleanup()
       
-      logger.info(`${this.constructor.name} initialization completed successfully`)
+      this.logger.info(`${this.constructor.name} initialization completed successfully`)
     } catch (error) {
-      logger.error(`${this.constructor.name} initialization failed:`, error)
+      this.logger.error(`${this.constructor.name} initialization failed:`, error)
       throw error
     }
   }
@@ -103,33 +103,35 @@ class CacheMiddleware extends BaseMiddleware {
         this.cacheMetadata.set(`meta:${cacheKey}`, metadata)
       }
       
-      logger.debug('Cache warming completed')
+      this.logger.debug('Cache warming completed')
     } catch (error) {
-      logger.error('Failed to warm up cache:', error)
+      this.logger.error('Failed to warm up cache:', error)
     }
   }
 
   startMetricsCollection() {
     // Log metrics every 5 minutes
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       this.logMetrics()
-    }, 300000)
+    }, 300000))
     
     // Cleanup stale cache entries every hour
-    setInterval(() => {
+    this._intervals.push(setInterval(() => {
       this.cleanupStaleEntries()
-    }, 3600000)
+    }, 3600000))
   }
 
   setupCacheCleanup() {
     // Monitor memory usage and cleanup if needed
-    setInterval(() => {
+    this._intervals = this._intervals || []
+    this._intervals.push(setInterval(() => {
       const memUsage = process.memoryUsage()
       if (memUsage.heapUsed > 512 * 1024 * 1024) { // 512MB
         this.memoryCache.flushAll()
-        logger.warn('Memory cache flushed due to high memory usage')
+        this.logger.warn('Memory cache flushed due to high memory usage')
       }
-    }, 60000)
+    }, 60000))
   }
 
   logMetrics() {
@@ -142,7 +144,7 @@ class CacheMiddleware extends BaseMiddleware {
       ? (this.metrics.cacheHits / this.metrics.totalRequests * 100).toFixed(2)
       : 0
     
-    logger.info('CacheMiddleware Metrics:', {
+    this.logger.info('CacheMiddleware Metrics:', {
       performance: {
         ...this.metrics,
         hitRatio: `${hitRatio}%`
@@ -166,9 +168,9 @@ class CacheMiddleware extends BaseMiddleware {
         }
       }
       
-      logger.debug(`Cleaned up ${cleanedCount} stale cache entries`)
+      this.logger.debug(`Cleaned up ${cleanedCount} stale cache entries`)
     } catch (error) {
-      logger.error('Failed to cleanup stale cache entries:', error)
+      this.logger.error('Failed to cleanup stale cache entries:', error)
     }
   }
 
@@ -278,7 +280,7 @@ class CacheMiddleware extends BaseMiddleware {
       }
       return null
     } catch (error) {
-      logger.error('Redis cache retrieval failed:', error)
+      this.logger.error('Redis cache retrieval failed:', error)
       this.metrics.errors++
       return null
     }
@@ -304,7 +306,7 @@ class CacheMiddleware extends BaseMiddleware {
       
       return true
     } catch (error) {
-      logger.error('Cache storage failed:', error)
+      this.logger.error('Cache storage failed:', error)
       this.metrics.errors++
       return false
     }
@@ -332,7 +334,7 @@ class CacheMiddleware extends BaseMiddleware {
         }
       }
     } catch (error) {
-      logger.error('Cache invalidation failed:', error)
+      this.logger.error('Cache invalidation failed:', error)
       this.metrics.errors++
     }
   }
@@ -361,6 +363,7 @@ class CacheMiddleware extends BaseMiddleware {
     return async (req, res, next) => {
       const startTime = performance.now()
       const requestId = req.requestId || crypto.randomUUID()
+      const self = this
       
       try {
         this.metrics.totalRequests++
@@ -413,7 +416,7 @@ class CacheMiddleware extends BaseMiddleware {
             this.metrics.averageResponseTime = 
               (this.metrics.averageResponseTime + processingTime) / 2
             
-            logger.debug('Cache hit', {
+            this.logger.debug('Cache hit', {
               url,
               cacheKey: cacheKey.substring(0, 8),
               processingTime: `${processingTime.toFixed(2)}ms`,
@@ -430,7 +433,7 @@ class CacheMiddleware extends BaseMiddleware {
             return res.json(responseData)
             
           } catch (error) {
-            logger.error('Cache data processing failed:', error)
+            this.logger.error('Cache data processing failed:', error)
             this.metrics.errors++
             // Continue to next middleware on cache error
           }
@@ -441,7 +444,7 @@ class CacheMiddleware extends BaseMiddleware {
         
         // Intercept response to cache it
         const originalJson = res.json
-        
+
         res.json = async function(data) {
           try {
             // Generate cache headers
@@ -469,20 +472,19 @@ class CacheMiddleware extends BaseMiddleware {
             res.set('X-Cache', 'MISS')
             
           } catch (error) {
-            logger.error('Response caching failed:', error)
+            this.logger.error('Response caching failed:', error)
           }
           
           return originalJson.call(this, data)
         }
         
-        const self = this
         
         // Performance tracking
         const processingTime = performance.now() - startTime
         this.metrics.averageResponseTime = 
           (this.metrics.averageResponseTime + processingTime) / 2
         
-        logger.debug('Cache miss', {
+        this.logger.debug('Cache miss', {
           url,
           cacheKey: cacheKey.substring(0, 8),
           processingTime: `${processingTime.toFixed(2)}ms`,
@@ -495,7 +497,7 @@ class CacheMiddleware extends BaseMiddleware {
         this.metrics.errors++
         const processingTime = performance.now() - startTime
         
-        logger.error('CacheMiddleware error', {
+        this.logger.error('CacheMiddleware error', {
           error: error.message,
           stack: error.stack,
           processingTime: `${processingTime.toFixed(2)}ms`,
@@ -542,15 +544,27 @@ class CacheMiddleware extends BaseMiddleware {
     }
   }
 
+  // Metrics provider export
+  getMetrics() {
+    return {
+      ...this.metrics,
+      memoryCacheKeys: this.memoryCache.keys().length
+    }
+  }
+
   // Cleanup method for graceful shutdown
   async cleanup() {
     try {
+      if (this._intervals && this._intervals.length) {
+        for (const id of this._intervals) clearInterval(id)
+        this._intervals = []
+      }
       this.memoryCache.flushAll()
       this.cacheMetadata.flushAll()
       
-      logger.info(`${this.constructor.name} cleanup completed`)
+      this.logger.info(`${this.constructor.name} cleanup completed`)
     } catch (error) {
-      logger.error(`${this.constructor.name} cleanup failed:`, error)
+      this.logger.error(`${this.constructor.name} cleanup failed:`, error)
     }
   }
 }
