@@ -1,13 +1,9 @@
-const LoginHandler = require('./LoginHandler')
-const RefreshTokensHandler = require('./RefreshTokensHandler')
-const LogoutHandler = require('./LogoutHandler')
-const LoginByQRCodeHandler = require('./LoginByQRCodeHandler')
-const ListUserSessionsHandler = require('./ListUserSessionsHandler')
 
 module.exports = {
-  LoginHandler,
-  RefreshTokensHandler,
-  LogoutHandler,
-  LoginByQRCodeHandler,
-  ListUserSessionsHandler
+  LoginHandler: require('./LoginHandler'),
+  RefreshTokensHandler: require('./RefreshTokensHandler'),
+  LogoutHandler: require('./LogoutHandler'),
+  LoginByQRCodeHandler: require('./LoginByQRCodeHandler'),
+  ListUserSessionsHandler: require('./ListUserSessionsHandler'),
+  LogoutAllSessionsHandler: require('./LogoutAllSessionsHandler')
 }
