@@ -8,6 +8,52 @@ class StoryAttachmentsController extends BaseController {
     /**
      * @swagger
      * /stories/{id}/attachments/{itemId}:
+     *   post:
+     *     security:
+     *      - JWT: []
+     *     tags:
+     *      - Stories
+     *     summary: link attachment to story
+     *     produces:
+     *       - application/json
+     *     consumes:
+     *       - application/json
+     *     parameters:
+     *       - name: id
+     *         in: path
+     *         schema:
+     *           type: number
+     *         description: Story ID
+     *       - name: itemId
+     *         in: path
+     *         schema:
+     *           type: number
+     *         description: Attachment ID
+     *     responses:
+     *       '200':
+     *         description: attachment linked (or already linked)
+     *         content:
+     *         schema:
+     *               type: object
+     *               properties:
+     *                 success:
+     *                   type: boolean
+     *                 message:
+     *                   type: string
+     *       '400':
+     *         description: Bad request
+     *       '409':
+     *         description: duplicate data
+     *       '404':
+     *         description: Empty response, not found
+     *       '403':
+     *         description: Access denied
+     */
+    router.post('/stories/:id/attachments/:itemId', this.handlerRunner(handlers.LinkStoryAttachmentHandler))
+
+    /**
+     * @swagger
+     * /stories/{id}/attachments/{itemId}:
      *   delete:
      *     security:
      *      - JWT: []

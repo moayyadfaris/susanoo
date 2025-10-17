@@ -1,6 +1,5 @@
 const BaseHandler = require('handlers/BaseHandler')
-const UserInterestDAO = require('database/dao/UserInterestDAO')
-const InterestDAO = require('database/dao/InterestDAO')
+const { getUserInterestService } = require('services')
 
 class ListUserInterestsHandler extends BaseHandler {
   static get accessTag () {
@@ -17,23 +16,9 @@ class ListUserInterestsHandler extends BaseHandler {
 
   static async run (ctx) {
     const { currentUser, query } = ctx
-    query.limit = 100
-    let interestList = []
-    const userInterests = await UserInterestDAO.getUserInterests(currentUser.id)
-    const interest = await InterestDAO.baseGetList({ ...query })
-    interest.results.forEach(element => {
-      const found = userInterests.some(el => el.id === element.id)
-      if (found) {
-        element.selected = true
-      } else {
-        element.selected = false
-      }
-      interestList.push(element)
-    })
-    return this.result({
-      data: interestList,
-      headers: { 'X-Total-Count': interestList.length }
-    })
+    const service = getUserInterestService()
+    const result = await service.listInterestsWithSelection({ ...query, limit: 100 }, { currentUser })
+    return this.result({ data: result.data, headers: result.headers, meta: { pagination: result.pagination } })
   }
 }
 

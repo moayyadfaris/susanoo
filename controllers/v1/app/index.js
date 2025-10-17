@@ -8,7 +8,8 @@ const { UserInterestsController } = require('./UserInterestsController')
 const { UserStoriesController } = require('./UserStoriesController')
 const { AttachmentsController } = require('./AttachmentsController')
 const { StoryAttachmentsController } = require('./StoryAttachmentsController')
-const { ConfigController } = require('./ConfigController')
+const { RuntimeSettingsController } = require('./RuntimeSettingsController')
+const { CategoriesController } = require('./CategoriesController')
 
 module.exports = [
   RootController,
@@ -21,5 +22,6 @@ module.exports = [
   UserStoriesController,
   AttachmentsController,
   StoryAttachmentsController,
-  ConfigController
+  RuntimeSettingsController,
+  CategoriesController
 ]

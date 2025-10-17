@@ -213,9 +213,9 @@ class UserDAO extends BaseDAO {
         'profileImageId', 'lastLogoutAt']
       
       const safeColumns = allColumns.filter(col => !sensitiveFields.includes(col))
-      query = query.select(safeColumns)
+      query.select(safeColumns)
     } else {
-      query = query.select(select)
+      query.select(select)
     }
     
     query.orderBy(orderBy.field, orderBy.direction).page(page, limit)
@@ -239,29 +239,24 @@ class UserDAO extends BaseDAO {
    * @returns {Promise<{results: Array, total: number}>}
    */
   static async getAdvancedList(params = {}) {
-    try {
-      // Build base query without includes for counting
-      let countQuery = this.buildAdvancedQuery({ ...params, include: undefined })
-      countQuery = countQuery.clearSelect().clearOrder().count('* as total').first()
-      
-      // Build the full query with includes
-      let query = this.buildAdvancedQuery(params)
-      
-      // Execute both queries in parallel
-      const [results, countResult] = await Promise.all([
-        query,
-        countQuery
-      ])
+    // Build base query without includes for counting
+    let countQuery = this.buildAdvancedQuery({ ...params, include: undefined })
+    countQuery = countQuery.clearSelect().clearOrder().count('* as total').first()
+    
+    // Build the full query with includes
+    let query = this.buildAdvancedQuery(params)
+    
+    // Execute both queries in parallel
+    const [results, countResult] = await Promise.all([
+      query,
+      countQuery
+    ])
 
-      const total = parseInt(countResult.total) || 0
+    const total = parseInt(countResult.total) || 0
 
-      return {
-        results: results || [],
-        total
-      }
-
-    } catch (error) {
-      throw error
+    return {
+      results: results || [],
+      total
     }
   }
 
@@ -438,26 +433,21 @@ class UserDAO extends BaseDAO {
    * @returns {Promise<Object>} User data with related information
    */
   static async getCurrentUserData(userId, options = {}) {
-    try {
-      assert.validate(userId, UserModel.schema.id, { required: true })
+    assert.validate(userId, UserModel.schema.id, { required: true })
 
-      // Get base user data with appropriate field selection
-      let userData = await this.getCurrentUserBase(userId, options)
-      
-      // Always load profile image and any additionally requested relations
-      userData = await this.loadCurrentUserRelations(userData, options.include || [])
+    // Get base user data with appropriate field selection
+    let userData = await this.getCurrentUserBase(userId, options)
+    
+    // Always load profile image and any additionally requested relations
+    userData = await this.loadCurrentUserRelations(userData, options.include || [])
 
-      return userData
-
-    } catch (error) {
-      throw error
-    }
+    return userData
   }
 
   /**
    * Get base current user data
    */
-  static async getCurrentUserBase(userId, options = {}) {
+  static async getCurrentUserBase(userId) {
     const query = this.query().where({ id: userId }).first()
 
     // For current user, we can show more fields than public listings
@@ -628,10 +618,564 @@ class UserDAO extends BaseDAO {
 
       return userData
 
-    } catch (error) {
+    } catch {
       // Don't fail the main request if related data loading fails
       return userData
     }
+  }
+
+  /**
+   * ===============================
+   * ENTERPRISE USER METHODS
+   * ===============================
+   */
+
+  /**
+   * Format user data for API response with privacy controls and caching
+   * @param {Object} userData - Raw user data
+   * @param {Object} options - Formatting options
+   * @returns {Object} Formatted user data
+   */
+  static async formatUserForAPI(userData, options = {}) {
+    const {
+      includePrivate = false,
+      includeSensitive = false,
+      format = 'standard',
+      useCache = true
+    } = options
+
+    // Check cache first for formatted data
+    const cacheKey = `user:formatted:${userData.id}:${format}:${includePrivate}:${includeSensitive}`
+    
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        const cached = await RedisClient.get(cacheKey)
+        if (cached) return JSON.parse(cached)
+      } catch {
+        // Continue without cache if Redis fails
+      }
+    }
+
+    // Format user data directly (moved from UserModel to avoid circular dependency)
+    const baseData = {
+      id: userData.id,
+      name: userData.name,
+      bio: userData.bio,
+      role: userData.role,
+      isActive: userData.isActive,
+      preferredLanguage: userData.preferredLanguage
+    }
+
+    // Add public fields based on format
+    if (format === 'public') {
+      const formatted = {
+        id: userData.id,
+        name: userData.name,
+        bio: userData.bio,
+        ...(userData.profileImage && { profileImage: userData.profileImage })
+      }
+      return formatted
+    }
+
+    // Add private fields if authorized
+    if (includePrivate) {
+      baseData.email = userData.email
+      baseData.mobileNumber = userData.mobileNumber
+      baseData.countryId = userData.countryId
+      baseData.isVerified = userData.isVerified
+    }
+
+    // Add sensitive fields if authorized
+    if (includeSensitive) {
+      baseData.createdAt = userData.createdAt
+      baseData.lastLogoutAt = userData.lastLogoutAt
+      baseData.acceptedTermsAt = userData.acceptedTermsAt
+      baseData.acceptedPrivacyAt = userData.acceptedPrivacyAt
+    }
+
+    // Add sanitized metadata if requested
+    if (userData.metadata) {
+      const sanitized = { ...userData.metadata }
+      
+      // Remove sensitive information
+      delete sanitized.registrationIp
+      delete sanitized.deviceFingerprint
+      delete sanitized.sessionTokens
+      
+      // Keep only safe metadata
+      const safeFields = ['registrationMethod', 'deviceType', 'appVersion', 'registrationDate']
+      const filtered = {}
+      
+      safeFields.forEach(field => {
+        if (sanitized[field]) filtered[field] = sanitized[field]
+      })
+      
+      if (Object.keys(filtered).length > 0) {
+        baseData.metadata = filtered
+      }
+    }
+
+    const formatted = baseData
+
+    // Load additional relations if needed
+    if (format !== 'public' && userData.id) {
+      try {
+        const fullUserData = await this.query()
+          .findById(userData.id)
+          .withGraphFetched('[country, profileImage]')
+
+        if (fullUserData) {
+          if (fullUserData.country) formatted.country = fullUserData.country
+          if (fullUserData.profileImage) formatted.profileImage = fullUserData.profileImage
+        }
+      } catch {
+        // Continue without relations if loading fails
+      }
+    }
+
+    // Cache the result for 5 minutes
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        await RedisClient.setex(cacheKey, 300, JSON.stringify(formatted))
+      } catch {
+        // Continue without caching if Redis fails
+      }
+    }
+
+    return formatted
+  }
+
+  /**
+   * Generate comprehensive user analytics with database context
+   * @param {string} userId - User ID
+   * @param {Object} options - Analytics options
+   * @returns {Object} Enhanced analytics summary
+   */
+  static async generateUserAnalytics(userId, options = {}) {
+    const { includeActivity = true, includeEngagement = true, useCache = true } = options
+    
+    // Check cache first
+    const cacheKey = `user:analytics:${userId}:${includeActivity}:${includeEngagement}`
+    
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        const cached = await RedisClient.get(cacheKey)
+        if (cached) return JSON.parse(cached)
+      } catch {
+        // Continue without cache
+      }
+    }
+
+    // Get user data with relations
+    const userData = await this.query()
+      .findById(userId)
+      .withGraphFetched('[country, interests, stories]')
+
+    if (!userData) {
+      throw this.errorEmptyResponse()
+    }
+
+    // Calculate base analytics directly (moved from UserModel)
+    const registrationDate = new Date(userData.createdAt)
+    const daysSinceRegistration = Math.floor((Date.now() - registrationDate.getTime()) / (1000 * 60 * 60 * 24))
+    
+    // Calculate profile completeness
+    const UserModel = require('../../models/UserModel')
+    const profileMetrics = UserModel.calculateProfileCompleteness(userData)
+    const securityMetrics = UserModel.assessAccountSecurity(userData)
+    const engagementLevel = UserModel.calculateEngagementLevel(userData)
+
+    const baseAnalytics = {
+      accountAge: {
+        days: daysSinceRegistration,
+        months: Math.floor(daysSinceRegistration / 30),
+        isNewUser: daysSinceRegistration < 7
+      },
+      profileMetrics,
+      securityMetrics,
+      engagementLevel,
+      summary: {
+        status: userData.isActive ? 'active' : 'inactive',
+        verified: userData.isVerified,
+        compliant: userData.acceptedTermsAt && userData.acceptedPrivacyAt
+      }
+    }
+
+    // Add database-driven metrics
+    const enhancedAnalytics = { ...baseAnalytics }
+
+    if (includeActivity) {
+      // Add activity metrics from database
+      enhancedAnalytics.activityMetrics = {
+        storiesCount: userData.stories ? userData.stories.length : 0,
+        interestsCount: userData.interests ? userData.interests.length : 0,
+        lastLoginDate: userData.lastLogoutAt,
+        profileUpdateCount: await this.getProfileUpdateCount(userId)
+      }
+    }
+
+    if (includeEngagement) {
+      // Add engagement metrics
+      enhancedAnalytics.engagementMetrics = {
+        profileViews: await this.getProfileViewCount(userId),
+        socialConnections: await this.getSocialConnectionCount(userId),
+        contentInteractions: await this.getContentInteractionCount(userId)
+      }
+    }
+
+    // Cache for 10 minutes
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        await RedisClient.setex(cacheKey, 600, JSON.stringify(enhancedAnalytics))
+      } catch {
+        // Continue without caching
+      }
+    }
+
+    return enhancedAnalytics
+  }
+
+  /**
+   * Validate user GDPR compliance with database context
+   * @param {string} userId - User ID
+   * @returns {Object} GDPR compliance status with actions
+   */
+  static async validateUserGDPRCompliance(userId) {
+    const userData = await this.query()
+      .findById(userId)
+      .select(['id', 'createdAt', 'acceptedPrivacyAt', 'isActive', 'lastLogoutAt', 'metadata'])
+
+    if (!userData) {
+      throw this.errorEmptyResponse()
+    }
+
+    // Validate GDPR compliance directly (moved from UserModel to avoid circular dependency)
+    const checks = {
+      consentGiven: userData.acceptedPrivacyAt !== null,
+      dataMinimization: this.checkDataMinimization(userData),
+      retentionCompliance: this.checkRetentionCompliance(userData),
+      rightToErasure: userData.isActive || userData.deletedAt !== null
+    }
+
+    const compliant = Object.values(checks).every(Boolean)
+
+    const compliance = {
+      compliant,
+      checks,
+      actions: compliant ? [] : this.getGDPRActions(checks)
+    }
+
+    // Add database-specific compliance checks
+    const enhancedCompliance = { ...compliance }
+
+    // Check for data retention compliance across related tables
+    if (compliance.compliant) {
+      try {
+        const dataRetentionChecks = await this.checkDataRetentionCompliance(userId)
+        enhancedCompliance.checks.dataRetention = dataRetentionChecks.compliant
+        
+        if (!dataRetentionChecks.compliant) {
+          enhancedCompliance.compliant = false
+          enhancedCompliance.actions.push(...dataRetentionChecks.actions)
+        }
+      } catch {
+        // Continue with basic compliance if detailed checks fail
+      }
+    }
+
+    return enhancedCompliance
+  }
+
+  /**
+   * Search users with advanced filtering and caching
+   * @param {Object} criteria - Search criteria
+   * @returns {Object} Search results with metadata
+   */
+  static async searchUsers(criteria = {}) {
+    const {
+      query = '',
+      role = null,
+      isActive = null,
+      isVerified = null,
+      country = null,
+      registrationDateFrom = null,
+      registrationDateTo = null,
+      lastActivityFrom = null,
+      lastActivityTo = null,
+      page = 0,
+      limit = 20,
+      orderBy = 'createdAt',
+      orderDirection = 'desc',
+      useCache = true
+    } = criteria
+
+    // Create cache key from search criteria
+    const cacheKey = `user:search:${Buffer.from(JSON.stringify(criteria)).toString('base64')}`
+
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        const cached = await RedisClient.get(cacheKey)
+        if (cached) return JSON.parse(cached)
+      } catch {
+        // Continue without cache
+      }
+    }
+
+    // Build search query
+    let searchQuery = this.query()
+
+    // Text search across name, email
+    if (query) {
+      searchQuery = searchQuery.where(builder => {
+        builder
+          .whereILike('name', `%${query}%`)
+          .orWhereILike('email', `%${query}%`)
+      })
+    }
+
+    // Apply filters
+    if (role !== null) searchQuery = searchQuery.where('role', role)
+    if (isActive !== null) searchQuery = searchQuery.where('isActive', isActive)
+    if (isVerified !== null) searchQuery = searchQuery.where('isVerified', isVerified)
+    if (country !== null) searchQuery = searchQuery.where('countryId', country)
+
+    // Date range filters
+    if (registrationDateFrom) {
+      searchQuery = searchQuery.where('createdAt', '>=', registrationDateFrom)
+    }
+    if (registrationDateTo) {
+      searchQuery = searchQuery.where('createdAt', '<=', registrationDateTo)
+    }
+    if (lastActivityFrom) {
+      searchQuery = searchQuery.where('lastLogoutAt', '>=', lastActivityFrom)
+    }
+    if (lastActivityTo) {
+      searchQuery = searchQuery.where('lastLogoutAt', '<=', lastActivityTo)
+    }
+
+    // Add relations and pagination
+    const results = await searchQuery
+      .withGraphFetched('[country]')
+      .orderBy(orderBy, orderDirection)
+      .page(page, limit)
+
+    // Format results
+    const formattedResults = {
+      users: results.results,
+      pagination: {
+        page,
+        limit,
+        total: results.total,
+        pages: Math.ceil(results.total / limit)
+      },
+      searchCriteria: criteria
+    }
+
+    // Cache results for 2 minutes
+    if (useCache) {
+      try {
+        const { RedisClient } = require('../../clients')
+        await RedisClient.setex(cacheKey, 120, JSON.stringify(formattedResults))
+      } catch {
+        // Continue without caching
+      }
+    }
+
+    return formattedResults
+  }
+
+  /**
+   * Get user trust metrics with database context
+   * @param {string} userId - User ID
+   * @returns {Object} Trust metrics and recommendations
+   */
+  static async getUserTrustMetrics(userId) {
+    const userData = await this.query()
+      .findById(userId)
+      .withGraphFetched('[stories, interests, country]')
+
+    if (!userData) {
+      throw this.errorEmptyResponse()
+    }
+
+    // Use UserUtils for trust calculation
+    const UserUtils = require('../../helpers/common/UserUtils')
+    const trustScore = UserUtils.calculateTrustScore(userData)
+
+    // Add database-driven trust factors
+    const enhancedTrust = { ...trustScore }
+    
+    enhancedTrust.databaseFactors = {
+      contentCreated: userData.stories ? userData.stories.length : 0,
+      profileInteractions: await this.getProfileInteractionCount(userId),
+      communityEngagement: await this.getCommunityEngagementScore(userId),
+      reportCount: await this.getUserReportCount(userId)
+    }
+
+    // Adjust trust score based on database factors
+    if (enhancedTrust.databaseFactors.reportCount > 0) {
+      enhancedTrust.score = Math.max(0, enhancedTrust.score - (enhancedTrust.databaseFactors.reportCount * 10))
+      enhancedTrust.factors.push('Account has reports against it')
+    }
+
+    if (enhancedTrust.databaseFactors.contentCreated > 5) {
+      enhancedTrust.score = Math.min(100, enhancedTrust.score + 5)
+      enhancedTrust.factors.push('Active content creator')
+    }
+
+    return enhancedTrust
+  }
+
+  /**
+   * ===============================
+   * PRIVATE HELPER METHODS
+   * ===============================
+   */
+
+  /**
+   * Get profile update count for user
+   * @private
+   */
+  static async getProfileUpdateCount(/* userId */) {
+    // This would require an audit log table - placeholder for now
+    return 0
+  }
+
+  /**
+   * Get profile view count
+   * @private
+   */
+  static async getProfileViewCount(/* userId */) {
+    // This would require a profile views table - placeholder for now
+    return 0
+  }
+
+  /**
+   * Get social connection count
+   * @private
+   */
+  static async getSocialConnectionCount(/* userId */) {
+    // This would require a connections/followers table - placeholder for now
+    return 0
+  }
+
+  /**
+   * Get content interaction count
+   * @private
+   */
+  static async getContentInteractionCount(/* userId */) {
+    // This would require an interactions table - placeholder for now
+    return 0
+  }
+
+  /**
+   * Check data retention compliance across tables
+   * @private
+   */
+  static async checkDataRetentionCompliance(userId) {
+    try {
+      // Check if user has been inactive for too long
+      const userData = await this.query()
+        .findById(userId)
+        .select(['createdAt', 'lastLogoutAt', 'isActive'])
+
+      const accountAge = Date.now() - new Date(userData.createdAt).getTime()
+      const threeYears = 3 * 365 * 24 * 60 * 60 * 1000
+
+      if (accountAge > threeYears && !userData.isActive && !userData.lastLogoutAt) {
+        return {
+          compliant: false,
+          actions: ['Consider archiving or deleting inactive account data']
+        }
+      }
+
+      return { compliant: true, actions: [] }
+    } catch {
+      return { compliant: true, actions: [] }
+    }
+  }
+
+  /**
+   * Get profile interaction count
+   * @private
+   */
+  static async getProfileInteractionCount(/* userId */) {
+    // Placeholder - would require interaction tracking
+    return 0
+  }
+
+  /**
+   * Get community engagement score
+   * @private
+   */
+  static async getCommunityEngagementScore(/* userId */) {
+    // Placeholder - would require engagement metrics
+    return 0
+  }
+
+  /**
+   * Get user report count
+   * @private
+   */
+  static async getUserReportCount(/* userId */) {
+    // Placeholder - would require a reports table
+    return 0
+  }
+
+  /**
+   * Check data minimization compliance (moved from UserModel)
+   * @private
+   */
+  static checkDataMinimization(userData) {
+    // Check if we're not storing excessive personal data
+    const essentialFields = ['id', 'name', 'email', 'mobileNumber', 'countryId', 'role', 'isActive', 'isVerified']
+    const userFields = Object.keys(userData)
+    const excessiveFields = userFields.filter(field => !essentialFields.includes(field) && userData[field] !== null)
+    
+    return excessiveFields.length < 10 // Reasonable limit
+  }
+
+  /**
+   * Check retention compliance (moved from UserModel)
+   * @private
+   */
+  static checkRetentionCompliance(userData) {
+    if (!userData.createdAt) return false
+    
+    const accountAge = Date.now() - new Date(userData.createdAt).getTime()
+    const threeYears = 3 * 365 * 24 * 60 * 60 * 1000
+    
+    // If account is over 3 years old and inactive, it should be reviewed
+    if (accountAge > threeYears && !userData.isActive && !userData.lastLogoutAt) {
+      return false
+    }
+    
+    return true
+  }
+
+  /**
+   * Get GDPR compliance actions (moved from UserModel)
+   * @private
+   */
+  static getGDPRActions(checks) {
+    const actions = []
+    
+    if (!checks.consentGiven) {
+      actions.push('Obtain explicit consent for data processing')
+    }
+    if (!checks.dataMinimization) {
+      actions.push('Review and minimize stored personal data')
+    }
+    if (!checks.retentionCompliance) {
+      actions.push('Review data retention and consider archival/deletion')
+    }
+    
+    return actions
   }
 }
 

@@ -12,11 +12,13 @@ const config = require('./config')
 const middlewares = require('./middlewares')
 const errorMiddleware = require('./middlewares/errorMiddleware')
 const logger = require('./util/logger')
+const services = require('./services')
 
 // Global state management
 let server = null
 let knexInstance = null
 let connectionPool = null
+let redisClientInstance = null
 let shuttingDown = false
 
 function nsToMs(ns) {
@@ -58,6 +60,10 @@ async function main() {
     await initializeDatabase()
     const tAfterDb = process.hrtime.bigint()
     
+    // Initialize services
+    await initializeServices()
+    const tAfterServices = process.hrtime.bigint()
+    
     // Initialize server
     await initializeServer()
     const tAfterServer = process.hrtime.bigint()
@@ -73,7 +79,8 @@ async function main() {
         validateEnv: `${nsToMs(tAfterEnv - t0)}ms`,
         configInit: `${nsToMs(tAfterConfig - tAfterEnv)}ms`,
         dbInit: `${nsToMs(tAfterDb - tAfterConfig)}ms`,
-        serverInit: `${nsToMs(tAfterServer - tAfterDb)}ms`,
+        servicesInit: `${nsToMs(tAfterServices - tAfterDb)}ms`,
+        serverInit: `${nsToMs(tAfterServer - tAfterServices)}ms`,
         totalStartup: `${nsToMs(tAfterServer - t0)}ms`
       },
       build: getBuildInfo(),
@@ -89,23 +96,43 @@ async function main() {
  * Validates required environment variables and configuration
  */
 async function validateEnvironment() {
-  const requiredEnvVars = ['NODE_ENV', 'APP_PORT', 'APP_HOST']
-  const missingVars = requiredEnvVars.filter(varName => !process.env[varName])
-  
-  if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`)
-  }
-  // Validate critical config values
-  const missingConfig = []
-  if (!config?.app?.cookieSecret) missingConfig.push('config.app.cookieSecret')
-  if (!config?.knex?.connection?.host) missingConfig.push('config.knex.connection.host')
-  if (!config?.knex?.connection?.database) missingConfig.push('config.knex.connection.database')
-  if (!config?.knex?.connection?.user) missingConfig.push('config.knex.connection.user')
-  if (missingConfig.length) {
-    throw new Error(`Missing required configuration: ${missingConfig.join(', ')}`)
+  const issues = []
+
+  const appConfig = config?.app
+  const knexConfig = config?.knex
+
+  if (!appConfig) {
+    issues.push('config.app is unavailable')
+  } else {
+    if (!appConfig.cookieSecret || appConfig.cookieSecret.length < 32) {
+      issues.push('config.app.cookieSecret must be at least 32 characters')
+    }
+    if (!appConfig.host || typeof appConfig.host !== 'string') {
+      issues.push('config.app.host is missing or invalid')
+    }
+    const port = Number(appConfig.port)
+    if (!Number.isInteger(port) || port <= 0) {
+      issues.push('config.app.port must be a positive integer')
+    }
   }
 
-  logger.debug('Environment validation passed')
+  if (!knexConfig?.connection) {
+    issues.push('config.knex.connection is unavailable')
+  } else {
+    if (!knexConfig.connection.host) issues.push('config.knex.connection.host is missing')
+    if (!knexConfig.connection.database) issues.push('config.knex.connection.database is missing')
+    if (!knexConfig.connection.user) issues.push('config.knex.connection.user is missing')
+  }
+
+  if (issues.length > 0) {
+    throw new Error(`Configuration validation failed: ${issues.join('; ')}`)
+  }
+
+  logger.debug('Environment validation passed', {
+    nodeEnv: appConfig?.nodeEnv || process.env.NODE_ENV || 'development',
+    host: appConfig?.host,
+    port: appConfig?.port
+  })
 }
 
 /**
@@ -157,6 +184,122 @@ async function initializeDatabase() {
     
   } catch (error) {
     throw new Error(`Database initialization failed: ${error.message}`)
+  }
+}
+
+/**
+ * Initializes application services with dependency injection
+ */
+async function initializeServices() {
+  try {
+    // Import required DAOs (must be after database initialization)
+    const CountryDAO = require('./database/dao/CountryDAO')
+    const UserDAO = require('./database/dao/UserDAO')
+    const SessionDAO = require('./database/dao/SessionDAO')
+    const StoryDAO = require('./database/dao/StoryDAO')
+    const TagDAO = require('./database/dao/TagDAO')
+    const StoryAttachmentDAO = require('./database/dao/StoryAttachmentDAO')
+    
+    // Initialize Redis client if Redis config is available
+    let redisClientLocal = null
+    try {
+      if (config?.redis?.host && config?.redis?.port) {
+        redisClientLocal = new RedisClient({
+          host: config.redis.host,
+          port: config.redis.port,
+          password: config.redis.password,
+          logger: logger,
+          lazyConnect: true
+        })
+        await redisClientLocal.connect()
+        logger.info('Redis client initialized successfully')
+      } else {
+        logger.warn('Redis configuration not found, services will run without Redis caching')
+      }
+    } catch (redisError) {
+      logger.warn('Failed to initialize Redis client, services will run without Redis caching', {
+        error: redisError.message
+      })
+      redisClientLocal = null
+    }
+    
+    // Prepare service dependencies
+    const serviceDependencies = {
+      countryDAO: new CountryDAO(),
+      userDAO: UserDAO, // Pass class, not instance (methods are static)
+      sessionDAO: SessionDAO, // Pass class, not instance (methods are static)
+      redisClient: redisClientLocal,
+      logger: logger,
+      emailClient: require('./clients/EmailClient'),
+      smsClient: require('./clients/SMSClient'), 
+      slackClient: require('./clients/SlackClient'),
+      storyDAO: StoryDAO,
+      tagDAO: TagDAO,
+      storyAttachmentDAO: StoryAttachmentDAO
+    }
+    
+    // Service configuration
+    const serviceConfig = {
+      country: {
+        cache: {
+          ttl: {
+            country: 3600,
+            analytics: 1800
+          }
+        }
+      },
+      auth: {
+        auth: {
+          session: {
+            ttl: 86400, // 24 hours
+            refreshTtl: 7 * 24 * 3600 // 7 days
+          },
+          security: {
+            maxLoginAttempts: 5,
+            lockoutDuration: 900 // 15 minutes
+          }
+        },
+        cache: {
+          ttl: {
+            session: 3600,
+            user: 1800,
+            blacklistedToken: 86400
+          }
+        }
+      },
+      story: {
+        storyService: {
+          caching: {
+            ttl: 300
+          }
+        }
+      }
+    }
+    
+    // Initialize all services
+    const serviceInstances = services.initialize(serviceDependencies, serviceConfig)
+    
+    redisClientInstance = redisClientLocal
+
+    logger.info('Services initialized successfully', {
+      domains: Object.keys(serviceInstances),
+      country: {
+        countryService: !!serviceInstances.country?.countryService,
+        analyticsService: !!serviceInstances.country?.analyticsService,
+        cacheService: !!serviceInstances.country?.cacheService
+      },
+      auth: {
+        authService: !!serviceInstances.auth?.authService,
+        authSecurityService: !!serviceInstances.auth?.authSecurityService,
+        authCacheService: !!serviceInstances.auth?.authCacheService
+      },
+      stories: {
+        storyService: !!serviceInstances.stories?.storyService
+      }
+    })
+    
+  } catch (error) {
+    throw new Error(`Services initialization failed: ${error.message}`)
   }
 }
 
@@ -238,18 +381,19 @@ async function initializeServer() {
               // If Redis config is missing, treat as not-applicable (ready)
               if (!config?.redis?.host || !config?.redis?.port) return true
 
-              const rc = new RedisClient({
-                host: config.redis.host,
-                port: config.redis.port,
-                password: config.redis.password,
-                logger,
-                lazyConnect: true
-              })
-              await rc.connect()
-              const health = await rc.healthCheck()
-              await rc.shutdown()
+              if (!redisClientInstance) {
+                logger.warn('Redis readiness check failed: shared Redis client unavailable')
+                return false
+              }
+
+              if (!redisClientInstance.isConnected()) {
+                await redisClientInstance.connect()
+              }
+
+              const health = await redisClientInstance.healthCheck()
               return health?.status === 'healthy'
-            } catch {
+            } catch (error) {
+              logger.warn('Redis readiness check failed', { error: error?.message })
               return false
             }
           }
@@ -415,6 +559,15 @@ async function gracefulShutdown(exitCode = 0) {
         .catch(error => logger.error('Error closing connection pool', { error: error.message }))
     )
   }
+
+  // Close Redis client if initialized
+  if (redisClientInstance && typeof redisClientInstance.shutdown === 'function') {
+    shutdownPromises.push(
+      redisClientInstance.shutdown()
+        .then(() => logger.info('Redis client shutdown successfully'))
+        .catch(error => logger.error('Error shutting down Redis client', { error: error.message }))
+    )
+  }
   
   // Close database connection if initialized (fallback)
   if (knexInstance && typeof knexInstance.destroy === 'function') {
@@ -437,6 +590,8 @@ async function gracefulShutdown(exitCode = 0) {
   } catch (error) {
     logger.error('Error during graceful shutdown', { error: error.message })
   }
+  
+  redisClientInstance = null
   
   process.exit(exitCode)
 }

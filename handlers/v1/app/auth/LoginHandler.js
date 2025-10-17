@@ -1,46 +1,35 @@
-const ms = require('ms')
 const { RequestRule, ErrorWrapper, errorCodes, Rule } = require('backend-core')
-const addSession = require('handlers/v1/common/addSession')
-const SessionEntity = require('handlers/v1/common/SessionEntity')
-const BaseHandler = require('handlers/BaseHandler')
-const UserDAO = require('database/dao/UserDAO')
-const AuthModel = require('models/AuthModel')
-const { checkPasswordHelper, makeAccessTokenHelper, makeUpdateTokenHelper } = require('helpers').authHelpers
-const config = require('config')
-const { redisClient } = require('handlers/RootProvider')
-const logger = require('util/logger')
-
-// In-memory login metrics (lightweight, process-local)
-const loginMetrics = {
-  successTotal: 0,
-  failureTotal: 0,
-  pendingVerificationTotal: 0,
-  lastProcessingTimeMs: 0,
-  lastSuccessAt: null,
-  lastFailureAt: null,
-  lastFailureCode: null
-}
+const BaseHandler = require('../../../BaseHandler')
+const AuthModel = require('../../../../models/AuthModel')
+const { getAuthService, getAuthSecurityService, getAuthCacheService } = require('../../../../services')
+const logger = require('../../../../util/logger')
 
 /**
- * Enhanced LoginHandler - Email-only Authentication System
- * 
- * Features:
- * - Email-only authentication (no mobile number support)
- * - Enhanced security validation and rate limiting
- * - Comprehensive session management
- * - Detailed audit logging
- * - Multi-factor authentication support
- * - Account lockout protection
- * 
+ * LoginHandler - Authenticate users with enhanced security
  * @extends BaseHandler
- * @version 2.0.0 - Email-only authentication
+ * @version 3.0.0 (Service Layer Integration)
  */
 class LoginHandler extends BaseHandler {
-  static get accessTag () {
+  // Login metrics for observability and monitoring
+  static metrics = {
+    totalRequests: 0,
+    successful: 0,
+    failed: 0,
+    rateLimited: 0,
+    unauthorized: 0,
+    accountLocked: 0,
+    emailUnverified: 0,
+    errors: 0,
+    averageProcessingTime: 0,
+    uniqueUsers: new Set(), // Track unique login attempts
+    peakConcurrency: 0,
+    lastReset: new Date()
+  }
+  static get accessTag() {
     return 'auth:login'
   }
 
-  static get validationRules () {
+  static get validationRules() {
     return {
       body: {
         email: new RequestRule(AuthModel.schema.email, { required: true }),
@@ -61,186 +50,362 @@ class LoginHandler extends BaseHandler {
     }
   }
 
-  static async run (ctx) {
+  /**
+   * Process login request using service layer
+   */
+  static async run(ctx) {
     const startTime = Date.now()
+    
+    // Increment total requests metric
+    this.metrics.totalRequests++
+    
     const body = ctx?.body || {}
     const normalizedEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
-    const userAgent = ctx?.headers?.['user-agent'] || ctx?.headers?.['User-Agent'] || ''
-    // Determine refresh/session expiry by rememberMe (fallback to default if short not configured)
-    const refreshExpStr = body.rememberMe ? config.token.refresh.expiresIn : (config?.token?.refreshShort?.expiresIn || config.token.refresh.expiresIn)
-    const refTokenExpiresInMilliseconds = Date.now() + ms(refreshExpStr)
     
-    // Enhanced logging context
-    // Log context (reserved for audit logs if needed in future)
-    // const logContext = { email: normalizedEmail, ip: ctx.ip, userAgent, fingerprint: body.fingerprint, timestamp: new Date().toISOString() }
+    // Track unique email attempts
+    if (normalizedEmail) {
+      this.metrics.uniqueUsers.add(normalizedEmail)
+    }
     
-
-    // Audit: incoming login attempt
-    logger.info('Login attempt received', {
-      email: normalizedEmail,
+    // Build request context for service layer
+    const requestContext = {
       ip: ctx.ip,
-      userAgent,
-      rememberMe: !!body.rememberMe
-    })
+      userAgent: ctx?.headers?.['user-agent'] || ctx?.headers?.['User-Agent'] || '',
+      fingerprint: body.fingerprint,
+      requestId: ctx.requestId || `login_${Date.now()}`,
+      timestamp: new Date().toISOString()
+    }
 
-    // Basic login rate limiting per email+ip (optional if redis not configured)
-    let rateKey
+    const logContext = {
+      email: normalizedEmail,
+      ...requestContext,
+      handler: 'LoginHandler'
+    }
+
     try {
-      if (config?.redis?.host && config?.redis?.port && config?.rateLimting?.defaultConfig) {
-        const rlCfg = config.rateLimting.defaultConfig
-        rateKey = `login_attempts:${normalizedEmail}:${ctx.ip}`
-        const count = await redisClient.incr(rateKey)
-        if (count === 1) {
-          // set window on first increment
-          await redisClient.expire(rateKey, Math.ceil(rlCfg.windowMs / 1000))
-        }
-        if (count > rlCfg.max) {
-          loginMetrics.failureTotal++
-          loginMetrics.lastFailureAt = new Date().toISOString()
-          loginMetrics.lastFailureCode = errorCodes.TOO_MANY_REQUESTS.code
-          logger.warn('Login rate limit exceeded', { email: normalizedEmail, ip: ctx.ip })
-          throw new ErrorWrapper({ ...errorCodes.TOO_MANY_REQUESTS })
-        }
+      // Get pre-initialized authentication services from global registry
+      const authServices = {
+        authService: getAuthService(),
+        authSecurityService: getAuthSecurityService(),
+        authCacheService: getAuthCacheService()
       }
-    } catch (e) {
-      // If Redis is unavailable, fail open (do not block login), but keep a traceable error wrapped
-      if (e?.code === errorCodes.TOO_MANY_REQUESTS.code) throw e
-    }
-
-    // Get user by email only (no mobile number support)
-    let user
-    try {
-      user = await UserDAO.getByEmail(normalizedEmail)
-    } catch {
-      // Enhanced security: Don't reveal whether email exists
-      loginMetrics.failureTotal++
-      loginMetrics.lastFailureAt = new Date().toISOString()
-      loginMetrics.lastFailureCode = errorCodes.INVALID_CREDENTIALS.code
-      logger.warn('Login failed: invalid credentials (email lookup)', { email: normalizedEmail, ip: ctx.ip })
-      throw new ErrorWrapper({ 
-        ...errorCodes.INVALID_CREDENTIALS,
-        message: 'Invalid email or password'
-      })
-    }
-    // Defensive: ensure user and passwordHash exist
-    if (!user || !user.passwordHash) {
-      loginMetrics.failureTotal++
-      loginMetrics.lastFailureAt = new Date().toISOString()
-      loginMetrics.lastFailureCode = errorCodes.INVALID_CREDENTIALS.code
-      logger.warn('Login failed: invalid credentials (no user/passwordHash)', { email: normalizedEmail, ip: ctx.ip })
-      throw new ErrorWrapper({ 
-        ...errorCodes.INVALID_CREDENTIALS,
-        message: 'Invalid email or password'
-      })
-    }
-    // Verify password with enhanced error handling
-    try {
-      await checkPasswordHelper(ctx.body.password, user.passwordHash)
-    } catch (e) {
-      if ([errorCodes.NOT_FOUND.code, errorCodes.INVALID_PASSWORD.code].includes(e.code)) {
-        loginMetrics.failureTotal++
-        loginMetrics.lastFailureAt = new Date().toISOString()
-        loginMetrics.lastFailureCode = errorCodes.INVALID_CREDENTIALS.code
-        logger.warn('Login failed: invalid credentials (password mismatch)', { email: normalizedEmail, ip: ctx.ip })
-        throw new ErrorWrapper({ 
-          ...errorCodes.INVALID_CREDENTIALS,
-          message: 'Invalid email or password'
+      
+      // Validate services are available
+      if (!authServices.authService) {
+        throw new ErrorWrapper({
+          ...errorCodes.INTERNAL_SERVER_ERROR,
+          message: 'Authentication service not available',
+          meta: { layer: 'LoginHandler', email: normalizedEmail }
         })
       }
-      // unexpected password check error
-      loginMetrics.failureTotal++
-      loginMetrics.lastFailureAt = new Date().toISOString()
-      loginMetrics.lastFailureCode = e?.code || 'UNKNOWN'
-      logger.error('Login failed: password check error', { email: normalizedEmail, ip: ctx.ip, error: e?.message })
-      throw e
-    }
 
-    // Check if user account is active and verified
-    if (!user.isActive) {
-      loginMetrics.failureTotal++
-      loginMetrics.lastFailureAt = new Date().toISOString()
-      loginMetrics.lastFailureCode = errorCodes.ACCOUNT_DEACTIVATED.code
-      logger.warn('Login failed: account deactivated', { userId: user.id, email: normalizedEmail, ip: ctx.ip })
-      throw new ErrorWrapper({
-        ...errorCodes.ACCOUNT_DEACTIVATED,
-        message: 'Account has been deactivated. Please contact support.'
+      logger.info('Login attempt started with service layer', logContext)
+
+      // Prepare credentials for service layer
+      const credentials = {
+        email: normalizedEmail,
+        password: body.password
+      }
+
+      // Prepare device information
+      const deviceInfo = {
+        fingerprint: body.fingerprint,
+        userAgent: requestContext.userAgent,
+        ip: requestContext.ip,
+        rememberMe: body.rememberMe || false,
+        deviceDetails: body.deviceInfo || {},
+        requestId: requestContext.requestId
+      }
+
+      // Authenticate using service layer
+      const authResult = await authServices.authService.authenticateUser(
+        credentials,
+        deviceInfo,
+        {
+          generateTokens: true,
+          createSession: true,
+          trackDevice: true,
+          auditLog: true,
+          rememberMe: body.rememberMe || false
+        }
+      )
+
+      // Check if verification is required
+      if (authResult.requiresVerification) {
+        // Update email unverified metric
+        this.metrics.emailUnverified++
+        this.updateProcessingTimeMetric(Date.now() - startTime)
+
+        logger.info('Login requires verification', {
+          ...logContext,
+          userId: authResult.userId,
+          verificationType: authResult.verificationType
+        })
+
+        return this.result({
+          success: false,
+          requiresVerification: true,
+          data: {
+            userId: authResult.userId,
+            email: authResult.email,
+            message: authResult.message || 'Account verification required',
+            nextAction: authResult.nextAction || 'verify_email',
+            verificationType: authResult.verificationType
+          }
+        })
+      }
+
+      // Enhance response with service layer data
+      const enhancedResponse = await this.enhanceLoginResponse(
+        authResult,
+        authServices,
+        requestContext
+      )
+
+      const processingTime = Date.now() - startTime
+
+      // Update success metrics
+      this.metrics.successful++
+      this.updateProcessingTimeMetric(processingTime)
+
+      logger.info('Login completed successfully with service layer', {
+        ...logContext,
+        userId: authResult.userId,
+        sessionId: authResult.sessionId,
+        processingTime,
+        cached: enhancedResponse.cached
       })
-    }
 
-    if (!user.isVerified) {
-      // For email-only auth, user must verify their email first
-      const updateToken = await makeUpdateTokenHelper(user)
-      user = await UserDAO.baseUpdate(user.id, { updateToken })
-      loginMetrics.pendingVerificationTotal++
-      logger.info('Login requires email verification', { userId: user.id, email: user.email })
-      
-      return this.result({
-        success: false,
-        requiresVerification: true,
-        data: {
-          userId: user.id,
-          email: user.email,
-          message: 'Email verification required. Please check your email and verify your account.',
-          nextAction: 'verify_email'
+      return this.formatServiceResponse(enhancedResponse, processingTime, requestContext)
+
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+
+      // Update error metrics based on error type
+      this.updateErrorMetrics(error, processingTime)
+
+      logger.error('Login failed with service layer', {
+        ...logContext,
+        error: error.message,
+        errorCode: error.code,
+        processingTime,
+        stack: error.stack
+      })
+
+      // Enhanced service-layer error handling
+      if (error instanceof ErrorWrapper) {
+        // Add service layer context to existing error
+        error.meta = {
+          ...error.meta,
+          layer: 'LoginHandler',
+          processingTime,
+          serviceLayer: true,
+          email: normalizedEmail
+        }
+        throw error
+      }
+
+      // Wrap unexpected errors with service context
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'Authentication processing failed',
+        layer: 'LoginHandler.run',
+        meta: {
+          originalError: error.message,
+          processingTime,
+          serviceIntegration: true,
+          email: normalizedEmail
         }
       })
     }
-
-    // Create session with enhanced tracking
-    const sessionData = {
-      userId: user.id,
-      ip: ctx.ip,
-      ua: userAgent,
-      fingerprint: body.fingerprint,
-      expiresIn: refTokenExpiresInMilliseconds,
-      deviceInfo: body.deviceInfo || {},
-      rememberMe: body.rememberMe || false
-    }
-
-    const newSession = new SessionEntity(sessionData)
-    const session = await addSession(newSession)
-    user.sessionId = session.id
-
-    // Successful login: clear rate limit counter for this tuple to reduce friction
-    try {
-      if (rateKey && config?.redis?.host && config?.redis?.port && typeof redisClient.removeKey === 'function') {
-        await redisClient.removeKey(rateKey)
-      }
-    } catch {
-      // ignore cleanup errors
-    }
-
-    // Generate access token
-    const accessToken = await makeAccessTokenHelper(user)
-    
-    const processingTime = Date.now() - startTime
-    loginMetrics.successTotal++
-    loginMetrics.lastProcessingTimeMs = processingTime
-    loginMetrics.lastSuccessAt = new Date().toISOString()
-    logger.info('Login successful', { userId: user.id, email: user.email, processingTime })
-
-    return this.result({
-      success: true,
-      data: {
-        userId: user.id,
-        email: user.email,
-        accessToken: accessToken,
-        refreshToken: newSession.refreshToken,
-        sessionId: session.id,
-        expiresAt: new Date(refTokenExpiresInMilliseconds).toISOString()
-      },
-      meta: {
-        processingTime: `${processingTime}ms`,
-        loginMethod: 'email',
-        timestamp: new Date().toISOString()
-      }
-    })
   }
-}
 
-// Expose a metrics snapshot for diagnostics
-LoginHandler.getMetrics = function () {
-  return { ...loginMetrics }
+  /**
+   * Update processing time metrics
+   * @private
+   */
+  static updateProcessingTimeMetric(processingTime) {
+    // Calculate rolling average
+    this.metrics.averageProcessingTime = this.metrics.averageProcessingTime === 0 
+      ? processingTime 
+      : (this.metrics.averageProcessingTime + processingTime) / 2
+  }
+
+  /**
+   * Update error metrics based on error type
+   * @private
+   */
+  static updateErrorMetrics(error, processingTime) {
+    // Update processing time for errors too
+    this.updateProcessingTimeMetric(processingTime)
+
+    // Categorize error types for metrics
+    const errorCode = error.code || error.statusCode
+    const errorMessage = error.message || ''
+
+    if (errorCode === 429 || errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
+      this.metrics.rateLimited++
+    } else if (errorCode === 401 || errorMessage.includes('invalid') || errorMessage.includes('incorrect')) {
+      this.metrics.unauthorized++
+    } else if (errorMessage.includes('locked') || errorMessage.includes('blocked')) {
+      this.metrics.accountLocked++
+    } else if (errorMessage.includes('verify') || errorMessage.includes('unverified')) {
+      this.metrics.emailUnverified++
+    } else if (errorMessage.includes('authentication') || errorMessage.includes('login')) {
+      this.metrics.failed++
+    } else {
+      this.metrics.errors++
+    }
+  }
+
+  /**
+   * Enhance login response with additional service data
+   * @private
+   */
+  static async enhanceLoginResponse(authResult, services, context) {
+    try {
+      // Check cache status if available
+      let cached = false
+      if (services.authCacheService && typeof services.authCacheService.getCachedUser === 'function') {
+        try {
+          const userCached = await services.authCacheService.getCachedUser(authResult.userId)
+          cached = !!userCached
+        } catch {
+          // Cache lookup failed, continue without caching info
+          cached = false
+        }
+      }
+
+      return {
+        ...authResult,
+        cached,
+        serviceProcessed: true
+      }
+
+    } catch (error) {
+      logger.warn('Failed to enhance login response', {
+        userId: authResult.userId,
+        error: error.message,
+        context
+      })
+      
+      // Return original result if enhancement fails
+      return {
+        ...authResult,
+        serviceProcessed: true,
+        enhancementError: error.message
+      }
+    }
+  }
+
+  /**
+   * Format service layer response with proper structure
+   * @private
+   */
+  static formatServiceResponse(authData, processingTime, context) {
+    const user = authData.user || {}
+    const session = authData.session || {}
+    const tokens = authData.tokens || {}
+
+    const data = {
+      userId: authData.userId || user.id,
+      email: authData.email || user.email,
+      accessToken: authData.accessToken || tokens.accessToken || session.accessToken,
+      refreshToken: authData.refreshToken || tokens.refreshToken || session.refreshToken,
+      sessionId: authData.sessionId || session.sessionId || session.id,
+      expiresAt: authData.expiresAt || session.expiresAt,
+      ...(authData.deviceId && { deviceId: authData.deviceId }),
+      ...(authData.lastLoginAt && { lastLoginAt: authData.lastLoginAt }),
+      ...(authData.userPreferences && { userPreferences: authData.userPreferences })
+    }
+
+    const meta = {
+      processingTime: `${processingTime}ms`,
+      loginMethod: 'email',
+      version: '3.0.0',
+      serviceLayer: true,
+      requestId: context.requestId,
+      cached: authData.cached || false
+    }
+
+    return this.success(data, 'Login successful', { meta })
+  }
+
+  /**
+   * Get comprehensive authentication metrics
+   * @returns {Promise<Object>} Handler and service metrics
+   */
+  static async getMetrics() {
+    try {
+      // Get service layer metrics from pre-initialized services
+      const authService = getAuthService()
+      
+      let serviceMetrics = {}
+      if (authService && typeof authService.getMetrics === 'function') {
+        serviceMetrics = await authService.getMetrics()
+      }
+
+      // Calculate additional handler metrics
+      const totalAttempts = this.metrics.successful + this.metrics.failed + this.metrics.unauthorized
+      const successRate = totalAttempts > 0 ? (this.metrics.successful / totalAttempts * 100).toFixed(2) : 0
+      const uptime = Date.now() - this.metrics.lastReset.getTime()
+
+      return {
+        handler: {
+          ...this.metrics,
+          uniqueUsers: this.metrics.uniqueUsers.size, // Convert Set to count
+          successRate: `${successRate}%`,
+          uptime: `${Math.round(uptime / 1000)}s`,
+          requestsPerSecond: (this.metrics.totalRequests / (uptime / 1000)).toFixed(2)
+        },
+        service: serviceMetrics,
+        combined: {
+          totalLoginAttempts: totalAttempts,
+          handlerVersion: '3.0.0',
+          serviceIntegration: true,
+          timestamp: new Date().toISOString()
+        }
+      }
+    } catch (error) {
+      return {
+        handler: {
+          ...this.metrics,
+          uniqueUsers: this.metrics.uniqueUsers.size,
+          error: 'Failed to calculate some metrics'
+        },
+        service: {
+          available: false,
+          error: error.message
+        },
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * Reset metrics counters
+   * @returns {Object} Previous metrics before reset
+   */
+  static resetMetrics() {
+    const previousMetrics = { ...this.metrics, uniqueUsers: this.metrics.uniqueUsers.size }
+    
+    this.metrics = {
+      totalRequests: 0,
+      successful: 0,
+      failed: 0,
+      rateLimited: 0,
+      unauthorized: 0,
+      accountLocked: 0,
+      emailUnverified: 0,
+      errors: 0,
+      averageProcessingTime: 0,
+      uniqueUsers: new Set(),
+      peakConcurrency: 0,
+      lastReset: new Date()
+    }
+
+    return previousMetrics
+  }
 }
 
 module.exports = LoginHandler

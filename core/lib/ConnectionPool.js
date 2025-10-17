@@ -75,11 +75,13 @@ class ConnectionPool {
       connectionErrors: 0,
       slowQueries: 0,
       queryCount: 0,
+      totalQueryTime: 0,
       lastHealthCheck: null,
       healthStatus: 'unknown'
     }
     
     this.healthCheckInterval = null
+    this.metricsInterval = null
     this.isShuttingDown = false
   }
 
@@ -148,8 +150,10 @@ class ConnectionPool {
         queryCount: 0,
         errorCount: 0,
         slowQueryCount: 0,
-        avgResponseTime: 0
-      }
+        totalResponseTime: 0,
+        lastResponseTime: 0
+      },
+      metricsInitializedAt: Date.now()
     })
     
     logger.info(`Database pool created: ${name}`, {
@@ -232,8 +236,11 @@ class ConnectionPool {
                     const duration = Date.now() - startTime
                     // Update metrics and slow query counters
                     pool.metrics.queryCount++
+                    pool.metrics.totalResponseTime += duration
+                    pool.metrics.lastResponseTime = duration
+
                     this.metrics.queryCount++
-                    pool.metrics.avgResponseTime = (pool.metrics.avgResponseTime + duration) / 2
+                    this.metrics.totalQueryTime += duration
 
                     if (duration > this.config.monitoring.slowQueryThreshold) {
                       pool.metrics.slowQueryCount++
@@ -250,9 +257,18 @@ class ConnectionPool {
                     return onFulfilled ? onFulfilled(res) : res
                   },
                   (err) => {
-                    pool.metrics.errorCount++
-                    this.metrics.connectionErrors++
                     const duration = Date.now() - startTime
+                    pool.metrics.errorCount++
+                    pool.metrics.queryCount++
+                    pool.metrics.totalResponseTime += duration
+                    pool.metrics.lastResponseTime = duration
+                    this.metrics.connectionErrors++
+                    this.metrics.queryCount++
+                    this.metrics.totalQueryTime += duration
+                    if (duration > this.config.monitoring.slowQueryThreshold) {
+                      pool.metrics.slowQueryCount++
+                      this.metrics.slowQueries++
+                    }
                     if (this.config.monitoring.logLevel !== 'silent') {
                       logger.error('Database query error', {
                         pool: poolName,
@@ -397,7 +413,7 @@ class ConnectionPool {
    * Start metrics collection
    */
   _startMetricsCollection() {
-    setInterval(() => {
+    this.metricsInterval = setInterval(() => {
       if (this.isShuttingDown) return
       
       this._updateConnectionMetrics()
@@ -452,6 +468,10 @@ class ConnectionPool {
         // ignore pool stats errors; keep zeros
       }
 
+      const averageResponse = pool.metrics?.queryCount
+        ? Number((pool.metrics.totalResponseTime / pool.metrics.queryCount).toFixed(4))
+        : 0
+
       poolMetrics[name] = {
         isHealthy: !!pool.isHealthy,
         lastHealthCheck: pool.lastHealthCheck ? new Date(pool.lastHealthCheck).toISOString() : null,
@@ -467,13 +487,20 @@ class ConnectionPool {
         queryCount: pool.metrics?.queryCount || 0,
         errorCount: pool.metrics?.errorCount || 0,
         slowQueryCount: pool.metrics?.slowQueryCount || 0,
-        avgResponseTime: pool.metrics?.avgResponseTime || 0
+        averageResponseTime: averageResponse,
+        avgResponseTime: averageResponse,
+        totalResponseTime: Number((pool.metrics?.totalResponseTime || 0).toFixed(4)),
+        lastResponseTime: Number((pool.metrics?.lastResponseTime || 0).toFixed(4)),
+        since: pool.metricsInitializedAt
       }
     }
 
     return {
       overall: {
         ...this.metrics,
+        averageQueryTime: this.metrics.queryCount
+          ? Number((this.metrics.totalQueryTime / this.metrics.queryCount).toFixed(4))
+          : 0,
         timestamp: nowIso
       },
       pools: poolMetrics
@@ -545,6 +572,11 @@ class ConnectionPool {
     // Stop health checks
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval)
+      this.healthCheckInterval = null
+    }
+    if (this.metricsInterval) {
+      clearInterval(this.metricsInterval)
+      this.metricsInterval = null
     }
     
     // Close all pools

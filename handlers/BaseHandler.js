@@ -1,7 +1,7 @@
 const joi = require('joi')
 const { Rule, RequestRule, assert } = require('backend-core')
 const crypto = require('crypto')
-const appLogger = require('util/logger')
+const appLogger = require('../util/logger')
 
 class BaseHandler {
   /**

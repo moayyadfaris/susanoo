@@ -1,8 +1,7 @@
 const { RequestRule, ErrorWrapper, errorCodes, Rule } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
-const SessionDAO = require('database/dao/SessionDAO')
 const AuthModel = require('models/AuthModel')
-const UserDAO = require('database/dao/UserDAO')
+const { getAuthService } = require('../../../../services')
 
 /**
  * LogoutHandler - Secure user session termination with comprehensive audit trail
@@ -100,17 +99,31 @@ class LogoutHandler extends BaseHandler {
     try {
       this.logger.info('Logout process initiated', logContext)
 
+      const authService = getAuthService()
+      if (!authService) {
+        throw new ErrorWrapper({
+          ...errorCodes.INTERNAL_SERVER_ERROR,
+          message: 'Authentication service not available',
+          layer: 'LogoutHandler.run',
+          meta: { requestId: ctx.requestId }
+        })
+      }
+
       // Enhanced input validation and security checks
       await this.validateLogoutRequest(ctx, logContext)
 
-      // Find and validate the target session
-      const session = await this.findAndValidateSession(ctx, logContext)
+      // Perform logout via service layer
+      const logoutResult = await authService.logoutByRefreshToken(ctx.body.refreshToken, {
+        userId: ctx.currentUser.id,
+        logoutAllDevices: ctx.body.logoutAll || false,
+        reason: ctx.body.reason || 'user_initiated',
+        ip: ctx.ip,
+        userAgent: ctx.headers?.['user-agent'],
+        requestId: ctx.requestId
+      })
 
-      // Perform secure logout operation
-      const logoutResult = await this.performSecureLogout(ctx, session, logContext)
-
-      // // Audit successful logout
-      await this.auditLogoutSuccess(ctx, session, logoutResult, logContext)
+      // Audit successful logout
+      await this.auditLogoutSuccess(ctx, logoutResult, logContext)
 
       // Performance monitoring
       const duration = Date.now() - startTime
@@ -118,22 +131,31 @@ class LogoutHandler extends BaseHandler {
         ...logContext,
         duration,
         sessionsInvalidated: logoutResult.sessionsInvalidated,
-        logoutType: ctx.body.logoutAll ? 'all_devices' : 'current_device'
+        logoutType: logoutResult.logoutType || (ctx.body.logoutAll ? 'all_devices' : 'current_device')
       })
 
+      const logoutType = logoutResult.logoutType || (ctx.body.logoutAll ? 'all_devices' : 'current_device')
+      const successMessage = logoutType === 'all_devices'
+        ? `User logged out from all devices (${logoutResult.sessionsInvalidated} sessions invalidated)`
+        : 'User logged out from current session'
+
       return this.result({
-        message: logoutResult.message,
+        message: successMessage,
         data: {
           sessionsInvalidated: logoutResult.sessionsInvalidated,
           timestamp: new Date().toISOString(),
           metadata: {
-            logoutType: ctx.body.logoutAll ? 'all_devices' : 'current_device',
+            logoutType,
             reason: ctx.body.reason || 'user_initiated'
+          },
+          invalidationDetails: {
+            cacheCleared: logoutResult.cacheCleared,
+            logoutAllDevices: logoutResult.logoutType === 'all_devices' || !!ctx.body.logoutAll
           }
         },
         status: 200,
         headers: {
-          'X-Logout-Session-ID': session.id,
+          'X-Logout-Session-ID': logoutResult.sessionId,
           'X-Sessions-Invalidated': logoutResult.sessionsInvalidated.toString()
         }
       })
@@ -224,225 +246,22 @@ class LogoutHandler extends BaseHandler {
       })
     }
 
-    // Rate limiting check (if user has too many recent logout attempts)
-    await this.checkLogoutRateLimit(currentUser.id, ip, logContext)
-
     this.logger.debug('Logout request validation passed', logContext)
-  }
-
-  /**
-   * Find and validate the session to be terminated
-   */
-  static async findAndValidateSession(ctx, logContext) {
-    const { currentUser, body } = ctx
-
-    try { 
-
-      // Find the session by refresh token
-      const session = await SessionDAO.baseGetWhere({ 
-        refreshToken: body.refreshToken,
-        userId: currentUser.id 
-      })
-
-      
-
-      if (!session) {
-        throw new ErrorWrapper({
-          ...errorCodes.AUTHENTICATION,
-          message: 'Invalid or expired refresh token',
-          layer: 'LogoutHandler.findAndValidateSession',
-          meta: {
-            userId: currentUser.id,
-            hashedToken: this.hashToken(body.refreshToken.substring(0, 8))
-          }
-        })
-      }
-
-      // Validate session ownership
-      if (session.userId !== currentUser.id) {
-        throw new ErrorWrapper({
-          ...errorCodes.FORBIDDEN,
-          message: 'Session ownership mismatch',
-          layer: 'LogoutHandler.findAndValidateSession',
-          meta: {
-            sessionUserId: session.userId,
-            currentUserId: currentUser.id
-          }
-        })
-      }
-
-      // Check if session is already expired
-      if (session.expiresAt && new Date(session.expiresAt) < new Date()) {
-        throw new ErrorWrapper({
-          ...errorCodes.AUTHENTICATION,
-          message: 'Session already expired',
-          layer: 'LogoutHandler.findAndValidateSession',
-          meta: {
-            sessionId: session.id,
-            expiresAt: session.expiresAt
-          }
-        })
-      }
-
-      this.logger.debug('Session validated successfully', {
-        ...logContext,
-        sessionId: session.id,
-        sessionCreatedAt: session.createdAt
-      })
-
-      return session
-
-    } catch (error) {
-      if (error instanceof ErrorWrapper) {
-        throw error
-      }
-      
-      throw new ErrorWrapper({
-        ...errorCodes.SERVER,
-        message: 'Failed to validate session',
-        layer: 'LogoutHandler.findAndValidateSession',
-        meta: {
-          originalError: error.message,
-          userId: currentUser.id
-        }
-      })
-    }
-  }
-
-  /**
-   * Perform secure logout with session invalidation
-   */
-  static async performSecureLogout(ctx, session, logContext) {
-    const { currentUser, body } = ctx
-    let sessionsInvalidated = 0
-    let message = ''
-
-    try {
-      if (body.logoutAll) {
-        // Logout from all devices - invalidate all user sessions
-        const result = await SessionDAO.baseRemoveWhere({ userId: currentUser.id })
-        sessionsInvalidated = result.affectedRows || result.length || 1
-        message = `User logged out from all devices (${sessionsInvalidated} sessions invalidated)`
-        
-        this.logger.info('All user sessions invalidated', {
-          ...logContext,
-          sessionsInvalidated
-        })
-      } else {
-        // Logout from current device only
-
-        await SessionDAO.baseRemoveWhere({ 
-          refreshToken: body.refreshToken,
-          userId: currentUser.id 
-        })
-        sessionsInvalidated = 1
-        message = 'User logged out from current session'
-       
-        this.logger.info('Current session invalidated', {
-          ...logContext,
-          sessionId: session.id
-        })         
-      }
-
-      // Update user's last logout timestamp
-      await UserDAO.baseUpdate(currentUser.id, {
-        lastLogoutAt: new Date(),
-        updatedAt: new Date()
-      })
-
-      // Clear any cached user data (if using Redis/cache)
-      await this.clearUserCache(currentUser.id, logContext)
-
-      return {
-        message,
-        sessionsInvalidated,
-        logoutType: body.logoutAll ? 'all_devices' : 'current_device'
-      }
-
-    } catch (error) {
-      throw new ErrorWrapper({
-        ...errorCodes.SERVER,
-        message: 'Failed to invalidate session(s)',
-        layer: 'LogoutHandler.performSecureLogout',
-        meta: {
-          originalError: error.message,
-          userId: currentUser.id,
-          sessionId: session.id
-        }
-      })
-    }
-  }
-
-  /**
-   * Check logout rate limiting to prevent abuse
-   */
-  static async checkLogoutRateLimit(userId, ip, logContext) {
-    // This could be enhanced with Redis-based rate limiting
-    // For now, we'll implement a basic check
-    
-    try {
-      // Check recent logout attempts in the last 5 minutes
-      const recentAttempts = await SessionDAO.countRecentLogouts(userId, 5)
-      
-      if (recentAttempts > 10) {
-        throw new ErrorWrapper({
-          ...errorCodes.TOO_MANY_REQUESTS,
-          message: 'Too many logout attempts',
-          layer: 'LogoutHandler.checkLogoutRateLimit',
-          meta: {
-            userId,
-            recentAttempts,
-            timeWindow: '5 minutes'
-          }
-        })
-      }
-    } catch (error) {
-      // Don't fail logout for rate limit check errors, just log
-      this.logger.warn('Rate limit check failed', {
-        ...logContext,
-        error: error.message
-      })
-    }
-  }
-
-  /**
-   * Clear user cache data
-   */
-  static async clearUserCache(userId, logContext) {
-    try {
-      // Clear Redis cache if available
-      const RedisClient = require('clients/RedisClient')
-      
-      if (RedisClient && RedisClient.isConnected()) {
-        await RedisClient.del(`user:${userId}:profile`)
-        await RedisClient.del(`user:${userId}:permissions`)
-        await RedisClient.del(`user:${userId}:sessions`)
-        
-        this.logger.debug('User cache cleared', { ...logContext, userId })
-      }
-    } catch (error) {
-      // Don't fail logout for cache clear errors
-      this.logger.warn('Failed to clear user cache', {
-        ...logContext,
-        error: error.message,
-        userId
-      })
-    }
   }
 
   /**
    * Audit successful logout
    */
-  static async auditLogoutSuccess(ctx, session, logoutResult, logContext) {
+  static async auditLogoutSuccess(ctx, logoutResult, logContext) {
     try {
       const auditData = {
         userId: ctx.currentUser.id,
         action: 'logout_success',
-        sessionId: session.id,
+        sessionId: logoutResult.sessionId,
         ip: ctx.ip,
         userAgent: ctx.headers?.['user-agent'],
         deviceId: ctx.headers?.['x-device-id'],
-        logoutType: ctx.body.logoutAll ? 'all_devices' : 'current_device',
+        logoutType: logoutResult.logoutType || (ctx.body.logoutAll ? 'all_devices' : 'current_device'),
         sessionsInvalidated: logoutResult.sessionsInvalidated,
         reason: ctx.body.reason || 'user_initiated',
         timestamp: new Date(),
@@ -491,13 +310,6 @@ class LogoutHandler extends BaseHandler {
     }
   }
 
-  /**
-   * Hash token for secure logging
-   */
-  static hashToken(tokenPart) {
-    const crypto = require('crypto')
-    return crypto.createHash('sha256').update(tokenPart).digest('hex').substring(0, 16)
-  }
 }
 
 module.exports = LogoutHandler

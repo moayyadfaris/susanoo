@@ -10,8 +10,9 @@ const iss = require('config').token.jwtIss
 /**
  * @return {Promise} string
  */
-module.exports = userEntity => {
+module.exports = (userEntity, sessionId) => {
   assert.object(userEntity, { required: true })
+  assert.number(sessionId, { required: true })
 
   let config = {
     payload: {
@@ -19,7 +20,7 @@ module.exports = userEntity => {
       userRole: userEntity.role,
       email: userEntity.email,
       language: userEntity.preferredLanguage,
-      sessionId: userEntity.sessionId,
+      sessionId,
       iss
     },
 

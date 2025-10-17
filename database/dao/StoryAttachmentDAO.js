@@ -1,39 +1,20 @@
-const { assert } = require('backend-core')
-const StoryDAO = require('database/dao/StoryDAO')
+const { BaseDAO, assert } = require('backend-core')
 const StoryAttachmentModel = require('models/StoryAttachmentModel')
-class StoryAttachmentDAO extends StoryDAO {
-  static get tableName () {
+
+class StoryAttachmentDAO extends BaseDAO {
+  static get tableName() {
     return 'story_attachments'
   }
-  /**
-   * ------------------------------
-   * @METHODS
-   * ------------------------------
-   */
-  static async prepareAttachmentInsertion (files) {
-    assert.validate(files, StoryAttachmentModel.schema.attachmentsId, { required: true })
 
-    let attachmentQuery = []
-    for (var i = 0; i < files.length; i++) {
-      attachmentQuery.push({
-        '#dbRef': files[i]
-      })
-    }
-    return attachmentQuery
+  static async prepareAttachmentInsertion(attachmentIds) {
+    assert.validate(attachmentIds, StoryAttachmentModel.schema.attachmentIds, { required: true })
+    return attachmentIds.map(id => ({ '#dbRef': Number(id) }))
   }
 
-  /**
-   * ------------------------------
-   * @HOOKS
-   * ------------------------------
-   */
-  $formatJson (json) {
-    json = super.$formatJson(json)
-    // delete sensitive data from all queries
-    delete json.createdAt
-    delete json.updatedAt
-
-    return json
+  static async removeAttachment(storyId, attachmentId, trx = null) {
+    return this.query(trx)
+      .delete()
+      .where({ storyId: Number(storyId), attachmentId: Number(attachmentId) })
   }
 }
 

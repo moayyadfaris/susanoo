@@ -129,7 +129,7 @@ class Logger extends AbstractLogger {
     capture = false,
     sentryDsn,
     sentryEnvironment = 'development',
-    raw = false,
+    raw = process.env.NODE_ENV === 'production',
     colorize = true,
     redact = DEFAULT_CONFIG.redact,
     customSerializers = {},

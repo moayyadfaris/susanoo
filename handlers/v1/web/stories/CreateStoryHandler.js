@@ -4,8 +4,8 @@ const StoryDAO = require('database/dao/StoryDAO')
 const StoryModel = require('models/StoryModel')
 const storyType = require('config').storyType
 const TagDAO = require('database/dao/TagDAO')
-const StoryAttachmentDAO = require('database/dao/StoryAttachmentDAO')
 const StoryAttachmentModel = require('models/StoryAttachmentModel')
+const { getStoryAttachmentService } = require('services')
 
 class CreateStoryHandler extends BaseHandler {
   static get accessTag () {
@@ -20,7 +20,7 @@ class CreateStoryHandler extends BaseHandler {
         fromTime: new RequestRule(StoryModel.schema.fromTime, { required: true }),
         toTime: new RequestRule(StoryModel.schema.toTime, { required: true }),
         tags: new RequestRule(StoryModel.schema.tags, { required: true }),
-        attachments: new RequestRule(StoryAttachmentModel.schema.attachmentsId)
+        attachments: new RequestRule(StoryAttachmentModel.schema.attachmentIds)
       }
     }
   }
@@ -35,7 +35,8 @@ class CreateStoryHandler extends BaseHandler {
       storyData.tags = preparedTags
     }
     if (storyData.attachments) {
-      storyData.attachments = await StoryAttachmentDAO.prepareAttachmentInsertion(storyData.attachments)
+      const storyAttachmentService = getStoryAttachmentService()
+      storyData.attachments = await storyAttachmentService.prepareAttachmentGraph(storyData.attachments)
     }
     storyData.status = storyStatus
     storyData.userId = currentUser.id

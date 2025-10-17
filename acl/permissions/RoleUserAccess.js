@@ -29,6 +29,7 @@ class RoleUserAccess extends BaseRoleAccess {
         'stories:delete': true,
         'attachments:create': true,
         'stories:attachments:remove': true,
+        'stories:attachments:assign': true,
         'user:stories:list-updates': true,
         'stories:change-status': true,
         'users:current-confirm-otp': true,
@@ -39,7 +40,8 @@ class RoleUserAccess extends BaseRoleAccess {
         'users:create-withdrawal': true,
         'users:update': true,
         'users:delete-profile-image': true,
-        'auth:login-qr-code': true
+        'auth:login-qr-code': true,
+        'categories:list': true
       }
     )
   }

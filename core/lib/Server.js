@@ -183,10 +183,12 @@ class Server {
       startTime: Date.now(),
       isShuttingDown: false,
       metrics: enableMetrics ? {
-        requests: 0,
-        errors: 0,
-        startTime: Date.now(),
-        lastRequestTime: null
+        requestCount: 0,
+        errorCount: 0,
+        totalResponseTime: 0,
+        lastResponseTime: 0,
+        lastActivity: null,
+        startTime: Date.now()
       } : null
     }
     
@@ -443,8 +445,8 @@ class Server {
         
         // Track request metrics
         if (this[$].metrics) {
-          this[$].metrics.requests++
-          this[$].metrics.lastRequestTime = Date.now()
+          this[$].metrics.requestCount++
+          this[$].metrics.lastActivity = Date.now()
         }
         
         // Add request ID for tracing
@@ -460,9 +462,15 @@ class Server {
         // Track response time
         res.on('finish', () => {
           const duration = performance.now() - startTime
-          
-          if (res.statusCode >= 400 && this[$].metrics) {
-            this[$].metrics.errors++
+          const metrics = this[$].metrics
+
+          if (metrics) {
+            metrics.totalResponseTime += duration
+            metrics.lastResponseTime = duration
+
+            if (res.statusCode >= 400) {
+              metrics.errorCount++
+            }
           }
           
           // Log slow requests
@@ -932,8 +940,21 @@ class Server {
             })
           )
 
+          const metrics = this[$].metrics
+          const metricsPayload = metrics ? {
+            requestCount: metrics.requestCount,
+            errorCount: metrics.errorCount,
+            averageResponseTimeMs: metrics.requestCount > 0
+              ? Number((metrics.totalResponseTime / metrics.requestCount).toFixed(4))
+              : 0,
+            lastResponseTimeMs: Number(metrics.lastResponseTime.toFixed(4)),
+            totalResponseTimeMs: Number(metrics.totalResponseTime.toFixed(4)),
+            lastActivityAt: metrics.lastActivity ? new Date(metrics.lastActivity).toISOString() : null,
+            trackingStartTime: metrics.startTime
+          } : null
+
           res.json({
-            metrics: this[$].metrics || {},
+            metrics: metricsPayload,
             system: {
               uptime: status.uptime,
               memory: status.memory,
@@ -967,8 +988,14 @@ class Server {
 
           // Internal counters if available
           if (this[$].metrics) {
-            push('http_requests_total', this[$].metrics.requests)
-            push('http_errors_total', this[$].metrics.errors)
+            const metrics = this[$].metrics
+            push('http_requests_total', metrics.requestCount)
+            push('http_errors_total', metrics.errorCount)
+            const avg = metrics.requestCount > 0
+              ? metrics.totalResponseTime / metrics.requestCount
+              : 0
+            push('http_response_time_avg_ms', Number(avg.toFixed(4)))
+            push('http_response_time_last_ms', Number(metrics.lastResponseTime.toFixed(4)))
           }
 
           // Provider: dbPool, loginHandler, and middlewareMetrics (if present)
@@ -1070,7 +1097,7 @@ class Server {
     this[$].app.use((req, res) => {
       // Track 404 errors in metrics
       if (this[$].metrics) {
-        this[$].metrics.errors++
+        this[$].metrics.errorCount++
       }
       
       this.logger.warn('Route not found', { 
@@ -1271,11 +1298,17 @@ class Server {
     const metrics = this[$].metrics || {}
     const status = this.getStatus()
     
+    const average = metrics.requestCount > 0
+      ? metrics.totalResponseTime / metrics.requestCount
+      : 0
+
     return {
       ...status,
       requestCount: metrics.requestCount || 0,
-      avgResponseTime: metrics.requestCount > 0 ? 
-        (metrics.totalResponseTime || 0) / metrics.requestCount : 0,
+      errorCount: metrics.errorCount || 0,
+      avgResponseTimeMs: Number(average.toFixed(4)),
+      lastResponseTimeMs: Number((metrics.lastResponseTime || 0).toFixed(4)),
+      totalResponseTimeMs: Number((metrics.totalResponseTime || 0).toFixed(4)),
       lastActivity: metrics.lastActivity ? new Date(metrics.lastActivity).toISOString() : null,
       cpuUsage: process.cpuUsage(),
       loadAverage: require('os').loadavg(),

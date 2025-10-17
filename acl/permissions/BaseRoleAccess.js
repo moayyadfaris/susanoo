@@ -39,6 +39,7 @@ class BaseRoleAccess {
       'stories:upload-attachments': false,
       'stories:delete-attachments-links': false,
       'stories:attachments:remove': false,
+      'stories:attachments:assign': false,
       'stories:change-status': false,
 
       'web:stories:create': false,
@@ -77,10 +78,15 @@ class BaseRoleAccess {
       'web#stories:get-status': false,
       'web#stories:get-stats': false,
       'web#users:remove': false,
-      'auth:login-qr-code': false
+      'auth:login-qr-code': false,
+      'root:overview': true,
+      'categories:list': false,
+      'categories:create': false,
+      'categories:update': false,
+      'categories:delete': false,
+      'stories:assign-categories': false
     }
   }
 }
 
 module.exports = BaseRoleAccess
-

@@ -10,4 +10,4 @@ exports.up = function(knex) {
     })
 }
 
-exports.down = knex => knex.schema.dropTable('intrests')
+exports.down = knex => knex.schema.dropTable('interests')

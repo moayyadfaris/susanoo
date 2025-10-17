@@ -3,8 +3,8 @@ const BaseHandler = require('handlers/BaseHandler')
 const AuthModel = require('models/AuthModel')
 const { makeAccessTokenHelper, makeLoginByQRTokenHelper, jwtHelper } = require('helpers').authHelpers
 const config = require('config')
-const addSession = require('handlers/v1/common/addSession')
-const SessionEntity = require('handlers/v1/common/SessionEntity')
+const addSession = require('../../../../services/auth/session/SessionManagementService')
+const SessionEntity = require('../../../../services/auth/entities/SessionEntity')
 const { redisClient } = require('handlers/RootProvider')
 class LoginByQRCodeHandler extends BaseHandler {
   static get accessTag () {

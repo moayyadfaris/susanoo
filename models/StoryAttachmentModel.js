@@ -1,20 +1,39 @@
 const joi = require('joi')
 const { BaseModel, Rule } = require('backend-core')
 
-const StoryModel = require('./StoryModel')
-const AttachmentModel = require('./AttachmentModel')
-
 const schema = {
-  userId: StoryModel.schema.id,
-  interestId: AttachmentModel.schema.id,
-  attachmentsId: new Rule({
-    validator: v => {
+  storyId: new Rule({
+    validator: (value) => {
       try {
-        joi.assert(v, joi.array().items(joi.number()))
-      } catch (e) { return e.message }
+        joi.assert(value, joi.number().integer().positive())
+      } catch (error) {
+        return error.message
+      }
       return true
     },
-    description: 'array of integer positive'
+    description: 'Positive integer representing the story identifier'
+  }),
+  attachmentId: new Rule({
+    validator: (value) => {
+      try {
+        joi.assert(value, joi.number().integer().positive())
+      } catch (error) {
+        return error.message
+      }
+      return true
+    },
+    description: 'Positive integer representing the attachment identifier'
+  }),
+  attachmentIds: new Rule({
+    validator: (value) => {
+      try {
+        joi.assert(value, joi.array().items(joi.number().integer().positive()).min(1))
+      } catch (error) {
+        return error.message
+      }
+      return true
+    },
+    description: 'Array of positive attachment identifiers'
   })
 }
 

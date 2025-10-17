@@ -13,7 +13,8 @@ class RoleEditorAccess extends BaseRoleAccess {
         'web#stories:get-by-id': true,
         'web#users:change-password': true,
         'web#users:update': true,
-        'web#users:upload-profile-image': true
+        'web#users:upload-profile-image': true,
+        'categories:list': true
       }
     )
   }

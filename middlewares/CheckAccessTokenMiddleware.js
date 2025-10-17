@@ -6,6 +6,10 @@ const { performance } = require('perf_hooks')
 const NodeCache = require('node-cache')
 const crypto = require('crypto')
 
+// Import session cache service for session validation
+const SessionCacheService = require('../services/auth/session/SessionCacheService')
+
+
 /**
  * Enhanced CheckAccessTokenMiddleware - Enterprise-grade JWT token validation
  * 
@@ -207,15 +211,18 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
         }
 
         // Additional session validation
+        let sessionValidation = null
         if (this.config.enableSessionValidation) {
-          const sessionValidation = await this.validateSession()
+          sessionValidation = await this.validateSession(validatedTokenData)
           if (!sessionValidation.isValid) {
             this.logAuthenticationEvent(req, 'invalid_session', {
               requestId,
+              userId: validatedTokenData.sub,
               sessionId: validatedTokenData.sessionId,
-              reason: sessionValidation.reason
+              reason: sessionValidation.reason,
+              validationMethod: sessionValidation.method
             })
-            return next(new ErrorWrapper({ ...errorCodes.SESSION_INVALID }))
+            return next(new ErrorWrapper({ ...errorCodes.ACCESS_TOKEN_INVALID }))
           }
         }
 
@@ -246,7 +253,9 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
             requestId,
             userId: req.currentUser.id,
             role: req.currentUser.role,
-            sessionId: req.currentUser.sessionId
+            sessionId: req.currentUser.sessionId,
+            sessionValidationMethod: sessionValidation?.method || 'not_validated',
+            sessionExpiresAt: sessionValidation?.expiresAt ? new Date(Number(sessionValidation.expiresAt)).toISOString() : null
           })
         }
 
@@ -339,7 +348,7 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
     
     try {
       const tokenData = await jwtHelper.verify(token, SECRET)
-      
+      console.log(tokenData) // --- IGNORE ---
       // Additional validation
       if (this.config.enforceStrictValidation) {
         this.performStrictTokenValidation(tokenData)
@@ -403,14 +412,108 @@ class CheckAccessTokenMiddleware extends BaseMiddleware {
   }
 
   /**
-   * Validate session
+   * Validate session using centralized SessionCacheService
+   * Ensures the specific session associated with the token is still valid
+   * 
+   * SECURITY: This method validates the SPECIFIC session associated with the token,
+   * not just whether the user has ANY active sessions. This prevents security issues
+   * where a user logs out from one device but the token remains valid because they
+   * have other active sessions on different devices.
+   * 
    * @private
    */
-  async validateSession() {
-    // Implement session validation logic here
-    // This could check against a session store, database, etc.
-    
-    return { isValid: true }
+  async validateSession(tokenData) {
+    try {
+      // If token doesn't have a userId, we can't validate the session
+      if (!tokenData.sub) {
+        return { isValid: false, reason: 'missing_user_id_in_token' }
+      }
+
+      // If token doesn't have a sessionId, we can't validate the specific session
+      if (!tokenData.sessionId) {
+        return { isValid: false, reason: 'missing_session_id_in_token' }
+      }
+
+      const userId = tokenData.sub
+      const sessionId = tokenData.sessionId
+      const logContext = {
+        userId,
+        sessionId,
+        middleware: 'CheckAccessTokenMiddleware',
+        method: 'validateSession'
+      }
+
+      // Use SessionCacheService to check for active sessions
+      try {
+        const userSessions = await SessionCacheService.getUserSessions(userId, logContext)
+        if (userSessions && userSessions.success && userSessions.sessions.length > 0) {
+          // Find the specific session associated with this token
+          const currentSession = userSessions.sessions.find(session => 
+            session.id === sessionId
+          )
+          
+          if (!currentSession) {
+            return { 
+              isValid: false, 
+              reason: 'session_not_found',
+              method: 'session_manager'
+            }
+          }
+          
+          // Check if the specific session is still active and not expired
+          if (currentSession.expiredAt > Date.now()) {
+            return { 
+              isValid: true, 
+              method: 'session_manager',
+              sessionId: currentSession.id,
+              expiresAt: currentSession.expiredAt
+            }
+          } else {
+            return { 
+              isValid: false, 
+              reason: 'session_expired',
+              method: 'session_manager',
+              sessionId: currentSession.id,
+              expiredAt: currentSession.expiredAt
+            }
+          }
+        }
+
+        // No sessions found for this user
+        return { 
+          isValid: false, 
+          reason: 'no_user_sessions',
+          method: 'session_manager'
+        }
+
+      } catch (sessionError) {
+        this.logger.warn('SessionCacheService validation failed', {
+          ...logContext,
+          error: sessionError.message
+        })
+
+        // If SessionCacheService fails, we'll be conservative and reject the session
+        // This ensures security while allowing the centralized session management to handle the logic
+        return { 
+          isValid: false, 
+          reason: 'session_validation_error',
+          method: 'session_manager_fallback'
+        }
+      }
+
+    } catch (error) {
+      this.logger.error('Session validation error', {
+        error: error.message,
+        userId: tokenData.sub,
+        sessionId: tokenData.sessionId,
+        stack: error.stack
+      })
+      return { 
+        isValid: false, 
+        reason: 'validation_error',
+        method: 'error_fallback'
+      }
+    }
   }
 
   /**

@@ -80,6 +80,7 @@ class CacheManager {
     // Cache warming data
     this.warmingStrategies = new Map()
     this.warmingInterval = null
+    this.metricsInterval = null
     
     this._setupEventListeners()
     this._startMetricsCollection()
@@ -133,7 +134,9 @@ class CacheManager {
       // Try L2 cache (Redis)
       if (this.config.redis.enabled && this.redisClient) {
         const redisStart = Date.now()
-        const redisValue = await this.redisClient.get(cacheKey)
+        const redisValue = this.redisClient.getKey
+          ? await this.redisClient.getKey(cacheKey)
+          : await this.redisClient.get(cacheKey)
         
         this._updateResponseTime('redis', Date.now() - redisStart)
         
@@ -145,7 +148,12 @@ class CacheManager {
           
           // Populate L1 cache
           if (this.config.memory.enabled) {
-            this.memoryCache.set(cacheKey, redisValue, this.config.memory.stdTTL)
+            let memoryValue = redisValue
+            if (typeof redisValue !== 'string') {
+              const reserialized = this._serialize(deserializedValue)
+              memoryValue = reserialized || redisValue
+            }
+            this.memoryCache.set(cacheKey, memoryValue, this.config.memory.stdTTL)
           }
           
           logger.debug('Cache hit (redis)', { key: cacheKey })
@@ -193,9 +201,13 @@ class CacheManager {
       // Set in L2 cache (Redis)
       if (this.config.redis.enabled && this.redisClient) {
         const redisTTL = ttl || this.config.redis.stdTTL
-        promises.push(
-          this.redisClient.setex(cacheKey, redisTTL, serializedValue)
-        )
+        if (typeof this.redisClient.setKey === 'function') {
+          promises.push(this.redisClient.setKey(cacheKey, serializedValue, { ttl: redisTTL }))
+        } else if (typeof this.redisClient.setex === 'function') {
+          promises.push(this.redisClient.setex(cacheKey, redisTTL, serializedValue))
+        } else if (typeof this.redisClient.set === 'function') {
+          promises.push(this.redisClient.set(cacheKey, serializedValue, 'EX', redisTTL))
+        }
         this.metrics.sets.redis++
       }
       
@@ -241,7 +253,12 @@ class CacheManager {
       
       // Delete from L2 cache (Redis)
       if (this.config.redis.enabled && this.redisClient) {
-        promises.push(this.redisClient.del(cacheKey))
+        const deletePromise = typeof this.redisClient.removeKey === 'function'
+          ? this.redisClient.removeKey(cacheKey)
+          : this.redisClient.del?.(cacheKey)
+        if (deletePromise) {
+          promises.push(deletePromise)
+        }
         this.metrics.deletes.redis++
       }
       
@@ -474,6 +491,9 @@ class CacheManager {
         const parsed = JSON.parse(value)
         return parsed.data
       }
+      if (value && typeof value === 'object' && 'data' in value) {
+        return value.data
+      }
       return value
     } catch (error) {
       logger.error('Deserialization error', { error: error.message })
@@ -498,6 +518,11 @@ class CacheManager {
     if (!this.redisClient) return
     
     try {
+      if (typeof this.redisClient.removePatternKey === 'function') {
+        await this.redisClient.removePatternKey(pattern)
+        return
+      }
+
       const keys = await this.redisClient.keys(pattern)
       if (keys.length > 0) {
         await this.redisClient.del(...keys)
@@ -558,7 +583,7 @@ class CacheManager {
    */
   _startMetricsCollection() {
     if (this.config.monitoring.enabled) {
-      setInterval(() => {
+      this.metricsInterval = setInterval(() => {
         const metrics = this.getMetrics()
         
         if (this.config.monitoring.logLevel === 'debug') {
@@ -591,6 +616,12 @@ class CacheManager {
   shutdown() {
     if (this.warmingInterval) {
       clearInterval(this.warmingInterval)
+      this.warmingInterval = null
+    }
+    
+    if (this.metricsInterval) {
+      clearInterval(this.metricsInterval)
+      this.metricsInterval = null
     }
     
     this.memoryCache.close()

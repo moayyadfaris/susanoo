@@ -1,8 +1,8 @@
 const BaseHandler = require('handlers/BaseHandler')
-const StoryDAO = require('database/dao/StoryDAO')
 const StoryModel = require('models/StoryModel')
 const { RequestRule, Rule } = require('backend-core')
 const joi = require('joi')
+const { getStoryService } = require('services')
 
 class ListUserStoriesHandler extends BaseHandler {
   static get accessTag () {
@@ -35,17 +35,23 @@ class ListUserStoriesHandler extends BaseHandler {
   static async run (req) {
     const { query, currentUser } = req
 
-    query.filter = { 'userId': currentUser.id }
-    if (query.status === 'IN_PROGRESS') {
-      query.filterIn = { key: 'status', value: ['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'FOR_REVIEW_SE'] }
-    } else {
-      query.filter['status'] = query.status
+    // Prepare query for service layer
+    const serviceQuery = { ...query }
+    // Enforce current user scope
+    serviceQuery.userId = currentUser.id
+    // Map special IN_PROGRESS pseudo-status to concrete statuses
+    if (serviceQuery.status === 'IN_PROGRESS') {
+      serviceQuery.status = ['SUBMITTED', 'ASSIGNED', 'IN_PROGRESS', 'FOR_REVIEW_SE']
     }
 
-    const data = await StoryDAO.getList({ ...query })
+    const storyService = getStoryService()
+    const serviceResult = await storyService.listStories(serviceQuery, { currentUser })
+
     return this.result({
-      data: data.results,
-      headers: { 'X-Total-Count': data.total }
+      data: serviceResult.data,
+      headers: serviceResult.headers,
+      // Preserve pagination details inside meta for clients that expect it
+      meta: { ...(serviceResult.meta || {}), pagination: serviceResult.pagination }
     })
   }
 }

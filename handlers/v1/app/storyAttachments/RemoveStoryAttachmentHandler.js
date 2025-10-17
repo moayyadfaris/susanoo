@@ -1,32 +1,41 @@
 const BaseHandler = require('handlers/BaseHandler')
 const { RequestRule } = require('backend-core')
-const StoryDAO = require('database/dao/StoryDAO')
 const StoryModel = require('models/StoryModel')
-const AttachmentModel = require('models/AttachmentModel')
-const StoryAttachmentDAO = require('database/dao/StoryAttachmentDAO')
-const { isOwnerPolicy } = require('acl/policies')
+const StoryAttachmentModel = require('models/StoryAttachmentModel')
+const { ownerPolicy } = require('acl/policies')
+const { getStoryService, getStoryAttachmentService } = require('services')
 
+/**
+ * Usage: DELETE /api/v1/stories/{storyId}/attachments/{attachmentId}
+ */
 class RemoveStoryAttachmentHandler extends BaseHandler {
-  static get accessTag () {
+  static get accessTag() {
     return 'stories:attachments:remove'
   }
 
-  static get validationRules () {
+  static get validationRules() {
     return {
       params: {
         id: new RequestRule(StoryModel.schema.id, { required: true }),
-        itemId: new RequestRule(AttachmentModel.schema.id, { required: true })
+        itemId: new RequestRule(StoryAttachmentModel.schema.attachmentId, { required: true })
       }
     }
   }
 
-  static async run (req) {
+  static async run(req) {
     const { currentUser } = req
-    const story = await StoryDAO.baseGetById(+req.params.id)
-    await isOwnerPolicy(story, currentUser)
-    await StoryAttachmentDAO.baseRemoveWhere({ 'attachmentId': +req.params.itemId, 'storyId': story.id })
+    const storyService = getStoryService()
+    const storyAttachmentService = getStoryAttachmentService()
 
-    return this.result({ message: `${req.params.itemId} was removed` })
+    const story = await storyService.getStoryById(Number(req.params.id), {}, { currentUser })
+    await ownerPolicy(story, currentUser)
+
+    const result = await storyAttachmentService.removeStoryAttachment(req.params.id, req.params.itemId, {
+      userId: currentUser?.id,
+      story
+    })
+
+    return this.success(result, 'Attachment removed from story')
   }
 }
 

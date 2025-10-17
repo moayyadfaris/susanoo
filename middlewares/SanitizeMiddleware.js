@@ -372,6 +372,10 @@ class SanitizeMiddleware extends BaseMiddleware {
     let modified = false
     let violations = []
 
+    // Check if this is a password field - skip aggressive security checks for passwords
+    const isPasswordField = context && /(oldPassword|newPassword|password|currentPassword|confirmPassword)/i.test(context)
+    const isRelaxedSecurityContext = this.shouldRelaxSecurityChecks(context)
+    
     // Check string length
     if (str.length > this.config.maxStringLength) {
       sanitized = str.substring(0, this.config.maxStringLength)
@@ -395,8 +399,8 @@ class SanitizeMiddleware extends BaseMiddleware {
       }
     }
 
-    // SQL Injection Detection and Prevention
-    if (this.config.enableSQLInjectionProtection) {
+    // SQL Injection Detection and Prevention (skip for password fields)
+    if (this.config.enableSQLInjectionProtection && !isPasswordField && !isRelaxedSecurityContext) {
       const sqlResult = this.detectAndPreventSQLInjection(sanitized)
       if (sqlResult.detected) {
         sanitized = sqlResult.sanitized
@@ -406,8 +410,8 @@ class SanitizeMiddleware extends BaseMiddleware {
       }
     }
 
-    // XSS Detection and Prevention
-    if (this.config.enableXSSProtection) {
+    // XSS Detection and Prevention (skip for password fields)
+    if (this.config.enableXSSProtection && !isPasswordField) {
       const xssResult = this.detectAndPreventXSS(sanitized, context)
       if (xssResult.detected) {
         sanitized = xssResult.sanitized
@@ -417,8 +421,8 @@ class SanitizeMiddleware extends BaseMiddleware {
       }
     }
 
-    // Path Traversal Detection and Prevention
-    if (this.config.enablePathTraversalProtection) {
+    // Path Traversal Detection and Prevention (skip for password fields)
+    if (this.config.enablePathTraversalProtection && !isPasswordField) {
       const pathResult = this.detectAndPreventPathTraversal(sanitized)
       if (pathResult.detected) {
         sanitized = pathResult.sanitized
@@ -428,8 +432,8 @@ class SanitizeMiddleware extends BaseMiddleware {
       }
     }
 
-    // Command Injection Detection and Prevention
-    if (this.config.enableCommandInjectionProtection) {
+    // Command Injection Detection and Prevention (skip for password fields)
+    if (this.config.enableCommandInjectionProtection && !isPasswordField && !isRelaxedSecurityContext) {
       const cmdResult = this.detectAndPreventCommandInjection(sanitized)
       if (cmdResult.detected) {
         sanitized = cmdResult.sanitized
@@ -440,6 +444,20 @@ class SanitizeMiddleware extends BaseMiddleware {
     }
 
     return { sanitized, modified, violations }
+  }
+
+  /**
+   * Determine if aggressive security checks should be relaxed for a given context.
+   * Allows legitimate structured payloads (like JSON filter parameters) to pass through
+   * without being flagged as SQL/command injection attempts.
+   * @private
+   */
+  shouldRelaxSecurityChecks(context = '') {
+    if (!context) return false
+    const normalized = context.toLowerCase()
+    return normalized.startsWith('query.filter') ||
+      normalized.startsWith('body.filter') ||
+      normalized.includes('.filter[')
   }
 
   /**

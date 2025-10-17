@@ -19,8 +19,8 @@ class Abstract {
       throw new Error(`${ctx.constructor.name}: ${methodName} method not implemented`)
     }
 
-    if (ctx[methodName].length !== argsQuantity) {
-      throw new Error(`${ctx.constructor.name}: ${methodName} method invalid arguments length`)
+    if (ctx[methodName].length < argsQuantity) {
+      throw new Error(`${ctx.constructor.name}: ${methodName} method must accept at least ${argsQuantity} argument(s)`)
     }
   }
 }

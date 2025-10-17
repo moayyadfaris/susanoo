@@ -1,6 +1,7 @@
 const { RequestRule, ErrorWrapper, errorCodes, Rule } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
-const CountryDAO = require('database/dao/CountryDAO')
+const CountryDAO = require('database/dao/CountryDAO') // Keep for backward compatibility
+const { getCountryService } = require('services')
 
 /**
  * ListCountriesHandler - Enhanced country listing with comprehensive features
@@ -12,6 +13,41 @@ const CountryDAO = require('database/dao/CountryDAO')
  * - Regional and continental grouping
  * - Comprehensive error handling and monitoring
  * - Rate limiting and security features
+ * 
+ * API Usage Examples:
+ * 
+ * Basic listing:
+ * GET /countries?page=0&limit=20
+ * 
+ * Search by name:
+ * GET /countries?search=jordan
+ * 
+ * Filter by ISO code (bracket notation):
+ * GET /countries?filter[iso]=JO
+ * 
+ * Multiple filters (bracket notation):
+ * GET /countries?filter[region]=asia&filter[isActive]=true
+ * 
+ * Filter with JSON payload (URL encoded):
+ * GET /countries?filter=%7B%22region%22%3A%22asia%22%2C%22isActive%22%3Atrue%7D
+ * 
+ * Filter with JSON payload (readable format - needs URL encoding):
+ * GET /countries?filter={"region":"asia","isActive":true}
+ * 
+ * Custom field selection:
+ * GET /countries?fields=id,name,iso,phonecode
+ * 
+ * Grouped response:
+ * GET /countries?groupBy=region&format=minimal
+ * 
+ * Advanced filtering examples:
+ * GET /countries?filter[region]=europe&format=codes-only
+ * GET /countries?filter[phonecode]=1&groupBy=region
+ * GET /countries?search=united&filter[isActive]=true&fields=name,iso,phonecode
+ * 
+ * Valid regions: europe, asia, africa, north_america, south_america, oceania
+ * Valid formats: full, minimal, codes-only
+ * Valid groupBy: region, phonecode
  * 
  * @extends BaseHandler
  * @version 2.0.0
@@ -39,19 +75,55 @@ class ListCountriesHandler extends BaseHandler {
           description: 'string; min: 1, max: 100; Search term for country name, nicename, or ISO codes'
         }), { required: false }),
 
-        // Advanced filtering - support both object and bracket notation
+        // Advanced filtering - support both JSON string and object formats
         filter: new RequestRule(new Rule({
           validator: v => {
-            if (typeof v !== 'object' || v === null) return false
+            // Handle JSON string format (URL encoded or not)
+            if (typeof v === 'string') {
+              try {
+                v = JSON.parse(v)
+              } catch (parseError) {
+                return `Filter must be a valid JSON object when passed as string: ${parseError.message}`
+              }
+            }
+            
+            // Must be an object after parsing
+            if (typeof v !== 'object' || v === null || Array.isArray(v)) {
+              return 'Filter must be an object'
+            }
             
             const allowedFilters = [
               'name', 'nicename', 'iso', 'iso3', 'phonecode', 'numcode', 
               'isActive', 'region'
             ]
             
-            return Object.keys(v).every(key => allowedFilters.includes(key))
+            const invalidKeys = Object.keys(v).filter(key => !allowedFilters.includes(key))
+            if (invalidKeys.length > 0) {
+              return `Invalid filter keys: ${invalidKeys.join(', ')}. Allowed: ${allowedFilters.join(', ')}`
+            }
+            
+            // Validate region values if present
+            if (v.region && !['europe', 'asia', 'africa', 'north_america', 'south_america', 'oceania'].includes(v.region.toLowerCase())) {
+              return 'Invalid region. Allowed values: europe, asia, africa, north_america, south_america, oceania'
+            }
+            
+            // Validate isActive if present
+            if (v.isActive !== undefined && typeof v.isActive !== 'boolean' && v.isActive !== 'true' && v.isActive !== 'false') {
+              return 'isActive must be a boolean or string "true"/"false"'
+            }
+            
+            // Validate ISO codes if present
+            if (v.iso && (typeof v.iso !== 'string' || v.iso.length !== 2)) {
+              return 'ISO code must be a 2-character string'
+            }
+            
+            if (v.iso3 && (typeof v.iso3 !== 'string' || v.iso3.length !== 3)) {
+              return 'ISO3 code must be a 3-character string'
+            }
+            
+            return true
           },
-          description: 'object; Filter conditions - name, nicename, iso, iso3, phonecode, numcode, isActive, region. Also supports bracket notation: filter[iso]=JO'
+          description: 'object or JSON string; Filter conditions. Supports: name, nicename, iso, iso3, phonecode, numcode, isActive, region. Can be passed as JSON string or object. Also supports bracket notation: filter[key]=value'
         }), { required: false }),
 
         // Explicit bracket notation filter parameters
@@ -287,13 +359,50 @@ class ListCountriesHandler extends BaseHandler {
         page: Number.isFinite(parseInt(query.page)) ? parseInt(query.page) : 0,
         limit: Number.isFinite(parseInt(query.limit)) ? parseInt(query.limit) : 1000,
         search: typeof query.search === 'string' ? query.search.trim() : query.search,
-        filter: { ...(query.filter || {}) },
+        filter: {},
         format: query.format || 'full',
         groupBy: query.groupBy,
         // coerce useCache: default true unless explicitly false/'false'
         useCache: (query.useCache === undefined) ? true : (query.useCache === true || query.useCache === 'true'),
         orderByField: 'name',
         orderByDirection: 'asc'
+      }
+
+      // Handle filter parameter - can be JSON string or object
+      if (query.filter) {
+        if (typeof query.filter === 'string') {
+          try {
+            params.filter = JSON.parse(query.filter)
+            this.logger.debug('Parsed JSON filter', { 
+              ...logContext, 
+              originalFilter: query.filter,
+              parsedFilter: params.filter 
+            })
+          } catch (parseError) {
+            this.logger.warn('Failed to parse JSON filter', { 
+              ...logContext, 
+              filter: query.filter,
+              error: parseError.message 
+            })
+            throw new ErrorWrapper({
+              ...errorCodes.VALIDATION,
+              message: `Invalid JSON in filter parameter: ${parseError.message}`,
+              layer: 'ListCountriesHandler.prepareQueryParams',
+              meta: {
+                originalFilter: query.filter,
+                parseError: parseError.message
+              }
+            })
+          }
+        } else if (typeof query.filter === 'object' && query.filter !== null) {
+          params.filter = { ...query.filter }
+        } else {
+          throw new ErrorWrapper({
+            ...errorCodes.VALIDATION,
+            message: 'Filter parameter must be a JSON string or object',
+            layer: 'ListCountriesHandler.prepareQueryParams'
+          })
+        }
       }
 
       // Parse sorting parameters using BaseHandler utility
@@ -350,12 +459,9 @@ class ListCountriesHandler extends BaseHandler {
         }
       }
 
-      // Normalize and default active filter
-      if (Object.prototype.hasOwnProperty.call(params.filter, 'isActive')) {
-        const v = params.filter.isActive
-        params.filter.isActive = (v === true || v === 'true')
-      } else {
-        params.filter.isActive = true
+      // Normalize and validate filter values
+      if (Object.keys(params.filter).length > 0) {
+        params.filter = this.normalizeFilterValues(params.filter, logContext)
       }
 
       // Set reasonable limit for performance
@@ -390,10 +496,126 @@ class ListCountriesHandler extends BaseHandler {
   }
 
   /**
+   * Normalize and validate filter values
+   */
+  static normalizeFilterValues(filter, logContext) {
+    const normalized = { ...filter }
+    
+    // Normalize isActive to boolean
+    if (Object.prototype.hasOwnProperty.call(normalized, 'isActive')) {
+      const v = normalized.isActive
+      normalized.isActive = (v === true || v === 'true')
+    } else {
+      // Default to active countries only
+      normalized.isActive = true
+    }
+    
+    // Normalize region to lowercase
+    if (normalized.region) {
+      normalized.region = normalized.region.toLowerCase()
+      
+      // Validate region value
+      const validRegions = ['europe', 'asia', 'africa', 'north_america', 'south_america', 'oceania']
+      if (!validRegions.includes(normalized.region)) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: `Invalid region "${normalized.region}". Valid regions: ${validRegions.join(', ')}`,
+          layer: 'ListCountriesHandler.normalizeFilterValues'
+        })
+      }
+    }
+    
+    // Normalize ISO codes to uppercase
+    if (normalized.iso) {
+      normalized.iso = normalized.iso.toUpperCase()
+      if (normalized.iso.length !== 2) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'ISO code must be exactly 2 characters',
+          layer: 'ListCountriesHandler.normalizeFilterValues'
+        })
+      }
+    }
+    
+    if (normalized.iso3) {
+      normalized.iso3 = normalized.iso3.toUpperCase()
+      if (normalized.iso3.length !== 3) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'ISO3 code must be exactly 3 characters',
+          layer: 'ListCountriesHandler.normalizeFilterValues'
+        })
+      }
+    }
+    
+    // Normalize phonecode and numcode to integers
+    if (normalized.phonecode) {
+      const phoneCode = parseInt(normalized.phonecode, 10)
+      if (!Number.isInteger(phoneCode) || phoneCode <= 0) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'Phone code must be a positive integer',
+          layer: 'ListCountriesHandler.normalizeFilterValues'
+        })
+      }
+      normalized.phonecode = phoneCode
+    }
+    
+    if (normalized.numcode) {
+      const numCode = parseInt(normalized.numcode, 10)
+      if (!Number.isInteger(numCode) || numCode <= 0) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'Numeric code must be a positive integer',
+          layer: 'ListCountriesHandler.normalizeFilterValues'
+        })
+      }
+      normalized.numcode = numCode
+    }
+    
+    this.logger.debug('Normalized filter values', { 
+      ...logContext, 
+      originalFilter: filter,
+      normalizedFilter: normalized 
+    })
+    
+    return normalized
+  }
+
+  /**
    * Retrieve country data using appropriate method (cached or direct)
    */
   static async retrieveCountryData(params) {
     try {
+      // Try to use the service layer if available, fallback to DAO for backward compatibility
+      try {
+        const countryService = getCountryService()
+        if (countryService) {
+          // Use the new service layer with enhanced business logic
+          return await countryService.searchCountries({
+            search: params.search,
+            filter: params.filter,
+            fields: params.fields
+          }, {
+            page: params.page,
+            limit: params.limit,
+            format: params.format,
+            useCache: params.useCache,
+            orderBy: {
+              field: params.orderByField,
+              direction: params.orderByDirection
+            }
+          })
+        }
+      } catch (serviceError) {
+        // Log service error but don't fail - fallback to DAO
+        this.logger.warn('Service layer unavailable, falling back to DAO', {
+          error: serviceError.message,
+          params
+        })
+      }
+      
+      // Fallback to direct DAO access for backward compatibility
       if (params.useCache) {
         return await CountryDAO.getCachedList(params)
       } else {
@@ -528,6 +750,26 @@ class ListCountriesHandler extends BaseHandler {
     delete sanitized._timestamp
     
     return sanitized
+  }
+
+  /**
+   * Generate example URLs for API documentation
+   * @static
+   * @returns {Object} Example URLs for different use cases
+   */
+  static getExampleUrls() {
+    const baseUrl = '/api/v1/countries'
+    
+    return {
+      basic: `${baseUrl}?page=0&limit=20`,
+      search: `${baseUrl}?search=jordan`,
+      filterBracket: `${baseUrl}?filter[iso]=JO`,
+      filterMultiple: `${baseUrl}?filter[region]=asia&filter[isActive]=true`,
+      filterJson: `${baseUrl}?filter=${encodeURIComponent('{"region":"asia","isActive":true}')}`,
+      fields: `${baseUrl}?fields=id,name,iso,phonecode`,
+      grouped: `${baseUrl}?groupBy=region&format=minimal`,
+      advanced: `${baseUrl}?search=united&filter[isActive]=true&fields=name,iso,phonecode&format=codes-only`
+    }
   }
 }
 

@@ -14,6 +14,7 @@ module.exports = {
   NOT_VERIFIED_RESET_PASSWORD: { message: 'Not verified', status: 401, code: 'REST_PASSWORD_FAILED_PHONE_NOT_VERIFIED' },
   INVALID_PASSWORD: { message: 'Invalid password', status: 403, code: 'INVALID_PASSWORD_ERROR' },
   TOKEN_EXPIRED: { message: 'Token expired', status: 401, code: 'TOKEN_EXPIRED_ERROR' },
+  ACCESS_TOKEN_INVALID: { message: 'Access token invalid', status: 401, code: 'ACCESS_TOKEN_INVALID_ERROR' },
   ACCESS_TOKEN_EXPIRED: { message: 'Access token expired', status: 498, code: 'ACCESS_TOKEN_EXPIRED_ERROR' },
   INVALID_SESSION: { message: 'Invalid session. Wrong fingerprint', status: 401, code: 'INVALID_SESSION_ERROR' },
   TOKEN_NOT_SIGNED: { message: 'Token not signed', status: 500, code: 'TOKEN_NOT_SIGNED_ERROR' },

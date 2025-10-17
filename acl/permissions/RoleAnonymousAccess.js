@@ -27,12 +27,14 @@ class RoleAnonymousAccess {
       'web#auth:login': true,
       'web#auth:logout': true,
       'web#auth:refresh-tokens': true,
-      'config:get': true,
+      'runtime-settings:get': true,
       'web#users:create': true,
       'web#cache:clear': true,
       'web#users:send-reset-password-token': true,
       'web#users:reset-password': true,
-      'web#users:confirm-reset-password': true
+      'web#users:confirm-reset-password': true,
+      'root:overview': true,
+      'categories:list': true
     }
   }
 }

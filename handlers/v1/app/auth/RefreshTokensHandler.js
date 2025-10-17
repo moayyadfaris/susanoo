@@ -1,11 +1,7 @@
 const { RequestRule, ErrorWrapper, errorCodes } = require('backend-core')
-const addSession = require('handlers/v1/common/addSession')
 const BaseHandler = require('handlers/BaseHandler')
-const UserDAO = require('database/dao/UserDAO')
 const AuthModel = require('models/AuthModel')
-const SessionDAO = require('database/dao/SessionDAO')
-const SessionEntity = require('handlers/v1/common/SessionEntity')
-const { makeAccessTokenHelper, verifySessionHelper } = require('helpers').authHelpers
+const { getAuthService } = require('../../../../services')
 
 /**
  * RefreshTokensHandler - Secure token rotation and session renewal
@@ -57,12 +53,19 @@ class RefreshTokensHandler extends BaseHandler {
       const reqRefreshToken = ctx.body?.refreshToken
       const reqFingerprint = ctx.body?.fingerprint
 
-      // Basic guard rails (validation middleware should ensure these, but double-check defensively)
       if (!reqRefreshToken || !reqFingerprint) {
-        this.metrics.unauthorized++
         throw new ErrorWrapper({
           ...errorCodes.UNAUTHORIZED,
           message: 'Missing credentials for token refresh',
+          layer: 'RefreshTokensHandler.run'
+        })
+      }
+
+      const authService = getAuthService()
+      if (!authService) {
+        throw new ErrorWrapper({
+          ...errorCodes.INTERNAL_SERVER_ERROR,
+          message: 'Authentication service unavailable',
           layer: 'RefreshTokensHandler.run'
         })
       }
@@ -73,67 +76,39 @@ class RefreshTokensHandler extends BaseHandler {
         hasFingerprint: !!reqFingerprint
       })
 
-      // 1) Load session by refresh token
-      const oldSession = await SessionDAO.getByRefreshToken(reqRefreshToken)
-      if (!oldSession) {
-        this.metrics.unauthorized++
-        this.logger.warn('Refresh token not found', { ...logContext })
-        throw new ErrorWrapper({
-          ...errorCodes.UNAUTHORIZED,
-          message: 'Invalid refresh token',
-          layer: 'RefreshTokensHandler.run'
-        })
+      const deviceInfo = {
+        fingerprint: reqFingerprint,
+        userAgent: ctx.requestMetadata?.userAgent || ctx.headers?.['user-agent'] || ctx.headers?.['User-Agent'],
+        ip: ctx.requestMetadata?.ip || ctx.ip
       }
 
-      // 2) Verify session (status/expiry/fingerprint)
-      try {
-        await verifySessionHelper(new SessionEntity(oldSession), reqFingerprint)
-      } catch (e) {
-        this.metrics.unauthorized++
-        this.logger.warn('Session verification failed', { ...logContext, error: e?.message })
-        throw new ErrorWrapper({
-          ...errorCodes.UNAUTHORIZED,
-          message: 'Session verification failed',
-          layer: 'RefreshTokensHandler.run',
-          meta: { reason: e?.message }
-        })
-      }
+      const serviceResult = await authService.refreshTokens(reqRefreshToken, deviceInfo)
 
-      // 3) Load user and validate
-      const user = await UserDAO.baseGetById(oldSession.userId)
-      if (!user) {
-        this.metrics.unauthorized++
-        this.logger.warn('User not found for session', { ...logContext, userId: oldSession.userId })
-        throw new ErrorWrapper({
-          ...errorCodes.UNAUTHORIZED,
-          message: 'User not found',
-          layer: 'RefreshTokensHandler.run'
-        })
-      }
-      if (user.isActive === false) {
-        this.metrics.unauthorized++
-        this.logger.warn('User is deactivated', { ...logContext, userId: user.id })
-        throw new ErrorWrapper({
-          ...errorCodes.FORBIDDEN,
-          message: 'User account is deactivated',
-          layer: 'RefreshTokensHandler.run'
-        })
-      }
-
-      // 4) Invalidate the old refresh token (single-use tokens)
-      await SessionDAO.baseRemoveWhere({ refreshToken: reqRefreshToken })
-
-      // 5) Create a new session (rotate refresh token)
-      const newSession = new SessionEntity({
-        userId: user.id,
-        ip: ctx.ip,
-        ua: ctx.headers['User-Agent'],
-        fingerprint: reqFingerprint
+      this.logger.debug('Refresh tokens service result', {
+        ...logContext,
+        hasResult: !!serviceResult,
+        success: serviceResult?.success,
+        hasAccessToken: !!serviceResult?.accessToken,
+        hasRefreshToken: !!serviceResult?.refreshToken
       })
-      await addSession(newSession)
 
-      // 6) Create new access token
-      const accessToken = await makeAccessTokenHelper(user)
+      if (!serviceResult?.success) {
+        throw new ErrorWrapper({
+          ...errorCodes.SERVER,
+          message: 'Token refresh service returned unexpected response',
+          layer: 'RefreshTokensHandler.run',
+          meta: { serviceResult }
+        })
+      }
+
+      if (!serviceResult.accessToken || !serviceResult.refreshToken) {
+        throw new ErrorWrapper({
+          ...errorCodes.SERVER,
+          message: 'Token refresh failed',
+          layer: 'RefreshTokensHandler.run',
+          meta: { serviceResult }
+        })
+      }
 
       const duration = Date.now() - start
       // Update metrics
@@ -142,15 +117,18 @@ class RefreshTokensHandler extends BaseHandler {
 
       this.logger.info('Token refresh completed', {
         ...logContext,
-        userId: user.id,
+        userId: serviceResult.user?.id,
         duration
       })
 
       return this.result({
+        message: 'Tokens refreshed successfully',
         data: {
-          userId: user.id,
-          accessToken,
-          refreshToken: newSession.refreshToken
+          userId: serviceResult.user?.id,
+          sessionId: serviceResult.session?.id,
+          accessToken: serviceResult.accessToken,
+          refreshToken: serviceResult.refreshToken,
+          expiresAt: serviceResult.expiresAt
         },
         headers: {
           'X-Session-Rotated': '1'
@@ -169,6 +147,9 @@ class RefreshTokensHandler extends BaseHandler {
       })
 
       if (error instanceof ErrorWrapper) {
+        if (error.code === 'UNAUTHORIZED') {
+          this.metrics.unauthorized++
+        }
         throw error
       }
 

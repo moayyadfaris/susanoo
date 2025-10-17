@@ -1,6 +1,18 @@
 const { BaseDAO, assert } = require('backend-core')
 const CountryModel = require('../../models/CountryModel')
-const { redisClient } = require('handlers/RootProvider')
+
+/**
+ * Safe Redis client getter with error handling
+ */
+function getRedisClient() {
+  try {
+    const { redisClient } = require('handlers/RootProvider')
+    return redisClient
+  } catch (error) {
+    console.warn('Redis client not available:', error.message)
+    return null
+  }
+}
 class CountryDAO extends BaseDAO {
   static get tableName () {
     return 'countries'
@@ -33,7 +45,10 @@ class CountryDAO extends BaseDAO {
   }
 
   $afterUpdate (opt, queryContext) {
-    redisClient.removePatternKey('*countries*')
+    const redisClient = getRedisClient()
+    if (redisClient) {
+      redisClient.removePatternKey('*countries*')
+    }
     return super.$afterUpdate(opt, queryContext)
   }
 
@@ -51,29 +66,24 @@ class CountryDAO extends BaseDAO {
    * @returns {Promise<{results: Array, total: number}>}
    */
   static async getAdvancedList(params = {}) {
-    try {
-      // Build base query without pagination for counting
-      let countQuery = this.buildAdvancedQuery({ ...params, page: undefined, limit: undefined })
-      countQuery = countQuery.clearSelect().clearOrder().count('* as total').first()
-      
-      // Build the full query with pagination
-      let query = this.buildAdvancedQuery(params)
-      
-      // Execute both queries in parallel
-      const [results, countResult] = await Promise.all([
-        query,
-        countQuery
-      ])
+    // Build base query without pagination for counting
+    let countQuery = this.buildAdvancedQuery({ ...params, page: undefined, limit: undefined })
+    countQuery = countQuery.clearSelect().clearOrder().count('* as total').first()
+    
+    // Build the full query with pagination
+    let query = this.buildAdvancedQuery(params)
+    
+    // Execute both queries in parallel
+    const [results, countResult] = await Promise.all([
+      query,
+      countQuery
+    ])
 
-      const total = parseInt(countResult.total) || 0
+    const total = parseInt(countResult.total) || 0
 
-      return {
-        results: results || [],
-        total
-      }
-
-    } catch (error) {
-      throw error
+    return {
+      results: results || [],
+      total
     }
   }
 
@@ -201,6 +211,12 @@ class CountryDAO extends BaseDAO {
    */
   static async getCachedList(params = {}) {
     const cacheKey = `countries:list:${JSON.stringify(params)}`
+    const redisClient = getRedisClient()
+    
+    if (!redisClient) {
+      // Fallback to direct database query if Redis is not available
+      return await this.getAdvancedList(params)
+    }
     
     try {
       // Try to get from cache first
@@ -216,10 +232,324 @@ class CountryDAO extends BaseDAO {
       await redisClient.setKey(cacheKey, JSON.stringify(result), 3600)
       
       return result
-    } catch (error) {
+    } catch {
       // Fallback to direct database query if caching fails
       return await this.getAdvancedList(params)
     }
+  }
+
+  /**
+   * Enhanced search by name with database query
+   * @param {string} query - Search query
+   * @param {number} limit - Result limit
+   * @returns {Promise<Array>} Matching countries
+   */
+  static async searchByName(query, limit = 10) {
+    if (!query || query.trim().length < 2) {
+      return []
+    }
+
+    const searchPattern = `%${query.trim().toLowerCase()}%`
+    
+    return this.query()
+      .where(builder => {
+        builder
+          .whereRaw('LOWER(name) LIKE ?', [searchPattern])
+          .orWhereRaw('LOWER(nicename) LIKE ?', [searchPattern])
+          .orWhereRaw('LOWER(iso) LIKE ?', [searchPattern])
+          .orWhereRaw('LOWER(iso3) LIKE ?', [searchPattern])
+      })
+      .where('isActive', true)
+      .orderByRaw('CASE WHEN LOWER(name) LIKE ? THEN 0 WHEN LOWER(nicename) LIKE ? THEN 1 ELSE 2 END', 
+        [`${query.trim().toLowerCase()}%`, `${query.trim().toLowerCase()}%`])
+      .limit(limit)
+  }
+
+  /**
+   * Find countries within radius of coordinates
+   * @param {number} latitude - Center latitude
+   * @param {number} longitude - Center longitude
+   * @param {number} radiusKm - Search radius in kilometers
+   * @returns {Promise<Array>} Countries within radius
+   */
+  static async findCountriesWithinRadius(latitude, longitude, radiusKm) {
+    // Using Haversine formula in SQL for better performance
+    const sql = `
+      SELECT *, 
+      (6371 * acos(cos(radians(?)) * cos(radians(latitude)) 
+       * cos(radians(longitude) - radians(?)) + sin(radians(?)) 
+       * sin(radians(latitude)))) AS distance
+      FROM countries 
+      WHERE latitude IS NOT NULL 
+        AND longitude IS NOT NULL
+        AND isActive = true
+      HAVING distance <= ?
+      ORDER BY distance
+    `
+    
+    return this.knex().raw(sql, [latitude, longitude, latitude, radiusKm])
+      .then(result => result.rows || result)
+  }
+
+  /**
+   * Group countries by continent
+   * @param {Object} filters - Additional filters
+   * @returns {Promise<Object>} Countries grouped by continent
+   */
+  static async groupByContinent(filters = {}) {
+    let query = this.query().where('isActive', true)
+    
+    // Apply additional filters
+    if (filters.region) {
+      query = query.where('region', filters.region)
+    }
+    if (filters.currencyCode) {
+      query = query.where('currencyCode', filters.currencyCode)
+    }
+    
+    const countries = await query.orderBy('name', 'asc')
+    
+    return countries.reduce((groups, country) => {
+      const continent = country.continent || 'Unknown'
+      if (!groups[continent]) {
+        groups[continent] = []
+      }
+      groups[continent].push(country)
+      return groups
+    }, {})
+  }
+
+  /**
+   * Get country statistics
+   * @returns {Promise<Object>} Country statistics
+   */
+  static async getCountryStats() {
+    const [
+      totalCount,
+      activeCount,
+      continentStats,
+      currencyStats,
+      populationStats
+    ] = await Promise.all([
+      this.query().count('* as count').first(),
+      this.query().where('isActive', true).count('* as count').first(),
+      this.query()
+        .select('continent')
+        .count('* as count')
+        .whereNotNull('continent')
+        .groupBy('continent'),
+      this.query()
+        .select('currencyCode')
+        .count('* as count')
+        .whereNotNull('currencyCode')
+        .groupBy('currencyCode')
+        .orderBy('count', 'desc')
+        .limit(10),
+      this.query()
+        .select(this.knex().raw('SUM(population) as totalPopulation, AVG(population) as avgPopulation'))
+        .whereNotNull('population')
+        .first()
+    ])
+
+    return {
+      counts: {
+        total: parseInt(totalCount.count),
+        active: parseInt(activeCount.count),
+        inactive: parseInt(totalCount.count) - parseInt(activeCount.count)
+      },
+      continents: continentStats.reduce((acc, item) => {
+        acc[item.continent] = parseInt(item.count)
+        return acc
+      }, {}),
+      topCurrencies: currencyStats.map(item => ({
+        code: item.currencyCode,
+        count: parseInt(item.count)
+      })),
+      population: {
+        total: parseInt(populationStats.totalPopulation || 0),
+        average: Math.round(parseFloat(populationStats.avgPopulation || 0))
+      },
+      lastUpdated: new Date().toISOString()
+    }
+  }
+
+  /**
+   * Get cached country by identifier
+   * @param {string} field - Field to search by
+   * @param {*} value - Value to search for
+   * @returns {Promise<Object|null>} Country data
+   */
+  static async getCachedCountry(field, value) {
+    const cacheKey = `country:${field}:${value}`
+    const redisClient = getRedisClient()
+    
+    if (!redisClient) {
+      // Fallback to direct query if Redis is not available
+      return await this.query().where(field, value).first()
+    }
+    
+    try {
+      // Try cache first
+      const cached = await redisClient.getKey(cacheKey)
+      if (cached) {
+        return JSON.parse(cached)
+      }
+
+      // Get from database
+      const country = await this.query().where(field, value).first()
+      
+      if (country) {
+        // Cache for 24 hours
+        await redisClient.setKey(cacheKey, JSON.stringify(country), 24 * 60 * 60)
+      }
+
+      return country
+    } catch {
+      // Fallback to direct query if cache fails
+      return await this.query().where(field, value).first()
+    }
+  }
+
+  /**
+   * Clear country-related cache
+   * @param {string} pattern - Cache pattern to clear
+   * @returns {Promise<number>} Number of keys cleared
+   */
+  static async clearCache(pattern = 'country*') {
+    const redisClient = getRedisClient()
+    if (!redisClient) {
+      return 0
+    }
+    
+    try {
+      return await redisClient.removePatternKey(pattern)
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * Enhanced search with flexible criteria
+   * @param {Object} criteria - Search criteria
+   * @param {Object} options - Search options
+   * @returns {Promise<Array>} Search results
+   */
+  static async searchCountries(criteria = {}, options = {}) {
+    // Convert criteria to DAO format
+    const params = this.convertCriteriaToDAOParams(criteria, options)
+    
+    // Use existing cached list method
+    const result = await this.getCachedList(params)
+    
+    return result.results || []
+  }
+
+  /**
+   * Convert search criteria to DAO parameters
+   * @private
+   */
+  static convertCriteriaToDAOParams(criteria, options) {
+    const {
+      query,
+      continent,
+      region,
+      currencyCode,
+      isActive = true,
+      includeInactive = false
+    } = criteria
+
+    const {
+      limit = 50,
+      offset = 0,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      fields = null
+    } = options
+
+    const params = {
+      page: Math.floor(offset / limit),
+      limit,
+      orderByField: sortBy,
+      orderByDirection: sortOrder,
+      fields
+    }
+
+    // Build filter object
+    const filter = {}
+    
+    if (!includeInactive) {
+      filter.isActive = isActive
+    }
+
+    if (continent) {
+      filter.continent = continent
+    }
+
+    if (region) {
+      filter.region = region
+    }
+
+    if (currencyCode) {
+      filter.currencyCode = currencyCode
+    }
+
+    if (Object.keys(filter).length > 0) {
+      params.filter = filter
+    }
+
+    if (query) {
+      params.search = query
+    }
+
+    return params
+  }
+
+  /**
+   * Bulk updates country data with caching
+   * @param {Array} countries - Array of country data to update
+   * @returns {Promise<Object>} Update results
+   */
+  static async bulkUpdate(countries) {
+    if (!Array.isArray(countries) || countries.length === 0) {
+      return { updated: 0, errors: [] }
+    }
+
+    const results = { updated: 0, errors: [] }
+
+    for (const countryData of countries) {
+      try {
+        // Use CountryUtils for validation (keeping separation of concerns)
+        const CountryUtils = require('../../services/country/CountryUtils')
+        const validated = CountryUtils.validateAndEnrich(countryData)
+        
+        if (validated.id) {
+          await this.query()
+            .where('id', validated.id)
+            .update(validated)
+        } else if (validated.iso) {
+          await this.query()
+            .where('iso', validated.iso)
+            .update(validated)
+        }
+
+        results.updated++
+
+        // Clear related cache
+        if (validated.iso) {
+          await this.clearCache(`country:iso:${validated.iso}`)
+        }
+      } catch (error) {
+        results.errors.push({
+          country: countryData,
+          error: error.message
+        })
+      }
+    }
+
+    // Clear search cache
+    await this.clearCache('countries:list:*')
+
+    return results
   }
 }
 

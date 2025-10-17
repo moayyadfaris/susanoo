@@ -1,10 +1,10 @@
 const { RequestRule } = require('backend-core')
-const addSession = require('handlers/v1/common/addSession')
+const addSession = require('../../../../services/auth/session/SessionManagementService')
 const BaseHandler = require('handlers/BaseHandler')
 const UserDAO = require('database/dao/UserDAO')
 const AuthModel = require('models/AuthModel')
 const SessionDAO = require('database/dao/SessionDAO')
-const SessionEntity = require('handlers/v1/common/SessionEntity')
+const SessionEntity = require('../../../../services/auth/entities/SessionEntity')
 const { makeAccessTokenHelper, verifySessionHelper } = require('helpers').authHelpers
 
 class RefreshTokensHandler extends BaseHandler {

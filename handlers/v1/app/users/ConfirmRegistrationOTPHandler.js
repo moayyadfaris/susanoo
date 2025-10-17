@@ -5,8 +5,8 @@ const UserModel = require('models/UserModel')
 const AuthModel = require('models/AuthModel')
 const { otpHelper } = require('helpers').authHelpers
 const { errorCodes, ErrorWrapper } = require('backend-core')
-const addSession = require('handlers/v1/common/addSession')
-const SessionEntity = require('handlers/v1/common/SessionEntity')
+const addSession = require('../../../../services/auth/session/SessionManagementService')
+const SessionEntity = require('../../../../services/auth/entities/SessionEntity')
 const { makeAccessTokenHelper } = require('helpers').authHelpers
 const config = require('config')
 class ConfirmRegistrationOTPHandler extends BaseHandler {

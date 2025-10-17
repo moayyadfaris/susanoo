@@ -20,6 +20,7 @@ const cacheRoutes = require('./cacheRoutes')
 const basicAuth = require('./basicAuth')
 const basicAuthRoutes = require('./basicAuthRoutes')
 const ipLookup = require('./ipLookup')
+const runtimeSettings = require('./runtimeSettings')
 
 const asyncConfigs = [
   app,
@@ -65,5 +66,6 @@ module.exports = {
   cacheRoutes,
   ipLookup,
   basicAuth,
-  basicAuthRoutes
+  basicAuthRoutes,
+  runtimeSettings
 }

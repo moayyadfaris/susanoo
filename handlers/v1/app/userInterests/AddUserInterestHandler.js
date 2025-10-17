@@ -1,7 +1,7 @@
 const BaseHandler = require('handlers/BaseHandler')
 const { RequestRule } = require('backend-core')
-const UserInterestDAO = require('database/dao/UserInterestDAO')
 const UserInterestModel = require('models/UserInterestModel')
+const { getUserInterestService } = require('services')
 
 class AddUserInterestHandler extends BaseHandler {
   static get accessTag () {
@@ -18,10 +18,9 @@ class AddUserInterestHandler extends BaseHandler {
 
   static async run (ctx) {
     const { currentUser } = ctx
-
-    await UserInterestDAO.patchInsert(currentUser.id, ctx.body.interests)
-
-    return this.result({ message: 'Interests added successfully' })
+    const service = getUserInterestService()
+    const outcome = await service.setUserInterests(ctx.body.interests, { currentUser })
+    return this.result({ message: 'Interests updated successfully', data: outcome })
   }
 }
 

@@ -3,9 +3,9 @@ const BaseHandler = require('handlers/BaseHandler')
 const StoryDAO = require('database/dao/StoryDAO')
 const StoryModel = require('models/StoryModel')
 const TagDAO = require('database/dao/TagDAO')
-const StoryAttachmentDAO = require('database/dao/StoryAttachmentDAO')
 const StoryAttachmentModel = require('models/StoryAttachmentModel')
 const { ErrorWrapper, errorCodes } = require('backend-core')
+const { getStoryAttachmentService } = require('services')
 
 class UpdateStoryHandler extends BaseHandler {
   static get accessTag () {
@@ -23,7 +23,7 @@ class UpdateStoryHandler extends BaseHandler {
         toTime: new RequestRule(StoryModel.schema.toTime, { required: true }),
         fromTime: new RequestRule(StoryModel.schema.fromTime, { required: true }),
         tags: new RequestRule(StoryModel.schema.tags, { required: true }),
-        attachments: new RequestRule(StoryAttachmentModel.schema.attachmentsId),
+        attachments: new RequestRule(StoryAttachmentModel.schema.attachmentIds),
         status: new RequestRule(StoryModel.schema.status, { required: true })
       }
     }
@@ -41,7 +41,8 @@ class UpdateStoryHandler extends BaseHandler {
       storyData.tags = preparedTags
     }
     if (storyData.attachments) {
-      storyData.attachments = await StoryAttachmentDAO.prepareAttachmentInsertion(storyData.attachments)
+      const storyAttachmentService = getStoryAttachmentService()
+      storyData.attachments = await storyAttachmentService.prepareAttachmentGraph(storyData.attachments)
     }
 
     const data = await StoryDAO.update(storyData)
