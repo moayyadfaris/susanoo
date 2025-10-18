@@ -27,25 +27,47 @@ const schema = {
     },
     description: 'number integer positive'
   }),
-  title: new Rule({
-    validator: v => {
+  name: new Rule({
+    validator: value => {
+      if (value === undefined || value === null) return 'Name is required'
       try {
-        joi.assert(v, joi.string().min(3).max(80))
-      } catch (e) { return e.message }
+        joi.assert(value, joi.string().trim().min(3).max(200))
+      } catch (error) { return error.message }
       return true
     },
-    description: 'string; min 3; max 80;'
+    description: 'string; min 3; max 200; required'
   }),
-  intrests: new Rule({
-    validator: v => {
+  title: new Rule({
+    validator: value => {
+      if (value === undefined || value === null) return true
       try {
-        joi.assert(v, joi.array().items(joi.number()))
-      } catch (e) { return e.message }
+        joi.assert(value, joi.string().trim().min(3).max(80))
+      } catch (error) { return error.message }
       return true
     },
-    description: 'Array on integers'
+    description: 'string; min 3; max 80; optional legacy alias'
+  }),
+  interests: new Rule({
+    validator: value => {
+      if (value === undefined || value === null) return true
+      try {
+        joi.assert(value, joi.array().items(joi.number()))
+      } catch (error) { return error.message }
+      return true
+    },
+    description: 'Array of integers'
+  }),
+  metadata: new Rule({
+    validator: value => {
+      if (value === undefined || value === null) return true
+      if (typeof value === 'object' && !Array.isArray(value)) return true
+      return 'Metadata must be an object'
+    },
+    description: 'object'
   })
 }
+
+schema.intrests = schema.interests
 
 class InterestModel extends BaseModel {
   static get schema () {

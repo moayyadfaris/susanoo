@@ -32,6 +32,10 @@ class QueueClient {
       })
     })
   }
+
+  getQueue () {
+    return this[$].client
+  }
 }
 
 module.exports = QueueClient

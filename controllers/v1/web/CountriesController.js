@@ -28,8 +28,7 @@ class CountriesController extends BaseController {
      *         description: Bad request
      */
     router.get('/countries', this.handlerRunner(handlers.ListCountriesHandler))
-    router.put('/countries/:id', this.handlerRunner(handlers.UpdateCountriesHandler))
-
+    
     return router
   }
 

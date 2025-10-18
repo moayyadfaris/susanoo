@@ -57,11 +57,18 @@ const schema = {
   ip: new Rule({
     validator: v => {
       if (!isIP(v)) return false
-      // Security checks for IP address
-      if (v === '0.0.0.0' || v === '::') return false // Invalid IPs
       return true
     },
     description: 'string; valid IP address; IPv4 or IPv6;'
+  }),
+  ipAddress: new Rule({
+    validator: v => {
+      if (v === null || v === undefined) return true
+      if (typeof v !== 'string') return false
+      if (!isIP(v)) return false
+      return v.length <= 45
+    },
+    description: 'string; preferred IP storage; accepts IPv4 or IPv6; max 45 chars;'
   }),
   expiredAt: new Rule({
     validator: v => {

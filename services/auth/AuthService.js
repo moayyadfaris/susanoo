@@ -140,6 +140,18 @@ class AuthService extends BaseService {
         throw new ErrorWrapper({
           code: 'ACCOUNT_DISABLED',
           message: 'Account has been disabled',
+          status: 403,
+          statusCode: 403
+        })
+      }
+
+      // Enforce verified accounts when required
+      if (options.requireVerified && !user.isVerified) {
+        await this.recordFailedAttempt(validatedCredentials.email, 'ACCOUNT_UNVERIFIED', context)
+        throw new ErrorWrapper({
+          code: 'ACCOUNT_UNVERIFIED',
+          message: 'Account verification required',
+          status: 403,
           statusCode: 403
         })
       }

@@ -9,6 +9,7 @@ class RoleEditorAccess extends BaseRoleAccess {
         'web#stories:change-status': true,
         'web#users:get-current-user': true,
         'web#auth:logout': true,
+        'web#interests:list': true,
         'web#auth:refresh-tokens': true,
         'web#stories:get-by-id': true,
         'web#users:change-password': true,

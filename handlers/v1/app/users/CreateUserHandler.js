@@ -4,6 +4,32 @@ const UserModel = require('models/UserModel')
 const { getUserService } = require('../../../../services')
 const logger = require('../../../../util/logger')
 
+/**
+ * CreateUserHandler - Service-backed user registration endpoint
+ *
+ * Features:
+ * - Delegates business logic to `UserService.registerUser` to keep the handler lean
+ * - Validates all critical fields (name, email, password, country, mobile) plus optional metadata
+ * - Supports referral code tracking, device fingerprinting, and marketing consent flags
+ * - Emits structured logs for observability around request lifecycle and performance
+ * - Surfaces service-layer `ErrorWrapper` responses directly while wrapping unexpected errors
+ *
+ * Usage:
+ * ```http
+ * POST /api/v1/app/users
+ * {
+ *   "name": "Jane Doe",
+ *   "email": "jane@example.com",
+ *   "password": "Sup3rSecur3!",
+ *   "countryId": 184,
+ *   "mobileNumber": "5551234567",
+ *   "acceptTerms": true,
+ *   "deviceInfo": { "userAgent": "MyApp/1.0", "platform": "ios" }
+ * }
+ * ```
+ * Successful responses mirror the service output (user summary, verification state,
+ * onboarding guidance, etc.) wrapped by the standard handler `result()` helper.
+ */
 class CreateUserHandler extends BaseHandler {
   static get accessTag() {
     return 'users:create'

@@ -1,26 +1,43 @@
 const ms = require('ms')
-const { RequestRule, ErrorWrapper, errorCodes, CookieEntity } = require('backend-core')
-const addSession = require('../../../../services/auth/session/SessionManagementService')
-const SessionEntity = require('../../../../services/auth/entities/SessionEntity')
+const { RequestRule, ErrorWrapper, errorCodes, CookieEntity, Rule } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
-const UserDAO = require('database/dao/UserDAO')
 const AuthModel = require('models/AuthModel')
-const { checkPasswordHelper, makeAccessTokenHelper } = require('helpers').authHelpers
-const { dashboardUserPolicy } = require('acl/policies')
+const { getAuthService, getAuthSecurityService, getAuthCacheService } = require('../../../../services')
 const config = require('config')
+const logger = require('../../../../util/logger')
+const roles = require('config').roles
+
 /**
  * Enhanced Web LoginHandler - Email-only Authentication for Web Interface
- * 
+ *
  * Features:
  * - Email-only authentication (no mobile number support)
  * - Cookie-based session management for web interface
- * - Enhanced security validation
+ * - Enhanced security validation with service layer integration
  * - Dashboard user policy enforcement
- * 
+ * - Comprehensive metrics tracking
+ * - Advanced error handling and logging
+ *
  * @extends BaseHandler
- * @version 2.0.0 - Email-only authentication
+ * @version 3.0.0 - Service Layer Integration with Enhanced Security
  */
 class LoginHandler extends BaseHandler {
+  // Login metrics for observability and monitoring
+  static metrics = {
+    totalRequests: 0,
+    successful: 0,
+    failed: 0,
+    rateLimited: 0,
+    unauthorized: 0,
+    accountLocked: 0,
+    emailUnverified: 0,
+    errors: 0,
+    averageProcessingTime: 0,
+    uniqueUsers: new Set(), // Track unique login attempts
+    peakConcurrency: 0,
+    lastReset: new Date()
+  }
+
   static get accessTag () {
     return 'web#auth:login'
   }
@@ -30,49 +47,426 @@ class LoginHandler extends BaseHandler {
       body: {
         email: new RequestRule(AuthModel.schema.email, { required: true }),
         password: new RequestRule(AuthModel.schema.password, { required: true }),
-        fingerprint: new RequestRule(AuthModel.schema.fingerprint, { required: true })
+        fingerprint: new RequestRule(AuthModel.schema.fingerprint, { required: true }),
+
+        // Optional fields for enhanced security
+        rememberMe: new RequestRule(new Rule({
+          validator: v => typeof v === 'boolean',
+          description: 'boolean; remember login session'
+        }), { required: false }),
+
+        deviceInfo: new RequestRule(new Rule({
+          validator: v => typeof v === 'object' && v !== null,
+          description: 'object; device information for security tracking'
+        }), { required: false })
       }
     }
   }
 
-  static async run (ctx) {
+  /**
+   * Process web login request with enhanced security and service layer integration
+   */
+  static async run(ctx) {
+    const startTime = Date.now()
+
+    // Increment total requests metric
+    this.metrics.totalRequests++
+
+    const body = ctx?.body || {}
+    const normalizedEmail = typeof body.email === 'string' ? body.email.trim().toLowerCase() : ''
+
+    // Track unique email attempts
+    if (normalizedEmail) {
+      this.metrics.uniqueUsers.add(normalizedEmail)
+    }
+
+    // Build request context for service layer
+    const requestContext = {
+      ip: ctx.ip,
+      userAgent: ctx?.headers?.['user-agent'] || ctx?.headers?.['User-Agent'] || '',
+      fingerprint: body.fingerprint,
+      requestId: ctx.requestId || `web_login_${Date.now()}`,
+      timestamp: new Date().toISOString()
+    }
+
+    const logContext = {
+      email: normalizedEmail,
+      ...requestContext,
+      handler: 'WebLoginHandler'
+    }
+
+    try {
+      // Get pre-initialized authentication services from global registry
+      const authServices = {
+        authService: getAuthService(),
+        authSecurityService: getAuthSecurityService(),
+        authCacheService: getAuthCacheService()
+      }
+
+      // Validate services are available
+      if (!authServices.authService) {
+        throw new ErrorWrapper({
+          ...errorCodes.INTERNAL_SERVER_ERROR,
+          message: 'Authentication service not available',
+          meta: { layer: 'WebLoginHandler', email: normalizedEmail }
+        })
+      }
+
+      logger.info('Web login attempt started with service layer', logContext)
+
+      // Prepare credentials for service layer
+      const credentials = {
+        email: normalizedEmail,
+        password: body.password
+      }
+
+      // Prepare device information for web context
+      const ipAddress = typeof requestContext.ip === 'string' ? requestContext.ip : ''
+      const rawDeviceInfo = (body.deviceInfo && typeof body.deviceInfo === 'object')
+        ? body.deviceInfo
+        : {}
+
+      const deviceInfo = {
+        ...rawDeviceInfo,
+        fingerprint: body.fingerprint || rawDeviceInfo.fingerprint,
+        deviceFingerprint: rawDeviceInfo.deviceFingerprint || rawDeviceInfo.fingerprint || body.fingerprint || null,
+        userAgent: requestContext.userAgent || rawDeviceInfo.userAgent || '',
+        ip: ipAddress || rawDeviceInfo.ip || '',
+        ipAddress: ipAddress || rawDeviceInfo.ipAddress || rawDeviceInfo.ip || '',
+        rememberMe: body.rememberMe ?? rawDeviceInfo.rememberMe ?? false,
+        requestId: requestContext.requestId,
+        deviceDetails: rawDeviceInfo.deviceDetails || rawDeviceInfo.details || {},
+        metadata: rawDeviceInfo.metadata || {},
+        source: 'web_login_handler',
+        interface: 'web'
+      }
+
+      // Authenticate using service layer with web-specific options
+      const authResult = await authServices.authService.authenticateUser(
+        credentials,
+        deviceInfo,
+        {
+          generateTokens: true,
+          createSession: true,
+          trackDevice: true,
+          auditLog: true,
+          rememberMe: body.rememberMe || false,
+          allowedRoles: [
+            roles.superadmin,
+            roles.admin,
+            roles.seniorEditor,
+            roles.editor,
+            roles.user
+          ],
+          requireVerified: true,
+          interface: 'web'
+        }
+      )
+
+      // Check if verification is required
+      if (authResult.requiresVerification) {
+        // Update email unverified metric
+        this.metrics.emailUnverified++
+        this.updateProcessingTimeMetric(Date.now() - startTime)
+
+        logger.info('Web login requires verification', {
+          ...logContext,
+          userId: authResult.userId,
+          verificationType: authResult.verificationType
+        })
+
+        return this.result({
+          success: false,
+          requiresVerification: true,
+          data: {
+            userId: authResult.userId,
+            email: authResult.email,
+            message: authResult.message || 'Account verification required',
+            nextAction: authResult.nextAction || 'verify_email',
+            verificationType: authResult.verificationType
+          }
+        })
+      }
+
+      // Enhance response with service layer data
+      const enhancedResponse = await this.enhanceWebLoginResponse(
+        authResult,
+        authServices,
+        requestContext
+      )
+
+      const processingTime = Date.now() - startTime
+
+      // Update success metrics
+      this.metrics.successful++
+      this.updateProcessingTimeMetric(processingTime)
+
+      logger.info('Web login completed successfully with service layer', {
+        ...logContext,
+        userId: authResult.userId,
+        sessionId: authResult.sessionId,
+        processingTime,
+        cached: enhancedResponse.cached
+      })
+
+      return this.formatWebServiceResponse(enhancedResponse, processingTime, requestContext)
+
+    } catch (error) {
+      const processingTime = Date.now() - startTime
+
+      // Update error metrics based on error type
+      this.updateErrorMetrics(error, processingTime)
+
+      logger.error('Web login failed with service layer', {
+        ...logContext,
+        error: error.message,
+        errorCode: error.code,
+        processingTime,
+        stack: error.stack
+      })
+
+      // Enhanced service-layer error handling
+      if (error instanceof ErrorWrapper) {
+        // Add service layer context to existing error
+        error.meta = {
+          ...error.meta,
+          layer: 'WebLoginHandler',
+          processingTime,
+          serviceLayer: true,
+          email: normalizedEmail,
+          interface: 'web'
+        }
+        throw error
+      }
+
+      // Wrap unexpected errors with service context
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'Web authentication processing failed',
+        layer: 'WebLoginHandler.run',
+        meta: {
+          originalError: error.message,
+          processingTime,
+          serviceIntegration: true,
+          email: normalizedEmail,
+          interface: 'web'
+        }
+      })
+    }
+  }
+
+  /**
+   * Update processing time metrics
+   * @private
+   */
+  static updateProcessingTimeMetric(processingTime) {
+    // Calculate rolling average
+    this.metrics.averageProcessingTime = this.metrics.averageProcessingTime === 0
+      ? processingTime
+      : (this.metrics.averageProcessingTime + processingTime) / 2
+  }
+
+  /**
+   * Update error metrics based on error type
+   * @private
+   */
+  static updateErrorMetrics(error, processingTime) {
+    // Update processing time for errors too
+    this.updateProcessingTimeMetric(processingTime)
+
+    // Categorize error types for metrics
+    const errorCode = error.code || error.statusCode
+    const errorMessage = error.message || ''
+
+    if (errorCode === 429 || errorMessage.includes('rate limit') || errorMessage.includes('too many')) {
+      this.metrics.rateLimited++
+    } else if (errorCode === 401 || errorMessage.includes('invalid') || errorMessage.includes('incorrect')) {
+      this.metrics.unauthorized++
+    } else if (errorMessage.includes('locked') || errorMessage.includes('blocked')) {
+      this.metrics.accountLocked++
+    } else if (errorMessage.includes('verify') || errorMessage.includes('unverified')) {
+      this.metrics.emailUnverified++
+    } else if (errorMessage.includes('authentication') || errorMessage.includes('login')) {
+      this.metrics.failed++
+    } else {
+      this.metrics.errors++
+    }
+  }
+
+  /**
+   * Enhance web login response with additional service data
+   * @private
+   */
+  static async enhanceWebLoginResponse(authResult, services, context) {
+    try {
+      // Check cache status if available
+      let cached = false
+      if (services.authCacheService && typeof services.authCacheService.getCachedUser === 'function') {
+        try {
+          const userCached = await services.authCacheService.getCachedUser(authResult.userId)
+          cached = !!userCached
+        } catch {
+          // Cache lookup failed, continue without caching info
+          cached = false
+        }
+      }
+
+      return {
+        ...authResult,
+        cached,
+        serviceProcessed: true,
+        interface: 'web'
+      }
+
+    } catch (error) {
+      logger.warn('Failed to enhance web login response', {
+        userId: authResult.userId,
+        error: error.message,
+        context
+      })
+
+      // Return original result if enhancement fails
+      return {
+        ...authResult,
+        serviceProcessed: true,
+        interface: 'web',
+        enhancementError: error.message
+      }
+    }
+  }
+
+  /**
+   * Format web service layer response with proper structure and cookies
+   * @private
+   */
+  static formatWebServiceResponse(authData, processingTime, context) {
+    const user = authData.user || {}
+    const session = authData.session || {}
+    const tokens = authData.tokens || {}
+
+    // Calculate refresh token expiration for cookie
     const refTokenExpiresInMilliseconds = new Date().getTime() + ms(config.token.refresh.expiresIn)
     const refTokenExpiresInSeconds = parseInt(refTokenExpiresInMilliseconds / 1000)
 
-    let user = await UserDAO.getByEmail(ctx.body.email)
-    await dashboardUserPolicy(user)
-    try {
-      await checkPasswordHelper(ctx.body.password, user.passwordHash)
-    } catch (e) {
-      throw new ErrorWrapper({ ...errorCodes.INVALID_CREDENTIALS })
+    const refreshToken = authData.refreshToken || tokens.refreshToken || session.refreshToken
+
+    const data = {
+      userId: authData.userId || user.id,
+      email: authData.email || user.email,
+      accessToken: authData.accessToken || tokens.accessToken || session.accessToken,
+      refreshToken: authData.refreshToken || tokens.refreshToken || session.refreshToken,
+      sessionId: authData.sessionId || session.sessionId || session.id,
+      expiresAt: authData.expiresAt || session.expiresAt,
+      ...(authData.deviceId && { deviceId: authData.deviceId }),
+      ...(authData.lastLoginAt && { lastLoginAt: authData.lastLoginAt }),
+      ...(authData.userPreferences && { userPreferences: authData.userPreferences })
     }
 
-    const newSession = new SessionEntity({
-      userId: user.id,
-      ip: ctx.ip,
-      ua: ctx.headers['User-Agent'],
-      fingerprint: ctx.body.fingerprint
-    })
-
-    await addSession(newSession)
+    const meta = {
+      processingTime: `${processingTime}ms`,
+      loginMethod: 'email',
+      version: '3.0.0',
+      serviceLayer: true,
+      requestId: context.requestId,
+      cached: authData.cached || false,
+      interface: 'web'
+    }
 
     return this.result({
-      data: {
-        accessToken: await makeAccessTokenHelper(user),
-        // return refresh token also in request body, just for debug
-        refreshToken: newSession.refreshToken
-      },
-      cookies: [
+      data,
+      meta
+    }, {
+      cookies: refreshToken ? [
         new CookieEntity({
           name: 'refreshToken',
-          value: newSession.refreshToken,
-          domain: 'localhost',
+          value: refreshToken,
+          domain: config.app.host || undefined,
           path: '/',
           maxAge: refTokenExpiresInSeconds,
-          secure: false // temp: should be deleted
+          secure: config.app.nodeEnv === 'production',
+          httpOnly: true
         })
-      ]
+      ] : []
     })
+  }
+
+  /**
+   * Get comprehensive web authentication metrics
+   * @returns {Promise<Object>} Handler and service metrics
+   */
+  static async getMetrics() {
+    try {
+      // Get service layer metrics from pre-initialized services
+      const authService = getAuthService()
+
+      let serviceMetrics = {}
+      if (authService && typeof authService.getMetrics === 'function') {
+        serviceMetrics = await authService.getMetrics()
+      }
+
+      // Calculate additional handler metrics
+      const totalAttempts = this.metrics.successful + this.metrics.failed + this.metrics.unauthorized
+      const successRate = totalAttempts > 0 ? (this.metrics.successful / totalAttempts * 100).toFixed(2) : 0
+      const uptime = Date.now() - this.metrics.lastReset.getTime()
+
+      return {
+        handler: {
+          ...this.metrics,
+          uniqueUsers: this.metrics.uniqueUsers.size, // Convert Set to count
+          successRate: `${successRate}%`,
+          uptime: `${Math.round(uptime / 1000)}s`,
+          requestsPerSecond: (this.metrics.totalRequests / (uptime / 1000)).toFixed(2),
+          interface: 'web'
+        },
+        service: serviceMetrics,
+        combined: {
+          totalLoginAttempts: totalAttempts,
+          handlerVersion: '3.0.0',
+          serviceIntegration: true,
+          interface: 'web',
+          timestamp: new Date().toISOString()
+        }
+      }
+    } catch (error) {
+      return {
+        handler: {
+          ...this.metrics,
+          uniqueUsers: this.metrics.uniqueUsers.size,
+          error: 'Failed to calculate some metrics',
+          interface: 'web'
+        },
+        service: {
+          available: false,
+          error: error.message
+        },
+        error: error.message
+      }
+    }
+  }
+
+  /**
+   * Reset web metrics counters
+   * @returns {Object} Previous metrics before reset
+   */
+  static resetMetrics() {
+    const previousMetrics = { ...this.metrics, uniqueUsers: this.metrics.uniqueUsers.size }
+
+    this.metrics = {
+      totalRequests: 0,
+      successful: 0,
+      failed: 0,
+      rateLimited: 0,
+      unauthorized: 0,
+      accountLocked: 0,
+      emailUnverified: 0,
+      errors: 0,
+      averageProcessingTime: 0,
+      uniqueUsers: new Set(),
+      peakConcurrency: 0,
+      lastReset: new Date()
+    }
+
+    return previousMetrics
   }
 }
 
