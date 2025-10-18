@@ -1,24 +1,21 @@
 const BaseHandler = require('handlers/BaseHandler')
 const { RequestRule } = require('backend-core')
-const CategoryModel = require('models/CategoryModel')
-const { getCategoryService } = require('services')
+const InterestModel = require('models/InterestModel')
+const { getInterestService } = require('services')
 
 /**
- * Usage: POST /api/v1/categories { "name": "Investigations", "slug": "investigations" }
+ * Usage: POST /api/v1/interests { "name": "Travel", "metadata": { "icon": "✈️" } }
  */
-class CreateCategoryHandler extends BaseHandler {
+class CreateInterestHandler extends BaseHandler {
   static get accessTag() {
-    return 'categories:create'
+    return 'interests:create'
   }
 
   static get validationRules() {
     return {
       body: {
-        name: new RequestRule(CategoryModel.schema.name, { required: true }),
-        slug: new RequestRule(CategoryModel.schema.slug),
-        description: new RequestRule(CategoryModel.schema.description),
-        isActive: new RequestRule(CategoryModel.schema.isActive),
-        metadata: new RequestRule(CategoryModel.schema.metadata)
+        name: new RequestRule(InterestModel.schema.name, { required: true }),
+        metadata: new RequestRule(InterestModel.schema.metadata)
       }
     }
   }
@@ -43,14 +40,14 @@ class CreateCategoryHandler extends BaseHandler {
       })
     }
 
-    const categoryService = getCategoryService()
+    const interestService = getInterestService()
     const context = {
       userId: req.currentUser?.id || req.user?.id || null
     }
 
-    const record = await categoryService.createCategory(payload, context)
-    return this.created(record, 'Category created successfully')
+    const record = await interestService.createInterest(payload, context)
+    return this.created(record, 'Interest created successfully')
   }
 }
 
-module.exports = CreateCategoryHandler
+module.exports = CreateInterestHandler

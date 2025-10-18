@@ -1,6 +1,10 @@
 const BaseHandler = require('handlers/BaseHandler')
-const InterestDAO = require('database/dao/InterestDAO')
 const { redisClient } = require('handlers/RootProvider')
+const { getInterestService } = require('services')
+
+/**
+ * Usage: GET /api/v1/interests?search=travel&limit=50&page=0
+ */
 class ListInterestsHandler extends BaseHandler {
   static get accessTag () {
     return 'interests:list'
@@ -15,22 +19,24 @@ class ListInterestsHandler extends BaseHandler {
   }
 
   static async run (req) {
-    const { query } = req
+    const interestService = getInterestService()
+    const listResult = await interestService.listInterests(req.query || {})
 
-    // Todo skip query limit
-    if (query.limit === 10) {
-      query.limit = 1000
-    }
-
-    const data = await InterestDAO.baseGetList({ ...query })
-
-    const result = this.result({
-      data: data.results,
-      headers: { 'X-Total-Count': data.total }
+    const response = this.result({
+      data: listResult.results,
+      headers: { 'X-Total-Count': listResult.total },
+      meta: {
+        pagination: {
+          page: listResult.page,
+          limit: listResult.limit,
+          total: listResult.total,
+          pages: Math.ceil(listResult.total / (listResult.limit || 1))
+        }
+      }
     })
 
-    redisClient.setKey(req.originalUrl, result)
-    return result
+    redisClient.setKey(req.originalUrl, response)
+    return response
   }
 }
 

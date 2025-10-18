@@ -186,15 +186,144 @@ class SessionLifecycleService extends BaseService {
       const expiryDuration = rememberMe
         ? this.config.rememberMeExpiry
         : this.config.sessionTimeout
+      const now = new Date()
 
       const expiresAt = new Date(Date.now() + expiryDuration)
+      const normalizedFingerprint = typeof deviceInfo.fingerprint === 'string' ? deviceInfo.fingerprint : ''
+      const normalizeDeviceFingerprintForStorage = source => {
+        if (!source) {
+          return null
+        }
+        if (typeof source === 'string') {
+          const trimmed = source.trim()
+          if (!trimmed.length) {
+            return null
+          }
+          return { value: trimmed }
+        }
+        if (Array.isArray(source)) {
+          return source.length ? source : null
+        }
+        if (typeof source === 'object') {
+          return Object.keys(source).length ? source : null
+        }
+        return null
+      }
+
+      const sanitizeObject = (payload, disallowedKeys = []) => {
+        if (!payload || typeof payload !== 'object') {
+          return {}
+        }
+
+        const blacklist = new Set(disallowedKeys)
+        return Object.fromEntries(
+          Object.entries(payload)
+            .filter(([key, value]) => {
+              if (blacklist.has(key)) return false
+              if (value === undefined || value === null) return false
+              if (typeof value === 'string' && value.trim().length === 0) return false
+              if (typeof value === 'object') {
+                if (Array.isArray(value)) {
+                  return value.length > 0
+                }
+                return Object.keys(value).length > 0
+              }
+              return true
+            })
+        )
+      }
+
+      const normalizedDeviceFingerprint = (() => {
+        const fingerprintSource = deviceInfo.deviceFingerprint ?? deviceInfo.fingerprint
+        return normalizeDeviceFingerprintForStorage(fingerprintSource)
+      })()
+      const normalizedUserAgent = typeof deviceInfo.userAgent === 'string' ? deviceInfo.userAgent : ''
+      const normalizedIpAddress = typeof deviceInfo.ipAddress === 'string' && deviceInfo.ipAddress.trim().length
+        ? deviceInfo.ipAddress.trim()
+        : (typeof deviceInfo.ip === 'string' ? deviceInfo.ip.trim() : '')
+      const deviceDetails = (deviceInfo.deviceDetails && typeof deviceInfo.deviceDetails === 'object')
+        ? deviceInfo.deviceDetails
+        : {}
+      const extraMetadata = (deviceInfo.metadata && typeof deviceInfo.metadata === 'object')
+        ? deviceInfo.metadata
+        : {}
+      const sanitizedDeviceDetails = sanitizeObject(deviceDetails, [
+        'ip',
+        'ipAddress',
+        'userAgent',
+        'ua',
+        'fingerprint',
+        'deviceFingerprint'
+      ])
+      const sanitizedExtraMetadata = sanitizeObject(extraMetadata, [
+        'ip',
+        'ipAddress',
+        'userAgent',
+        'ua',
+        'fingerprint',
+        'deviceFingerprint'
+      ])
+      const sessionType = rememberMe
+        ? 'persistent'
+        : (typeof deviceInfo.sessionType === 'string' && deviceInfo.sessionType.length
+          ? deviceInfo.sessionType
+          : 'standard')
+      const securityLevel = typeof deviceInfo.securityLevel === 'string' && deviceInfo.securityLevel.length
+        ? deviceInfo.securityLevel
+        : 'low'
+
+      const pruneEmpty = payload => Object.fromEntries(
+        Object.entries(payload || {}).filter(([_, value]) => {
+          if (value === undefined || value === null) {
+            return false
+          }
+          if (typeof value === 'string') {
+            return value.trim().length > 0
+          }
+          if (typeof value === 'object') {
+            return Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0
+          }
+          return true
+        })
+      )
+
+      const metadataPayload = pruneEmpty({
+        rememberMe,
+        requestId: deviceInfo.requestId || context?.operationId,
+        source: deviceInfo.source || 'login_handler',
+        platform: deviceInfo.platform,
+        browser: deviceInfo.browser,
+        securityLevel,
+        attributes: sanitizedExtraMetadata
+      })
+
+      const deviceInfoPayload = pruneEmpty({
+        deviceFingerprint: normalizedDeviceFingerprint,
+        platform: deviceInfo.platform,
+        browser: deviceInfo.browser,
+        rememberMe,
+        requestId: deviceInfo.requestId,
+        ...sanitizedDeviceDetails
+      })
+
       const sessionRecord = await this.sessionDAO.baseCreate({
         userId: user.id,
         refreshToken: randomUUID(),
-        ua: deviceInfo.userAgent || '',
-        fingerprint: deviceInfo.fingerprint || '',
-        ip: deviceInfo.ip || '',
-        expiredAt: expiresAt.getTime()
+        ua: normalizedUserAgent,
+        userAgent: normalizedUserAgent || null,
+        fingerprint: normalizedFingerprint,
+        deviceFingerprint: normalizedDeviceFingerprint,
+        ipAddress: normalizedIpAddress,
+        expiredAt: expiresAt.getTime(),
+        isActive: true,
+        lastActivity: now,
+        lastActivityAt: now,
+        sessionType,
+        securityLevel,
+        metadata: Object.keys(metadataPayload).length ? metadataPayload : null,
+        deviceInfo: Object.keys(deviceInfoPayload).length ? deviceInfoPayload : null,
+        createdBy: user.id,
+        updatedBy: user.id
       })
 
       const sessionId = sessionRecord.id
@@ -210,7 +339,7 @@ class SessionLifecycleService extends BaseService {
           operation: 'create_session',
           sessionId,
           fingerprint: sessionRecord.fingerprint,
-          ip: sessionRecord.ip,
+          ipAddress: sessionRecord.ipAddress,
           context
         })
       }
@@ -451,7 +580,7 @@ class SessionLifecycleService extends BaseService {
         reason,
         context: {
           requestId: options.requestId || context.operationId,
-          ip: options.ip,
+          ipAddress: options.ipAddress || options.ip,
           userAgent: options.userAgent
         }
       })

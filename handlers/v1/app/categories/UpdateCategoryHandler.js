@@ -4,7 +4,7 @@ const CategoryModel = require('models/CategoryModel')
 const { getCategoryService } = require('services')
 
 /**
- * Usage: PUT /api/v1/categories/{id} { "description": "Updated copy" }
+ * Usage: PATCH /api/v1/categories/{id} { "description": "Updated copy" }
  */
 class UpdateCategoryHandler extends BaseHandler {
   static get accessTag() {
@@ -35,11 +35,31 @@ class UpdateCategoryHandler extends BaseHandler {
       throw new ErrorWrapper({ ...errorCodes.VALIDATION_FAILED, message: 'Category id is required' })
     }
 
+    let payload = req.body
+    if (typeof payload === 'string') {
+      try {
+        payload = JSON.parse(payload)
+      } catch (error) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION_FAILED,
+          message: 'Invalid JSON payload',
+          meta: { originalError: error.message }
+        })
+      }
+    }
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new ErrorWrapper({
+        ...errorCodes.VALIDATION_FAILED,
+        message: 'Request body must be a JSON object'
+      })
+    }
+
     const context = {
       userId: req.currentUser?.id || req.user?.id || null
     }
 
-    const record = await categoryService.updateCategory(req.params.id, req.body, context)
+    const record = await categoryService.updateCategory(req.params.id, payload, context)
     return this.updated(record, 'Category updated successfully')
   }
 }

@@ -10,6 +10,7 @@ const { AttachmentsController } = require('./AttachmentsController')
 const { StoryAttachmentsController } = require('./StoryAttachmentsController')
 const { RuntimeSettingsController } = require('./RuntimeSettingsController')
 const { CategoriesController } = require('./CategoriesController')
+const { StoryCategoriesController } = require('./StoryCategoriesController')
 
 module.exports = [
   RootController,
@@ -23,5 +24,6 @@ module.exports = [
   AttachmentsController,
   StoryAttachmentsController,
   RuntimeSettingsController,
-  CategoriesController
+  CategoriesController,
+  StoryCategoriesController
 ]

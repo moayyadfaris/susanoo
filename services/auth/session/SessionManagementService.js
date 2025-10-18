@@ -30,16 +30,17 @@ class SessionMetrics {
     lastCleanup: null
   }
 
-  static recordSessionCreation(userId, ip, duration = 0) {
+  static recordSessionCreation(userId, ipAddress, duration = 0) {
     this.metrics.totalSessions++
     this.metrics.sessionsByUser.set(userId, (this.metrics.sessionsByUser.get(userId) || 0) + 1)
-    this.metrics.sessionsByIP.set(ip, (this.metrics.sessionsByIP.get(ip) || 0) + 1)
+    const normalizedIp = ipAddress || 'unknown'
+    this.metrics.sessionsByIP.set(normalizedIp, (this.metrics.sessionsByIP.get(normalizedIp) || 0) + 1)
     
     if (duration > sessionConfig.performance.slowOperationThreshold) {
       this.metrics.slowOperations++
       logger.warn('Slow session operation detected', { 
         userId, 
-        ip, 
+        ipAddress: normalizedIp, 
         duration,
         threshold: sessionConfig.performance.slowOperationThreshold 
       })
@@ -75,7 +76,7 @@ class SessionSecurityAnalyzer {
    * Analyzes session creation for security anomalies
    * @param {Object} sessionData - Session creation data
    * @param {string} sessionData.userId - User ID
-   * @param {string} sessionData.ip - IP address
+   * @param {string} sessionData.ipAddress - IP address
    * @param {string} sessionData.fingerprint - Device fingerprint
    * @param {string} sessionData.ua - User agent
    * @returns {Object} Analysis result with warnings and risk level
@@ -95,7 +96,7 @@ class SessionSecurityAnalyzer {
     try {
       // Check concurrent IPs for this user
       const userSessions = await this._getUserActiveSessions(sessionData.userId)
-      const uniqueIPs = new Set(userSessions.map(s => s.ip))
+      const uniqueIPs = new Set(userSessions.map(s => s.ipAddress || s.ip))
       
       if (uniqueIPs.size >= sessionConfig.security.anomalyDetection.maxConcurrentIPs) {
         analysis.riskLevel = 'high'
@@ -103,18 +104,19 @@ class SessionSecurityAnalyzer {
         SessionMetrics.recordSecurityEvent('concurrent_ips', {
           userId: sessionData.userId,
           currentIPs: Array.from(uniqueIPs),
-          newIP: sessionData.ip
+          newIP: sessionData.ipAddress
         })
       }
 
       // Check session frequency for IP
-      const ipSessionCount = SessionMetrics.metrics.sessionsByIP.get(sessionData.ip) || 0
+      const normalizedIp = sessionData.ipAddress || 'unknown'
+      const ipSessionCount = SessionMetrics.metrics.sessionsByIP.get(normalizedIp) || 0
       if (ipSessionCount >= sessionConfig.limits.maxSessionsPerIP) {
         analysis.riskLevel = 'high'
         analysis.warnings.push('Excessive sessions from single IP')
         analysis.allowSession = false
         SessionMetrics.recordSecurityEvent('ip_session_limit', {
-          ip: sessionData.ip,
+          ipAddress: normalizedIp,
           sessionCount: ipSessionCount
         })
       }
@@ -184,7 +186,7 @@ async function addSession(session) {
     // Security analysis
     const securityAnalysis = await SessionSecurityAnalyzer.analyzeSessionSecurity({
       userId: session.userId,
-      ip: session.ip,
+      ipAddress: session.ipAddress,
       fingerprint: session.fingerprint,
       ua: session.ua
     })
@@ -202,13 +204,13 @@ async function addSession(session) {
     
     // Record metrics
     const duration = Date.now() - startTime
-    SessionMetrics.recordSessionCreation(session.userId, session.ip, duration)
+    SessionMetrics.recordSessionCreation(session.userId, session.ipAddress, duration)
 
     // Audit logging
     if (sessionConfig.security.auditLogging.enabled) {
       logger.info('Session created successfully', {
         userId: session.userId,
-        ip: session.ip,
+        ipAddress: session.ipAddress,
         fingerprint: session.fingerprint,
         securityRisk: securityAnalysis.riskLevel,
         warnings: securityAnalysis.warnings,
@@ -237,7 +239,7 @@ async function addSession(session) {
     logger.error('Session creation failed', {
       error: error.message,
       userId: session?.userId,
-      ip: session?.ip,
+      ipAddress: session?.ipAddress,
       duration,
       stack: error.stack
     })
@@ -314,7 +316,7 @@ async function _createSession(session) {
           refreshToken: session.refreshToken,
           userId: session.userId,
           fingerprint: session.fingerprint,
-          ip: session.ip,
+          ipAddress: session.ipAddress,
           ua: session.ua,
           expiredAt: session.expiredAt
         }

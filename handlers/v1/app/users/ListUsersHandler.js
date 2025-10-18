@@ -2,8 +2,8 @@ const { RequestRule, ErrorWrapper, errorCodes } = require('backend-core')
 const joi = require('joi')
 
 const BaseHandler = require('handlers/BaseHandler')
-const UserDAO = require('database/dao/UserDAO')
 const { Rule } = require('backend-core')
+const { getUserService } = require('../../../../services')
 const logger = require('util/logger')
 
 /**
@@ -176,78 +176,31 @@ class ListUsersHandler extends BaseHandler {
    * Enhanced user listing with comprehensive filtering and optimization
    */
   static async run(ctx) {
-    const startTime = Date.now()
-    const logContext = {
-      userId: ctx.currentUser?.id,
-      requestId: ctx.requestId,
-      ip: ctx.ip,
-      userAgent: ctx.headers?.['user-agent']
-    }
-
     try {
-      logger.info('User list request initiated', {
-        ...logContext,
-        query: this.sanitizeLogQuery(ctx.query)
+      const userService = getUserService()
+      if (!userService) {
+        throw new ErrorWrapper({
+          ...errorCodes.INTERNAL_SERVER_ERROR,
+          message: 'User service not available',
+          layer: 'ListUsersHandler.run'
+        })
+      }
+
+      const result = await userService.listUsers({
+        query: ctx.query,
+        currentUser: ctx.currentUser,
+        requestId: ctx.requestId,
+        ip: ctx.ip,
+        headers: ctx.headers
       })
 
-      // Parse and prepare query parameters
-      const queryParams = await this.prepareQueryParams(ctx.query, logContext)
-      
-      // Execute the enhanced DAO query
-      const data = await UserDAO.getAdvancedList(queryParams)
-      
-      // Format and sanitize the response
-      const formattedData = await this.formatResponse(data, queryParams, logContext)
-      
-      // Performance monitoring
-      const duration = Date.now() - startTime
-      logger.info('User list request completed', {
-        ...logContext,
-        duration,
-        totalResults: data.total,
-        returnedResults: data.results?.length || 0,
-        queryComplexity: this.calculateQueryComplexity(queryParams)
-      })
-
-      return this.result({
-        data: formattedData.results,
-        meta: {
-          pagination: {
-            page: queryParams.page || 0,
-            limit: queryParams.limit || 50,
-            total: data.total,
-            pages: Math.ceil(data.total / (queryParams.limit || 50))
-          },
-          query: {
-            filters: queryParams.filter || {},
-            search: queryParams.search || null,
-            sort: {
-              field: queryParams.orderByField || 'createdAt',
-              direction: queryParams.orderByDirection || 'desc'
-            }
-          },
-          performance: {
-            duration,
-            cacheHit: formattedData.cacheHit || false
-          }
-        },
-        headers: {
-          'X-Total-Count': data.total.toString(),
-          'X-Page': (queryParams.page || 0).toString(),
-          'X-Limit': (queryParams.limit || 50).toString(),
-          'X-Performance': `${duration}ms`
-        }
-      })
-
+      return this.result(result)
     } catch (error) {
-      const duration = Date.now() - startTime
-      
       logger.error('User list request failed', {
-        ...logContext,
+        requestId: ctx.requestId,
+        userId: ctx.currentUser?.id,
         error: error.message,
-        stack: error.stack,
-        duration,
-        query: this.sanitizeLogQuery(ctx.query)
+        stack: error.stack
       })
 
       if (error instanceof ErrorWrapper) {
@@ -260,187 +213,10 @@ class ListUsersHandler extends BaseHandler {
         layer: 'ListUsersHandler.run',
         meta: {
           originalError: error.message,
-          duration,
-          queryParams: this.sanitizeLogQuery(ctx.query)
+          queryParams: ctx.query
         }
       })
     }
-  }
-
-  /**
-   * Prepare and validate query parameters
-   */
-  static async prepareQueryParams(query, logContext) {
-    try {
-      const params = { ...query }
-
-      // Parse filter if it's a string
-      if (typeof params.filter === 'string') {
-        try {
-          params.filter = JSON.parse(params.filter)
-        } catch (e) {
-          throw new ErrorWrapper({
-            ...errorCodes.VALIDATION,
-            message: 'Invalid JSON format for filter parameter',
-            layer: 'ListUsersHandler.prepareQueryParams'
-          })
-        }
-      }
-
-      // Parse fields if it's a string
-      if (typeof params.fields === 'string') {
-        params.fields = params.fields.split(',').map(field => field.trim()).filter(Boolean)
-      }
-
-      // Parse include if it's a string
-      if (typeof params.include === 'string') {
-        params.include = params.include.split(',').map(inc => inc.trim()).filter(Boolean)
-      }
-
-      // Set defaults
-      params.page = parseInt(params.page) || 0
-      params.limit = parseInt(params.limit) || 50
-      params.orderByField = params.orderByField || 'createdAt'
-      params.orderByDirection = params.orderByDirection || 'desc'
-
-      // Validate date ranges in filter
-      if (params.filter) {
-        await this.validateDateRanges(params.filter)
-      }
-
-      logger.debug('Query parameters prepared', {
-        ...logContext,
-        preparedParams: this.sanitizeLogQuery(params)
-      })
-
-      return params
-
-    } catch (error) {
-      if (error instanceof ErrorWrapper) {
-        throw error
-      }
-      
-      throw new ErrorWrapper({
-        ...errorCodes.VALIDATION,
-        message: 'Invalid query parameters',
-        layer: 'ListUsersHandler.prepareQueryParams',
-        meta: { originalError: error.message }
-      })
-    }
-  }
-
-  /**
-   * Format response data with security considerations
-   */
-  static async formatResponse(data, params, logContext) {
-    try {
-      const formattedResults = await Promise.all(
-        data.results.map(user => this.formatUserData(user, params))
-      )
-
-      return {
-        results: formattedResults,
-        cacheHit: false // TODO: Implement caching
-      }
-
-    } catch (error) {
-      throw new ErrorWrapper({
-        ...errorCodes.SERVER,
-        message: 'Failed to format response data',
-        layer: 'ListUsersHandler.formatResponse',
-        meta: { originalError: error.message }
-      })
-    }
-  }
-
-  /**
-   * Format individual user data
-   */
-  static async formatUserData(user, params) {
-    const formatted = { ...user }
-
-    // Add computed fields
-    if (user.firstName && user.lastName) {
-      formatted.fullName = `${user.firstName} ${user.lastName}`.trim()
-    }
-
-    // Format profile image if included
-    if (user.profileImage) {
-      formatted.profileImage = {
-        id: user.profileImage.id,
-        url: user.profileImage.path ? `${process.env.S3_BASE_URL}${user.profileImage.path}` : null,
-        originalName: user.profileImage.originalName,
-        size: user.profileImage.size,
-        mimeType: user.profileImage.mimeType
-      }
-    }
-
-    // Remove sensitive fields
-    delete formatted.password
-    delete formatted.refreshTokensMap
-    delete formatted.resetPasswordToken
-    delete formatted.emailConfirmationToken
-
-    return formatted
-  }
-
-  /**
-   * Validate date ranges in filters
-   */
-  static async validateDateRanges(filters) {
-    if (filters.createdAfter && filters.createdBefore) {
-      if (new Date(filters.createdAfter) >= new Date(filters.createdBefore)) {
-        throw new ErrorWrapper({
-          ...errorCodes.VALIDATION,
-          message: 'createdAfter must be before createdBefore',
-          layer: 'ListUsersHandler.validateDateRanges'
-        })
-      }
-    }
-
-    if (filters.updatedAfter && filters.updatedBefore) {
-      if (new Date(filters.updatedAfter) >= new Date(filters.updatedBefore)) {
-        throw new ErrorWrapper({
-          ...errorCodes.VALIDATION,
-          message: 'updatedAfter must be before updatedBefore',
-          layer: 'ListUsersHandler.validateDateRanges'
-        })
-      }
-    }
-  }
-
-  /**
-   * Calculate query complexity for monitoring
-   */
-  static calculateQueryComplexity(params) {
-    let complexity = 1
-
-    if (params.search) complexity += 2
-    if (params.filter && Object.keys(params.filter).length > 0) {
-      complexity += Object.keys(params.filter).length
-    }
-    if (params.include && params.include.length > 0) {
-      complexity += params.include.length * 2
-    }
-
-    return complexity
-  }
-
-  /**
-   * Sanitize query for logging (remove sensitive data)
-   */
-  static sanitizeLogQuery(query) {
-    const sanitized = { ...query }
-    
-    // Remove any potentially sensitive filter values
-    if (sanitized.filter && typeof sanitized.filter === 'object') {
-      sanitized.filter = { ...sanitized.filter }
-      if (sanitized.filter.email) {
-        sanitized.filter.email = '[REDACTED]'
-      }
-    }
-    
-    return sanitized
   }
 }
 

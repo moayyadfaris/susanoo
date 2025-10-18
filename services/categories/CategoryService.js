@@ -38,9 +38,10 @@ class CategoryService extends BaseService {
 
   async createCategory(payload, context = {}) {
     return this.executeOperation('createCategory', async () => {
-      await this.validatePayload(payload)
+      const normalizedPayload = this.preparePayload(payload)
+      await this.validatePayload(normalizedPayload)
       return this.dao.createCategory({
-        ...payload,
+        ...normalizedPayload,
         createdBy: context.userId,
         updatedBy: context.userId
       })
@@ -55,9 +56,10 @@ class CategoryService extends BaseService {
           message: 'Category id is required'
         })
       }
-      await this.validatePayload(payload, { partial: true })
+      const normalizedPayload = this.preparePayload(payload, { partial: true })
+      await this.validatePayload(normalizedPayload, { partial: true })
       const updated = await this.dao.updateCategory(id, {
-        ...payload,
+        ...normalizedPayload,
         updatedBy: context.userId
       })
       if (!updated) {
@@ -106,22 +108,26 @@ class CategoryService extends BaseService {
       throw new ErrorWrapper({ ...errorCodes.NOT_FOUND, message: 'Story not found' })
     }
 
-      const categories = await this.dao.query().whereIn('id', categoryIds)
-      if (categories.length !== categoryIds.length) {
-        throw new ErrorWrapper({
-          ...errorCodes.VALIDATION_FAILED,
-          message: 'One or more categories do not exist'
-        })
+      const uniqueCategoryIds = [...new Set(categoryIds)]
+
+      if (uniqueCategoryIds.length > 0) {
+        const categories = await this.dao.query().whereIn('id', uniqueCategoryIds)
+        if (categories.length !== uniqueCategoryIds.length) {
+          throw new ErrorWrapper({
+            ...errorCodes.VALIDATION_FAILED,
+            message: 'One or more categories do not exist'
+          })
+        }
       }
 
     await StoryDAO.relatedQuery('categories').for(storyIdNumber).unrelate()
-    if (categoryIds.length > 0) {
-      await StoryDAO.relatedQuery('categories').for(storyIdNumber).relate(categoryIds)
+    if (uniqueCategoryIds.length > 0) {
+      await StoryDAO.relatedQuery('categories').for(storyIdNumber).relate(uniqueCategoryIds)
     }
 
     return {
       storyId: storyIdNumber,
-      categories: categoryIds,
+      categories: uniqueCategoryIds,
       updatedBy: context.userId || null
     }
     }, { storyId, categoryIds, userId: context.userId })
@@ -151,6 +157,50 @@ class CategoryService extends BaseService {
         })
       }
     }
+  }
+
+  preparePayload(payload = {}, { partial = false } = {}) {
+    const normalized = { ...payload }
+
+    if (typeof normalized.name === 'string') {
+      normalized.name = normalized.name.trim()
+    }
+
+    if (!normalized.slug && typeof normalized.name === 'string' && normalized.name.length > 0) {
+      normalized.slug = this.generateSlug(normalized.name)
+    }
+
+    if (normalized.slug && typeof normalized.slug === 'string') {
+      normalized.slug = this.generateSlug(normalized.slug)
+    }
+
+    if (normalized.metadata && typeof normalized.metadata === 'string') {
+      try {
+        normalized.metadata = JSON.parse(normalized.metadata)
+      } catch {
+        // Leave as original string for validator to handle
+      }
+    }
+
+    if (!partial && normalized.isActive === undefined) {
+      normalized.isActive = true
+    }
+
+    return normalized
+  }
+
+  generateSlug(value = '') {
+    return value
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-')
+      .slice(0, 140)
+      || 'category'
   }
 }
 

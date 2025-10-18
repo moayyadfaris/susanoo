@@ -3,6 +3,7 @@ const BaseHandler = require('../../../BaseHandler')
 const AuthModel = require('../../../../models/AuthModel')
 const { getAuthService, getAuthSecurityService, getAuthCacheService } = require('../../../../services')
 const logger = require('../../../../util/logger')
+const roles = require('config').roles
 
 /**
  * LoginHandler - Authenticate users with enhanced security
@@ -108,13 +109,23 @@ class LoginHandler extends BaseHandler {
       }
 
       // Prepare device information
+      const ipAddress = typeof requestContext.ip === 'string' ? requestContext.ip : ''
+      const rawDeviceInfo = (body.deviceInfo && typeof body.deviceInfo === 'object')
+        ? body.deviceInfo
+        : {}
+
       const deviceInfo = {
-        fingerprint: body.fingerprint,
-        userAgent: requestContext.userAgent,
-        ip: requestContext.ip,
-        rememberMe: body.rememberMe || false,
-        deviceDetails: body.deviceInfo || {},
-        requestId: requestContext.requestId
+        ...rawDeviceInfo,
+        fingerprint: body.fingerprint || rawDeviceInfo.fingerprint,
+        deviceFingerprint: rawDeviceInfo.deviceFingerprint || rawDeviceInfo.fingerprint || body.fingerprint || null,
+        userAgent: requestContext.userAgent || rawDeviceInfo.userAgent || '',
+        ip: ipAddress || rawDeviceInfo.ip || '',
+        ipAddress: ipAddress || rawDeviceInfo.ipAddress || rawDeviceInfo.ip || '',
+        rememberMe: body.rememberMe ?? rawDeviceInfo.rememberMe ?? false,
+        requestId: requestContext.requestId,
+        deviceDetails: rawDeviceInfo.deviceDetails || rawDeviceInfo.details || {},
+        metadata: rawDeviceInfo.metadata || {},
+        source: 'login_handler'
       }
 
       // Authenticate using service layer
@@ -126,7 +137,8 @@ class LoginHandler extends BaseHandler {
           createSession: true,
           trackDevice: true,
           auditLog: true,
-          rememberMe: body.rememberMe || false
+          rememberMe: body.rememberMe || false,
+          allowedRoles: [roles.superadmin, roles.admin]
         }
       )
 

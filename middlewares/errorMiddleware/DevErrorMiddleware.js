@@ -279,10 +279,17 @@ class DevErrorMiddleware extends BaseMiddleware {
       
       try {
         // Create enhanced error response
+        const resolvedStatus = (() => {
+          if (typeof error.status === 'number') return error.status
+          if (typeof error.statusCode === 'number') return error.statusCode
+          if (error.status === 404 || error.statusCode === 404) return 404
+          return errorCodes.SERVER.status
+        })()
+
         const errorRes = new ErrorResponse({
           ...error,
           code: error.code || errorCodes.SERVER.code,
-          status: error.status || (error.status === 404 ? 404 : errorCodes.SERVER.status),
+          status: resolvedStatus,
           message: error.message || error.toString(),
           stack: this.config.enableStackTrace ? error.stack : undefined,
           src: `${process.env.NODE_ENV}:err:middleware`,

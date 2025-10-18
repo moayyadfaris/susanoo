@@ -287,6 +287,11 @@ class ListUserSessionsHandler extends BaseHandler {
    */
   static async enrichSessionsWithMetadata(sessions, params, currentSessionId, logContext) {
     const enrichmentPromises = sessions.map(async (session) => {
+      const ipAddress = session.ipAddress
+        || session.deviceInfo?.ipAddress
+        || session.deviceInfo?.ip
+        || session.metadata?.network?.ip
+        || 'unknown'
       try {
         // Parse user agent
         const userAgent = uaParser(session.ua || '')
@@ -294,14 +299,14 @@ class ListUserSessionsHandler extends BaseHandler {
         // Get geolocation (with caching and error handling)
         let location = null
         try {
-          location = await this.getLocationWithCache(session.ip)
+          location = await this.getLocationWithCache(ipAddress)
           this.metrics.ipLookupCacheHits++
         } catch (e) {
           this.metrics.ipLookupErrors++
           this.logger.debug('IP lookup failed', {
             ...logContext,
             sessionId: session.id,
-            ip: params.anonymizeData ? this.anonymizeIP(session.ip) : session.ip,
+            ipAddress: params.anonymizeData ? this.anonymizeIP(ipAddress) : ipAddress,
             error: e?.message
           })
           location = { country: 'Unknown', region: 'Unknown', city: 'Unknown' }
@@ -314,7 +319,7 @@ class ListUserSessionsHandler extends BaseHandler {
         // Build enriched session
         const enrichedSession = {
           id: session.id,
-          ip: params.anonymizeData ? this.anonymizeIP(session.ip) : session.ip,
+          ipAddress: params.anonymizeData ? this.anonymizeIP(ipAddress) : ipAddress,
           location: {
             country: location.country || 'Unknown',
             region: location.region || location.state || 'Unknown',
@@ -360,7 +365,7 @@ class ListUserSessionsHandler extends BaseHandler {
         // Return basic session info if enrichment fails
         return {
           id: session.id,
-          ip: params.anonymizeData ? this.anonymizeIP(session.ip) : session.ip,
+          ipAddress: params.anonymizeData ? this.anonymizeIP(ipAddress) : ipAddress,
           device: { type: 'Unknown', browser: 'Unknown', os: 'Unknown' },
           timing: {
             createdAt: this.formatTimestamp(session.createdAt),

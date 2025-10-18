@@ -95,7 +95,7 @@ class SessionInvalidationService {
     try {
       // Get sessions before deletion for audit
       const sessionsToInvalidate = audit ? 
-        await SessionDAO.query().where('userId', userId).select('id', 'ip', 'ua', 'createdAt') : 
+        await SessionDAO.query().where('userId', userId).select('id', 'ipAddress', 'ua', 'createdAt') : 
         []
 
       // Perform database deletion
@@ -195,7 +195,7 @@ class SessionInvalidationService {
         await SessionDAO.query()
           .where('userId', userId)
           .where('id', '!=', currentSessionId)
-          .select('id', 'ip', 'ua', 'createdAt') : 
+          .select('id', 'ipAddress', 'ua', 'createdAt') : 
         []
 
       // Perform database deletion
@@ -302,7 +302,7 @@ class SessionInvalidationService {
       // Get sessions before deletion for audit and cache cleanup
       const sessionsToInvalidate = await SessionDAO.query()
         .whereIn('id', sessionIds)
-        .select('id', 'userId', 'ip', 'ua', 'createdAt', 'refreshToken')
+        .select('id', 'userId', 'ipAddress', 'ua', 'createdAt', 'refreshToken')
 
       if (sessionsToInvalidate.length === 0) {
         return {
@@ -438,7 +438,7 @@ class SessionInvalidationService {
         const expiredSessions = await SessionDAO.query()
           .where('expiredAt', '<', cutoffTime)
           .limit(batchSize)
-          .select('id', 'userId', 'ip', 'ua', 'createdAt')
+          .select('id', 'userId', 'ipAddress', 'ua', 'createdAt')
 
         if (expiredSessions.length === 0) {
           break

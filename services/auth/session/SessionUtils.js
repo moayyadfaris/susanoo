@@ -36,8 +36,13 @@ class SessionUtils {
     const sanitized = { ...sessionData }
 
     // Remove or mask sensitive fields
-    if (maskIP && sanitized.ip) {
-      sanitized.ip = this.maskIPAddress(sanitized.ip)
+    if (maskIP) {
+      if (sanitized.ip) {
+        sanitized.ip = this.maskIPAddress(sanitized.ip)
+      }
+      if (sanitized.ipAddress) {
+        sanitized.ipAddress = this.maskIPAddress(sanitized.ipAddress)
+      }
     }
 
     if (removeUA) {
@@ -135,7 +140,8 @@ class SessionUtils {
     }
 
     // IP address validation
-    if (sessionData.ip && !this.isValidIP(sessionData.ip)) {
+    const validationIp = sessionData.ipAddress || sessionData.ip
+    if (validationIp && !this.isValidIP(validationIp)) {
       warnings.push('Invalid IP address format')
     }
 
@@ -295,17 +301,18 @@ class SessionUtils {
    * @returns {Object} IP analysis result
    */
   static analyzeIPConsistency(sessionData) {
-    if (!sessionData.ip) {
+    const ipAddress = sessionData.ipAddress || sessionData.ip
+    if (!ipAddress) {
       return { riskScore: 15, reason: 'No IP address recorded' }
     }
 
     // For now, basic checks - in production, compare with historical IPs
     const suspiciousIPs = ['127.0.0.1', '0.0.0.0']
-    if (suspiciousIPs.includes(sessionData.ip)) {
-      return { riskScore: 30, reason: 'Suspicious IP address', ip: sessionData.ip }
+    if (suspiciousIPs.includes(ipAddress)) {
+      return { riskScore: 30, reason: 'Suspicious IP address', ipAddress }
     }
 
-    return { riskScore: 0, reason: 'IP address looks normal', ip: sessionData.ip }
+    return { riskScore: 0, reason: 'IP address looks normal', ipAddress }
   }
 
   /**
@@ -778,6 +785,7 @@ class SessionUtils {
    * @returns {Object} Standard session data
    */
   static formatStandardSession(sessionData) {
+    const ipAddress = sessionData.ipAddress || sessionData.ip
     return {
       sessionId: sessionData.sessionId,
       userId: sessionData.userId,
@@ -785,7 +793,7 @@ class SessionUtils {
       createdAt: sessionData.createdAt,
       lastActiveAt: sessionData.lastActiveAt,
       expiresAt: sessionData.expiresAt,
-      ip: sessionData.ip,
+      ipAddress,
       deviceType: sessionData.deviceInfo?.type || 'unknown'
     }
   }
@@ -834,7 +842,7 @@ class SessionUtils {
   static generateSessionFingerprint(sessionData) {
     const fingerprintData = [
       sessionData.userId || '',
-      sessionData.ip || '',
+      sessionData.ipAddress || sessionData.ip || '',
       sessionData.ua || '',
       sessionData.deviceInfo?.screen || '',
       sessionData.deviceInfo?.timezone || ''
@@ -867,9 +875,11 @@ class SessionUtils {
     }
 
     // IP address comparison
-    if (session1.ip && session2.ip) {
-      similarities.ip = session1.ip === session2.ip
-      totalScore += similarities.ip ? 25 : 0
+    const ip1 = session1.ipAddress || session1.ip
+    const ip2 = session2.ipAddress || session2.ip
+    if (ip1 && ip2) {
+      similarities.ipAddress = ip1 === ip2
+      totalScore += similarities.ipAddress ? 25 : 0
     }
 
     // User agent comparison

@@ -118,12 +118,13 @@ class SessionDAO extends BaseDAO {
 
       // Log session removal activity
       if (logActivity) {
-        const sessionsToRemove = await query.clone().select('id', 'ip', 'ua', 'sessionType')
+        const sessionsToRemove = await query.clone().select('id', 'ipAddress', 'ua', 'sessionType')
         for (const session of sessionsToRemove) {
+          const ipAddress = session.ipAddress || 'unknown'
           await this.logSessionActivity(session.id, 'session_terminated', {
             reason: auditReason,
             terminatedBy: currentSessionId,
-            ip: session.ip,
+            ipAddress,
             userAgent: session.ua
           })
         }
@@ -242,10 +243,11 @@ class SessionDAO extends BaseDAO {
 
       // Process sessions for API response
       return sessions.map(session => {
+        const ipAddress = session.ipAddress || null
         const processedSession = {
           id: session.id,
           fingerprint: session.fingerprint,
-          ip: session.ip,
+          ipAddress,
           sessionType: session.sessionType,
           securityLevel: session.securityLevel,
           createdAt: session.createdAt,
@@ -303,12 +305,13 @@ class SessionDAO extends BaseDAO {
       }
 
       // Check for suspicious IP patterns
-      if (await this.isSuspiciousIP(session.ip)) {
+      const ipAddress = session.ipAddress || null
+      if (await this.isSuspiciousIP(ipAddress)) {
         violations.push({
           type: 'SUSPICIOUS_IP',
           severity: 'medium',
           message: 'Session from suspicious IP address',
-          ip: session.ip
+          ipAddress
         })
       }
 
@@ -379,10 +382,10 @@ class SessionDAO extends BaseDAO {
       // Check for suspicious IPs
       const uniqueIPs = await this.db(this.tableName)
         .where('userId', userId)
-        .distinct('ip')
+        .distinct('ipAddress')
 
-      for (const { ip } of uniqueIPs) {
-        if (await this.isSuspiciousIP(ip)) {
+      for (const { ipAddress } of uniqueIPs) {
+        if (await this.isSuspiciousIP(ipAddress)) {
           stats.suspiciousIPs++
         }
       }
@@ -465,8 +468,9 @@ class SessionDAO extends BaseDAO {
         query = query.where('userId', criteria.userId)
       }
 
-      if (criteria.ip) {
-        query = query.where('ip', criteria.ip)
+      const searchIp = criteria.ipAddress || criteria.ip
+      if (searchIp) {
+        query = query.where('ipAddress', searchIp)
       }
 
       if (criteria.securityLevel) {
@@ -544,7 +548,7 @@ class SessionDAO extends BaseDAO {
         const expiredSessions = await this.db(this.tableName)
           .where('expiredAt', '<', cutoffDate)
           .limit(batchSize)
-          .select('id', 'userId', 'ip')
+          .select('id', 'userId', 'ipAddress')
 
         if (expiredSessions.length === 0) {
           hasMore = false
@@ -671,11 +675,13 @@ class SessionDAO extends BaseDAO {
         .where('userId', session.userId)
         .where('createdAt', '>', Date.now() - (24 * 60 * 60 * 1000)) // Last 24 hours
         .whereNot('id', session.id)
-        .select('fingerprint', 'ip')
+        .select('fingerprint', 'ipAddress')
 
       // Check for fingerprint inconsistencies
       for (const recentSession of recentSessions) {
-        if (recentSession.ip === session.ip && 
+        const recentIp = recentSession.ipAddress
+        const currentIp = session.ipAddress
+        if (recentIp === currentIp && 
             recentSession.fingerprint !== session.fingerprint) {
           return true // Same IP, different fingerprint
         }

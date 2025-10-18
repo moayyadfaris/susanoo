@@ -303,11 +303,18 @@ class ProdErrorMiddleware extends BaseMiddleware {
         const filtered = this.filterSensitiveInformation(error)
         
         // Create enhanced error response
+        const resolvedStatus = (() => {
+          if (typeof error.status === 'number') return error.status
+          if (typeof error.statusCode === 'number') return error.statusCode
+          if (error.status === 404 || error.statusCode === 404) return 404
+          return errorCodes.SERVER.status
+        })()
+
         const errorRes = new ErrorResponse({
           ...error,
           message: filtered.message,
           code: error.code || errorCodes.SERVER.code,
-          status: error.status || (error.status === 404 ? 404 : errorCodes.SERVER.status),
+          status: resolvedStatus,
           stack: null, // Never include stack in production
           src: `${process.env.NODE_ENV}:err:middleware`,
           origin: error.origin ? { 
@@ -425,4 +432,3 @@ class ProdErrorMiddleware extends BaseMiddleware {
 }
 
 module.exports = { ProdErrorMiddleware }
-

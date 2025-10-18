@@ -639,7 +639,7 @@ class ListCountriesHandler extends BaseHandler {
    */
   static async formatResponse(data, params, logContext) {
     try {
-      let formattedResults = data.results
+      let formattedResults = (data.results || []).map(country => this.normalizeCountryRecord(country))
 
       // Apply format-specific transformations
       switch (params.format) {
@@ -690,6 +690,54 @@ class ListCountriesHandler extends BaseHandler {
         cacheHit: data.cacheHit
       }
     }
+  }
+
+  /**
+   * Normalize country record ensuring JSON fields are parsed
+   */
+  static normalizeCountryRecord(country) {
+    if (!country || typeof country !== 'object') {
+      return country
+    }
+
+    const normalized = { ...country }
+
+    // Parse metadata JSON if provided as string
+    if (typeof normalized.metadata === 'string' && normalized.metadata.trim()) {
+      try {
+        normalized.metadata = JSON.parse(normalized.metadata)
+      } catch (error) {
+        this.logger?.warn?.('Failed to parse country metadata JSON', {
+          countryId: country.id,
+          error: error.message
+        })
+        normalized.metadata = null
+      }
+    }
+
+    // Ensure metadata is object or null
+    if (normalized.metadata && (typeof normalized.metadata !== 'object' || Array.isArray(normalized.metadata))) {
+      normalized.metadata = null
+    }
+
+    // Parse languages JSON array or comma-separated string
+    if (typeof normalized.languages === 'string' && normalized.languages.trim()) {
+      const value = normalized.languages.trim()
+      try {
+        normalized.languages = JSON.parse(value)
+      } catch {
+        // Fallback: split by comma if not valid JSON
+        normalized.languages = value.includes(',')
+          ? value.split(',').map(lang => lang.trim()).filter(Boolean)
+          : [value]
+      }
+    }
+
+    if (!Array.isArray(normalized.languages)) {
+      normalized.languages = []
+    }
+
+    return normalized
   }
 
   /**

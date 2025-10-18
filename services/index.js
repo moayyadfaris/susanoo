@@ -25,6 +25,7 @@ const storyServices = require('./stories')
 const categoryServices = require('./categories')
 const runtimeSettingsServices = require('./runtimeSettings')
 const interestServices = require('./interests')
+const userServices = require('./users')
 
 /**
  * Application service registry
@@ -71,6 +72,10 @@ class ServiceRegistry {
     // Initialize interests services
     const interestsServiceInstances = interestServices.initializeInterestServices(appDependencies, config.interests || {})
     this.serviceInstances.set('interests', interestsServiceInstances)
+
+    // Initialize user services
+    const userServiceInstances = userServices.initializeUserServices(appDependencies, config.users || {})
+    this.serviceInstances.set('users', userServiceInstances)
     
     this.initialized = true
     
@@ -81,7 +86,8 @@ class ServiceRegistry {
       stories: storyServiceInstances,
       runtimeSettings: { runtimeSettingsService },
       categories: { categoryService },
-      interests: interestsServiceInstances
+      interests: interestsServiceInstances,
+      users: userServiceInstances
     }
   }
   
@@ -307,9 +313,20 @@ const categoryServiceHelpers = {
 }
 
 const interestServiceHelpers = {
+  getInterestService() {
+    const interestDomain = serviceRegistry.getServiceDomain('interests')
+    return interestDomain?.interestService
+  },
   getUserInterestService() {
     const interestDomain = serviceRegistry.getServiceDomain('interests')
     return interestDomain?.userInterestService
+  }
+}
+
+const userServiceHelpers = {
+  getUserService() {
+    const userDomain = serviceRegistry.getServiceDomain('users')
+    return userDomain?.userService
   }
 }
 
@@ -325,6 +342,7 @@ module.exports = {
   stories: storyServices,
   categories: categoryServices,
   interests: interestServices,
+  users: userServices,
   
   // Registry management
   ServiceRegistry,
@@ -350,6 +368,7 @@ module.exports = {
   ...storyServiceHelpers,
   ...categoryServiceHelpers,
   ...interestServiceHelpers,
+  ...userServiceHelpers,
 
   // Runtime settings service
   getRuntimeSettingsService: runtimeSettingsServices.getRuntimeSettingsService,

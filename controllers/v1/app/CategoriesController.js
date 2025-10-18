@@ -75,7 +75,7 @@ class CategoriesController extends BaseController {
     /**
      * @swagger
      * /categories/{id}:
-     *   put:
+     *   patch:
      *     tags:
      *       - Categories
      *     summary: Update an existing category
@@ -107,7 +107,7 @@ class CategoriesController extends BaseController {
      *       '200':
      *         description: Category updated successfully
      */
-    router.put('/categories/:id', this.handlerRunner(handlers.UpdateCategoryHandler))
+    router.patch('/categories/:id', this.handlerRunner(handlers.UpdateCategoryHandler))
 
     /**
      * @swagger
@@ -130,40 +130,6 @@ class CategoriesController extends BaseController {
      *         description: Category deleted
      */
     router.delete('/categories/:id', this.handlerRunner(handlers.DeleteCategoryHandler))
-
-    /**
-     * @swagger
-     * /stories/{storyId}/categories:
-     *   post:
-     *     tags:
-     *       - Categories
-     *     summary: Assign categories to a story
-     *     description: Replaces the categories associated with a story.
-     *     operationId: assignStoryCategories
-     *     parameters:
-     *       - in: path
-     *         name: storyId
-     *         required: true
-     *         schema:
-     *           type: string
-     *         description: Story identifier
-     *     requestBody:
-     *       required: true
-     *       content:
-     *         application/json:
-     *           schema:
-     *             type: object
-     *             required: [categoryIds]
-     *             properties:
-     *               categoryIds:
-     *                 type: array
-     *                 items:
-     *                   type: string
-     *     responses:
-     *       '200':
-     *         description: Story categories updated successfully
-     */
-    router.post('/stories/:storyId/categories', this.handlerRunner(handlers.AssignStoryCategoriesHandler))
 
     return router
   }

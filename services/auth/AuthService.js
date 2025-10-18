@@ -143,6 +143,25 @@ class AuthService extends BaseService {
           statusCode: 403
         })
       }
+
+      // Restrict access based on allowed roles when provided
+      const allowedRoles = Array.isArray(options.allowedRoles) ? options.allowedRoles : null
+      if (allowedRoles && !allowedRoles.includes(user.role)) {
+        this.emit('auth:login_role_denied', {
+          userId: user.id,
+          email: user.email,
+          attemptedRole: user.role,
+          allowedRoles,
+          context
+        })
+
+        throw new ErrorWrapper({
+          code: 'ROLE_NOT_ALLOWED',
+          message: 'User role is not permitted to access this resource',
+          status: 403,
+          statusCode: 403
+        })
+      }
       
       // Generate session and tokens
       const sessionData = await this.sessionLifecycle.createSession(
@@ -382,14 +401,57 @@ class AuthService extends BaseService {
    */
   validateDeviceInfo(deviceInfo) {
     const schema = joi.object({
-      fingerprint: joi.string().min(10).max(100).optional(),
+      fingerprint: joi.string().min(10).max(200).optional(),
+      deviceFingerprint: joi.alternatives().try(
+        joi.string().max(500),
+        joi.object().unknown(true)
+      ).optional(),
       userAgent: joi.string().max(500).optional(),
-      ipAddress: joi.string().ip().optional(),
+      ip: joi.string().ip({ version: ['ipv4', 'ipv6'], cidr: 'forbidden' }).optional(),
+      ipAddress: joi.string().ip({ version: ['ipv4', 'ipv6'], cidr: 'forbidden' }).optional(),
       platform: joi.string().max(50).optional(),
-      browser: joi.string().max(50).optional()
-    })
-    
-    return this.validateInput(deviceInfo, schema)
+      browser: joi.string().max(50).optional(),
+      rememberMe: joi.boolean().optional(),
+      deviceDetails: joi.object().unknown(true).optional(),
+      metadata: joi.object().unknown(true).optional(),
+      requestId: joi.string().max(120).optional(),
+      source: joi.string().max(60).optional(),
+      sessionType: joi.string().max(50).optional(),
+      securityLevel: joi.string().max(50).optional()
+    }).unknown(true)
+
+    try {
+      const { error, value } = schema.validate(deviceInfo || {}, {
+        abortEarly: false,
+        allowUnknown: true,
+        stripUnknown: false
+      })
+
+      if (error) {
+        throw new ErrorWrapper({
+          code: 'VALIDATION_ERROR',
+          message: `Device info validation failed: ${error.details.map(d => d.message).join(', ')}`,
+          statusCode: 422,
+          meta: {
+            validationErrors: error.details,
+            data: deviceInfo
+          }
+        })
+      }
+
+      return value
+    } catch (validationError) {
+      if (validationError instanceof ErrorWrapper) {
+        throw validationError
+      }
+
+      throw new ErrorWrapper({
+        code: 'VALIDATION_ERROR',
+        message: `Device info validation error: ${validationError.message}`,
+        statusCode: 422,
+        meta: { data: deviceInfo }
+      })
+    }
   }
 
   /**

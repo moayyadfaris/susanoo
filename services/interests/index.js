@@ -1,4 +1,6 @@
+const InterestService = require('./InterestService')
 const UserInterestService = require('./UserInterestService')
+const InterestDAO = require('../../database/dao/InterestDAO')
 
 class InterestServiceManager {
   constructor() {
@@ -11,14 +13,23 @@ class InterestServiceManager {
     this.dependencies = dependencies
     this.config = config
 
+    const interestDAO = dependencies.interestDAO || InterestDAO
+    const logger = dependencies.logger
+
+    const interestService = new InterestService({
+      interestDAO,
+      logger,
+      config: config.core || {}
+    })
+
     const userInterestService = new UserInterestService({
       userDAO: dependencies.userDAO,
-      interestDAO: dependencies.interestDAO,
-      logger: dependencies.logger,
+      interestDAO,
+      logger,
       config: config.userInterests || {}
     })
 
-    this.services = { userInterestService }
+    this.services = { interestService, userInterestService }
     return this.services
   }
 
@@ -30,11 +41,17 @@ class InterestServiceManager {
     this.ensureInitialized()
     return this.services.userInterestService
   }
+
+  getInterestService() {
+    this.ensureInitialized()
+    return this.services.interestService
+  }
 }
 
 const interestServiceManager = new InterestServiceManager()
 
 module.exports = {
   initializeInterestServices: (dependencies, config = {}) => interestServiceManager.initialize(dependencies, config),
-  getUserInterestService: () => interestServiceManager.getUserInterestService()
+  getUserInterestService: () => interestServiceManager.getUserInterestService(),
+  getInterestService: () => interestServiceManager.getInterestService()
 }

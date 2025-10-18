@@ -28,7 +28,7 @@ class SessionEntity {
    * @param {Object} src - Source data for session creation
    * @param {string} src.userId - User identifier (required)
    * @param {string} src.fingerprint - Device fingerprint (required)
-   * @param {string} src.ip - IP address (required)
+   * @param {string} src.ipAddress - IP address (required)
    * @param {string} [src.ua] - User agent string
    * @param {number} [src.expiredAt] - Custom expiration timestamp
    * @param {Object} [src.metadata] - Additional session metadata
@@ -46,7 +46,9 @@ class SessionEntity {
     this.refreshToken = uuidV4()
     this.userId = src.userId
     this.fingerprint = src.fingerprint
-    this.ip = src.ip
+    this.ipAddress = typeof src.ipAddress === 'string' && src.ipAddress.trim().length
+      ? src.ipAddress.trim()
+      : (typeof src.ip === 'string' ? src.ip.trim() : null)
     this.ua = src.ua || null
     
     // Enhanced session metadata
@@ -91,14 +93,15 @@ class SessionEntity {
       })
     }
 
+    const primaryIp = src.ipAddress || src.ip
     try {
-      assert.validate(src.ip, SessionModel.schema.ip, { required: true })
+      assert.validate(primaryIp, SessionModel.schema.ipAddress, { required: true })
     } catch (error) {
       throw new ErrorWrapper({
         ...errorCodes.BAD_REQUEST,
         message: 'Invalid or missing IP address',
-        field: 'ip',
-        value: src.ip
+        field: 'ipAddress',
+        value: primaryIp
       })
     }
   }
@@ -215,9 +218,9 @@ class SessionEntity {
 
       // Network information
       network: {
-        ip: src.ip,
-        ipType: this._detectIPType(src.ip),
-        ...this._analyzeNetworkInfo(src.ip)
+        ip: this.ipAddress,
+        ipType: this._detectIPType(this.ipAddress),
+        ...this._analyzeNetworkInfo(this.ipAddress)
       },
 
       // Session behavior
@@ -297,7 +300,7 @@ class SessionEntity {
     }
 
     // Analyze IP address
-    if (this._isPrivateIP(src.ip)) {
+    if (this._isPrivateIP(this.ipAddress)) {
       riskScore += 1
       riskFactors.push('private_ip')
     }
@@ -504,7 +507,7 @@ class SessionEntity {
       refreshToken: this.refreshToken,
       userId: this.userId,
       fingerprint: this.fingerprint,
-      ip: this.ip,
+      ipAddress: this.ipAddress,
       ua: this.ua,
       expiredAt: this.expiredAt
     }
@@ -538,7 +541,7 @@ class SessionEntity {
       refreshToken: this.refreshToken,
       userId: this.userId,
       fingerprint: this.fingerprint,
-      ip: this.ip,
+      ipAddress: this.ipAddress,
       ua: this.ua,
       expiredAt: this.expiredAt,
       createdAt: this.createdAt,
@@ -558,7 +561,7 @@ class SessionEntity {
     return {
       id: this.id,
       fingerprint: this.fingerprint,
-      ip: this.ip,
+      ipAddress: this.ipAddress,
       deviceType: this.metadata.device.type,
       browser: this.metadata.device.capabilities.browser,
       os: this.metadata.device.capabilities.os,
