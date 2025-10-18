@@ -1,11 +1,9 @@
 const { RequestRule } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
-const UserDAO = require('database/dao/UserDAO')
 const UserModel = require('models/UserModel')
-const { jwtHelper } = require('helpers').authHelpers
-const config = require('config')
 const { errorCodes, ErrorWrapper } = require('backend-core')
 const logger = require('util/logger')
+const { getUserService } = require('../../../../services')
 
 class ConfirmEmailHandler extends BaseHandler {
   static get accessTag () {
@@ -21,22 +19,55 @@ class ConfirmEmailHandler extends BaseHandler {
   }
 
   static async run (ctx) {
-    const tokenData = await jwtHelper.verify(ctx.body.emailConfirmToken, config.token.emailConfirm.secret)
-    const { sub: userId } = tokenData
+    const userService = getUserService()
 
-    const user = await UserDAO.baseGetById(userId)
-    const newEmail = user.newEmail
-    if (user.emailConfirmToken !== ctx.body.emailConfirmToken) {
-      throw new ErrorWrapper({ ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN })
+    if (!userService) {
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'User service not available',
+        layer: 'ConfirmEmailHandler.run'
+      })
     }
-    await UserDAO.baseUpdate(userId, {
-      email: newEmail,
-      newEmail: null,
-      emailConfirmToken: null
-    })
-    logger.info('User email confirmed', { userId, newEmail, ctx: this.name })
 
-    return this.result({ message: `${newEmail} confirmed` })
+    const logContext = {
+      handler: 'ConfirmEmailHandler',
+      requestId: ctx.requestId,
+      ip: ctx.ip
+    }
+
+    try {
+      const result = await userService.confirmEmail(ctx.body.emailConfirmToken, {
+        requestId: ctx.requestId,
+        ip: ctx.ip
+      })
+
+      logger.info('User email confirmed via service layer', {
+        ...logContext,
+        userId: result?.data?.userId,
+        email: result?.data?.email
+      })
+
+      return this.result(result)
+    } catch (error) {
+      logger.error('User email confirmation failed via service layer', {
+        ...logContext,
+        error: error.message,
+        stack: error.stack
+      })
+
+      if (error instanceof ErrorWrapper) {
+        throw error
+      }
+
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'User email confirmation failed',
+        layer: 'ConfirmEmailHandler.run',
+        meta: {
+          originalError: error.message
+        }
+      })
+    }
   }
 }
 

@@ -1,15 +1,9 @@
-require('../globals')()
 const config = require('../config')
-const { slackClient, emailClient, smsClient } = require('handlers/RootProvider')
-const ResetPasswordSlack = require('notifications/ResetPasswordSlack')
+const { emailClient, smsClient } = require('handlers/RootProvider')
 const ResetPasswordEmail = require('notifications/ResetPasswordEmail')
 const ResetPasswordSMS = require('notifications/ResetPasswordSMS')
-const ConfirmSlack = require('notifications/ConfirmSlack')
-const ConfirmSMS = require('notifications/ConfirmSMS')
 const WelcomeEmail = require('notifications/WelcomeEmail')
-const ChangeEmailSlack = require('notifications/ChangeEmailSlack')
 const ChangeEmailEmail = require('notifications/ChangeEmailEmail')
-const ChangeMobileSlack = require('notifications/ChangeMobileSlack')
 const ResetPasswordEmailAdmin = require('notifications/ResetPasswordEmailAdmin')
 const Queue = require('bull')
 const { notificationType } = require('config')
@@ -20,11 +14,9 @@ queue.process(1, function (job, done) {
   // job.id contains id of this job.
   switch (job.data.type) {
     case notificationType.resetPasswordSMS:
-      slackClient.send(new ResetPasswordSlack({ to: job.data.to, code: job.data.code, name: job.data.name }))
       smsClient.send(new ResetPasswordSMS({ to: job.data.to, code: job.data.code, name: job.data.name }))
       break
     case notificationType.resetPasswordEmail:
-      slackClient.send(new ResetPasswordSlack({ to: job.data.to, code: job.data.code, name: job.data.name }))
       emailClient.send(new ResetPasswordEmail({ to: job.data.to, code: job.data.code, name: job.data.name, lang: job.data.lang }))
       break
     case notificationType.resetPasswordEmailAdmin:
@@ -32,8 +24,6 @@ queue.process(1, function (job, done) {
       emailClient.send(new ResetPasswordEmailAdmin({ to: job.data.to, token: job.data.token, name: job.data.name }))
       break
     case notificationType.createUser:
-      slackClient.send(new ConfirmSlack({ to: job.data.to, code: job.data.code }))
-      smsClient.send(new ConfirmSMS({ to: job.data.to, code: job.data.code }))
       emailClient.send(new WelcomeEmail({
         to: job.data.email,
         name: job.data.name,
@@ -43,11 +33,9 @@ queue.process(1, function (job, done) {
       // logger.info('Registration OTP, delivered', { to: user.email, ...result, ctx: this.name })
       break
     case notificationType.changeEmail:
-      slackClient.send(new ChangeEmailSlack({ to: job.data.to, code: job.data.code }))
       emailClient.send(new ChangeEmailEmail({ to: job.data.to, code: job.data.code }))
       break
     case notificationType.changeMobileNumber:
-      slackClient.send(new ChangeMobileSlack({ to: job.data.to, code: job.data.code }))
       break
     default:
       // code block

@@ -9,6 +9,96 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "Run integration tests",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Install new dev deps",
+			"type": "shell",
+			"command": "npm install",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 2)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 3)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 4)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 5)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 6)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 7)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Run integration tests (retry 8)",
+			"type": "shell",
+			"command": "npm run test:integration",
+			"problemMatcher": [
+				"$eslint-stylish"
+			],
+			"group": "build"
 		}
 	]
 }

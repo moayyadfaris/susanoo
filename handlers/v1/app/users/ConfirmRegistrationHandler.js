@@ -1,10 +1,8 @@
 const { RequestRule, errorCodes, ErrorWrapper } = require('backend-core')
 const BaseHandler = require('handlers/BaseHandler')
 const UserModel = require('models/UserModel')
-const UserDAO = require('database/dao/UserDAO')
-const { jwtHelper } = require('helpers').authHelpers
-const config = require('config')
 const logger = require('util/logger')
+const { getUserService } = require('../../../../services')
 
 class ConfirmRegistrationHandler extends BaseHandler {
   static get accessTag () {
@@ -20,18 +18,54 @@ class ConfirmRegistrationHandler extends BaseHandler {
   }
 
   static async run (ctx) {
-    const tokenData = await jwtHelper.verify(ctx.body.emailConfirmToken, config.token.emailConfirm.secret)
-    const { sub: userId } = tokenData
+    const userService = getUserService()
 
-    const user = await UserDAO.baseGetById(userId)
-    if (user.emailConfirmToken !== ctx.body.emailConfirmToken) {
-      throw new ErrorWrapper({ ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN })
+    if (!userService) {
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'User service not available',
+        layer: 'ConfirmRegistrationHandler.run'
+      })
     }
 
-    await UserDAO.baseUpdate(userId, { isConfirmedRegistration: true, emailConfirmToken: null })
-    logger.info('User registration is confirmed', { userId, ctx: this.name })
+    const logContext = {
+      handler: 'ConfirmRegistrationHandler',
+      requestId: ctx.requestId,
+      ip: ctx.ip
+    }
 
-    return this.result({ message: `User ${userId} registration is confirmed` })
+    try {
+      const result = await userService.confirmRegistration(ctx.body.emailConfirmToken, {
+        requestId: ctx.requestId,
+        ip: ctx.ip
+      })
+
+      logger.info('User registration confirmed via service layer', {
+        ...logContext,
+        userId: result?.data?.userId
+      })
+
+      return this.result(result)
+    } catch (error) {
+      logger.error('User registration confirmation failed', {
+        ...logContext,
+        error: error.message,
+        stack: error.stack
+      })
+
+      if (error instanceof ErrorWrapper) {
+        throw error
+      }
+
+      throw new ErrorWrapper({
+        ...errorCodes.INTERNAL_SERVER_ERROR,
+        message: 'User registration confirmation failed',
+        layer: 'ConfirmRegistrationHandler.run',
+        meta: {
+          originalError: error.message
+        }
+      })
+    }
   }
 }
 

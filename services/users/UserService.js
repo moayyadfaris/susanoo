@@ -4,7 +4,7 @@ const DefaultUserDAO = require('../../database/dao/UserDAO')
 const DefaultCountryDAO = require('../../database/dao/CountryDAO')
 const DefaultAttachmentDAO = require('../../database/dao/AttachmentDAO')
 const SessionInvalidationService = require('../auth/session/SessionInvalidationService')
-const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper, checkPasswordHelper } = require('../../helpers').authHelpers
+const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper, checkPasswordHelper, jwtHelper } = require('../../helpers').authHelpers
 const validator = require('validator')
 const config = require('config')
 const crypto = require('crypto')
@@ -458,6 +458,139 @@ class UserService extends BaseService {
     }, context)
   }
 
+  async confirmRegistration(emailConfirmToken, context = {}) {
+    const operationContext = {
+      requestId: context.requestId || crypto.randomUUID(),
+      ip: context.ip,
+      handler: 'UserService.confirmRegistration'
+    }
+
+    return this.executeOperation('confirmRegistration', async () => {
+      if (!emailConfirmToken || typeof emailConfirmToken !== 'string') {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'Email confirmation token is required',
+          statusCode: 400
+        })
+      }
+
+      let tokenPayload
+      try {
+        tokenPayload = await jwtHelper.verify(emailConfirmToken, config.token.emailConfirm.secret)
+      } catch (error) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN,
+          message: 'Invalid or expired confirmation token'
+        })
+      }
+
+      const userId = tokenPayload?.sub
+      if (!userId) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN,
+          message: 'Invalid confirmation token payload'
+        })
+      }
+
+      const user = await this.userDAO.baseGetById(userId)
+      if (!user || user.emailConfirmToken !== emailConfirmToken) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN
+        })
+      }
+
+      await this.userDAO.baseUpdate(userId, {
+        isConfirmedRegistration: true,
+        emailConfirmToken: null
+      })
+
+      this.logger.info('User registration confirmed', {
+        userId,
+        ip: context.ip,
+        requestId: operationContext.requestId
+      })
+
+      return {
+        message: `User ${userId} registration confirmed`,
+        data: {
+          userId
+        }
+      }
+    }, operationContext)
+  }
+
+  async confirmEmail(emailConfirmToken, context = {}) {
+    const operationContext = {
+      requestId: context.requestId || crypto.randomUUID(),
+      ip: context.ip,
+      handler: 'UserService.confirmEmail'
+    }
+
+    return this.executeOperation('confirmEmail', async () => {
+      if (!emailConfirmToken || typeof emailConfirmToken !== 'string') {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'Email confirmation token is required',
+          statusCode: 400
+        })
+      }
+
+      let tokenPayload
+      try {
+        tokenPayload = await jwtHelper.verify(emailConfirmToken, config.token.emailConfirm.secret)
+      } catch (error) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN,
+          message: 'Invalid or expired confirmation token'
+        })
+      }
+
+      const userId = tokenPayload?.sub
+      if (!userId) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN,
+          message: 'Invalid confirmation token payload'
+        })
+      }
+
+      const user = await this.userDAO.baseGetById(userId)
+      if (!user || user.emailConfirmToken !== emailConfirmToken) {
+        throw new ErrorWrapper({
+          ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN
+        })
+      }
+
+      const newEmail = user.newEmail
+      if (!newEmail) {
+        throw new ErrorWrapper({
+          ...errorCodes.VALIDATION,
+          message: 'No pending email change request'
+        })
+      }
+
+      await this.userDAO.baseUpdate(userId, {
+        email: newEmail,
+        newEmail: null,
+        emailConfirmToken: null
+      })
+
+      this.logger.info('User email confirmed', {
+        userId,
+        newEmail,
+        ip: context.ip,
+        requestId: operationContext.requestId
+      })
+
+      return {
+        message: `${newEmail} confirmed`,
+        data: {
+          userId,
+          email: newEmail
+        }
+      }
+    }, operationContext)
+  }
+
   async checkAvailability({ body = {}, ip, headers = {}, requestId }) {
     const context = {
       requestId: requestId || crypto.randomUUID(),
@@ -883,7 +1016,7 @@ class UserService extends BaseService {
             code: verificationData.verifyCode,
             name: user.name,
             email: user.email,
-            lang: user.preferredLanguage
+            lang: user.preferredLanguage || 'en'
           })
 
           await this.notificationClient.enqueue({
@@ -891,7 +1024,7 @@ class UserService extends BaseService {
             to: user.email,
             name: user.name,
             verificationCode: verificationData.verifyCode,
-            lang: user.preferredLanguage
+            lang: user.preferredLanguage || 'en'
           })
         }
 
