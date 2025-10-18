@@ -1,1 +1,3 @@
-# Build queues
+Some files still import from handlers/RootProvider for Redis/notification clients
+This is a broader architectural concern beyond session services
+Session services are fully migrated and functional
