@@ -58,10 +58,6 @@ const storyStatusList = ['SUBMITTED', 'DRAFT', 'IN_PROGRESS', 'ARCHIVED', 'PUBLI
  *         type: string
  *         format: uuid
  *         description: Story author/owner ID
- *       countryId:
- *         type: integer
- *         description: Associated country ID
- *         example: 1
  *       fromTime:
  *         type: string
  *         format: date-time

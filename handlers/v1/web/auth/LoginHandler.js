@@ -154,7 +154,6 @@ class LoginHandler extends BaseHandler {
           allowedRoles: [
             roles.superadmin,
             roles.admin,
-            roles.seniorEditor,
             roles.editor,
             roles.user
           ],

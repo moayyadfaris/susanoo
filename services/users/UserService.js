@@ -903,7 +903,7 @@ class UserService extends BaseService {
       marketingConsent: body.acceptMarketing || false,
       isActive: true,
       isVerified: false,
-      role: 'ROLE_USER',
+      role: body.role || 'ROLE_USER',
       createdAt: new Date(),
       metadata: {
         registrationIp: logContext.ip,

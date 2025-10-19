@@ -482,6 +482,7 @@ class StoryService extends BaseService {
     }
 
     normalized.noCache = StoryUtils.parseBoolean(normalized.noCache)
+    normalized.includeAll = StoryUtils.parseBoolean(normalized.includeAll)
 
     StoryUtils.enforceDateRange(normalized.dateFrom, normalized.dateTo)
 
@@ -526,8 +527,14 @@ class StoryService extends BaseService {
       params.filter['stories.countryId'] = query.countryId
     }
 
+    const isPrivileged =
+      user.role === roles.superadmin ||
+      user.role === roles.admin
+
     if (query.userId) {
       params.filter['stories.userId'] = query.userId
+    } else if (query.includeAll && isPrivileged) {
+      // admins/superadmins can view all stories when includeAll is requested
     } else if (user.role !== roles.superadmin) {
       params.filter['stories.userId'] = user.id
     }

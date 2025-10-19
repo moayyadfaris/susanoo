@@ -39,6 +39,7 @@ class CreateUserHandler extends BaseHandler {
     }
 
     try {
+      ctx.body.role = 'ROLE_EDITOR'
       const result = await userService.registerUser(ctx.body, {
         requestId: ctx.requestId,
         ip: ctx.ip,

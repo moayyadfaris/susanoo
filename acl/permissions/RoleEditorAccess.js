@@ -6,6 +6,7 @@ class RoleEditorAccess extends BaseRoleAccess {
       { ...this.basePermissions },
       {
         'web#stories:list': true,
+        'web#stories:create': true,
         'web#stories:change-status': true,
         'web#users:get-current-user': true,
         'web#auth:logout': true,

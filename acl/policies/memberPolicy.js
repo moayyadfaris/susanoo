@@ -12,8 +12,8 @@ module.exports = (model, currentUser) => {
   assert.object(currentUser, { required: true })
 
   return new Promise((resolve, reject) => {
-    // pass seniorEditor
-    if (currentUser.role === roles.seniorEditor) return resolve()
+    // pass admin
+    if (currentUser.role === roles.admin) return resolve()
     // pass owner
     if (currentUser.id === model.editor.userId) return resolve()
     // else reject

@@ -1,6 +1,6 @@
 const BaseRoleAccess = require('./BaseRoleAccess')
 
-class RoleSeniorEditorAccess extends BaseRoleAccess {
+class RoleSuperAdminAccess extends BaseRoleAccess {
   static get can () {
     return Object.assign(
       { ...this.basePermissions },
@@ -14,4 +14,4 @@ class RoleSeniorEditorAccess extends BaseRoleAccess {
   }
 }
 
-module.exports = RoleSeniorEditorAccess
+module.exports = RoleSuperAdminAccess
