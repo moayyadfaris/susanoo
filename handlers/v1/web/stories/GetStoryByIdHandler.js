@@ -5,18 +5,26 @@ const { getStoryService } = require('../../../../services')
 const logger = require('../../../../util/logger')
 const roles = require('config').roles
 
+const ALLOWED_RELATIONS = ['tags', 'owner', 'country', 'attachments', 'categories', 'editor', 'stats']
+const FORMAT_MODES = ['full', 'summary', 'minimal']
+
 /**
- * WebGetStoryByIdHandler - Fetches a single story for the newsroom portal.
+ * WebGetStoryByIdHandler - Fetches newsroom stories with rich projection support.
  *
  * Features:
- * - Leverages `StoryService.getStoryById` to centralize permissions, caching, and record shaping.
- * - Validates the path parameter (`id`) using the canonical model rule.
- * - Supports optional `include` query parameter for relations (`tags`, `attachments`, etc.).
+ * - Delegates retrieval, permission checks, and shaping to `StoryService.getStoryById`.
+ * - Normalizes include lists, boolean-like query strings, and validates projection modes.
+ * - Allows privileged callers to request extended metadata or deleted stories (with guard rails).
  *
  * Usage:
  * - Endpoint: `GET /api/v1/web/stories/:id`
- * - Access: `web#stories:get-by-id`
- * - Query Params: `include` (comma separated or array), `includeDeleted` (admin only)
+ * - Access tag: `web#stories:get-by-id`
+ * - Query params:
+ *   - `include`: comma string or array (tags, owner, country, attachments, categories, editor, stats)
+ *   - `format`: `full` | `summary` | `minimal`
+ *   - `includeDeleted`: boolean (admins & superadmins)
+ *   - `includeMetadata`: boolean (superadmins only)
+ *   - `includePrivate`: boolean (owner or superadmin)
  */
 class GetStoryByIdHandler extends BaseHandler {
   static get accessTag() {
@@ -31,20 +39,41 @@ class GetStoryByIdHandler extends BaseHandler {
       query: {
         include: new RequestRule(new Rule({
           validator: value => {
-            const allowed = ['tags', 'owner', 'country', 'attachments', 'categories', 'editor', 'stats']
             if (typeof value === 'string') {
-              return value.split(',').every(item => allowed.includes(item.trim()))
+              return value.split(',').every(item => ALLOWED_RELATIONS.includes(item.trim()))
             }
             if (Array.isArray(value)) {
-              return value.every(item => allowed.includes(item))
+              return value.every(item => ALLOWED_RELATIONS.includes(item))
             }
             return 'include must be a string or array'
           },
           description: 'Additional relations to include'
         }), { required: false }),
         includeDeleted: new RequestRule(new Rule({
-          validator: value => ['true', 'false', true, false].includes(value),
+          validator: value => ['true', 'false', '1', '0', 'yes', 'no', true, false].includes(
+            typeof value === 'string' ? value.toLowerCase() : value
+          ),
           description: 'Allow viewing soft-deleted stories (admin only)'
+        }), { required: false }),
+        includeMetadata: new RequestRule(new Rule({
+          validator: value => ['true', 'false', '1', '0', 'yes', 'no', true, false].includes(
+            typeof value === 'string' ? value.toLowerCase() : value
+          ),
+          description: 'Expose metadata/audit details (superadmin only)'
+        }), { required: false }),
+        includePrivate: new RequestRule(new Rule({
+          validator: value => ['true', 'false', '1', '0', 'yes', 'no', true, false].includes(
+            typeof value === 'string' ? value.toLowerCase() : value
+          ),
+          description: 'Request access to private stories (subject to ownership)'
+        }), { required: false }),
+        format: new RequestRule(new Rule({
+          validator: value => {
+            if (value === undefined) return true
+            if (typeof value !== 'string') return 'format must be a string'
+            return FORMAT_MODES.includes(value.toLowerCase()) || `format must be one of: ${FORMAT_MODES.join(', ')}`
+          },
+          description: 'Projection mode: full (default), summary, or minimal'
         }), { required: false })
       }
     }
@@ -79,12 +108,26 @@ class GetStoryByIdHandler extends BaseHandler {
     }
 
     try {
-      const query = { ...ctx.query }
+      const storyId = Number.parseInt(ctx.params.id, 10)
+      const query = this.normalizeQuery(ctx.query)
+
       if (query.includeDeleted && ![roles.admin, roles.superadmin].includes(currentUser.role)) {
-        delete query.includeDeleted
+        query.includeDeleted = false
       }
 
-      const story = await storyService.getStoryById(Number(ctx.params.id), query, {
+      if (query.includeMetadata && currentUser.role !== roles.superadmin) {
+        query.includeMetadata = false
+      }
+
+      if (query.include) {
+        query.include = query.include.filter((relation, index, list) => relation && list.indexOf(relation) === index)
+      }
+
+      if (!FORMAT_MODES.includes(query.format || 'full')) {
+        query.format = 'full'
+      }
+
+      const story = await storyService.getStoryById(storyId, query, {
         currentUser,
         requestId: ctx.requestId,
         ip: ctx.ip,
@@ -94,7 +137,9 @@ class GetStoryByIdHandler extends BaseHandler {
       logger.info('Web story retrieved', {
         ...logContext,
         status: story?.status,
-        type: story?.type
+        type: story?.type,
+        format: query.format,
+        include: query.include
       })
 
       return this.result({
@@ -120,6 +165,40 @@ class GetStoryByIdHandler extends BaseHandler {
         }
       })
     }
+  }
+
+  static normalizeQuery(rawQuery = {}) {
+    const sanitized = { ...rawQuery }
+
+    if (sanitized.include) {
+      if (typeof sanitized.include === 'string') {
+        sanitized.include = sanitized.include
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean)
+      } else if (!Array.isArray(sanitized.include)) {
+        delete sanitized.include
+      }
+    }
+
+    sanitized.includeDeleted = this.parseBoolean(sanitized.includeDeleted)
+    sanitized.includeMetadata = this.parseBoolean(sanitized.includeMetadata)
+    sanitized.includePrivate = this.parseBoolean(sanitized.includePrivate)
+
+    if (typeof sanitized.format === 'string') {
+      sanitized.format = sanitized.format.toLowerCase()
+    }
+
+    return sanitized
+  }
+
+  static parseBoolean(value) {
+    if (value === undefined || value === null) return undefined
+    if (typeof value === 'boolean') return value
+    const normalized = value.toString().toLowerCase()
+    if (['true', '1', 'yes'].includes(normalized)) return true
+    if (['false', '0', 'no'].includes(normalized)) return false
+    return undefined
   }
 }
 
