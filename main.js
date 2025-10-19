@@ -6,6 +6,7 @@ const { Server, assert, ConnectionPool, AuditableDAO } = require('backend-core')
 const LoginHandler = require('./handlers/v1/app/auth/LoginHandler')
 const { RedisClient } = require('./clients')
 const pkg = require('./package.json')
+const rootProvider = require('./handlers/RootProvider')
 
 const controllers = require('./controllers')
 const config = require('./config')
@@ -199,6 +200,7 @@ async function initializeServices() {
     const StoryDAO = require('./database/dao/StoryDAO')
     const TagDAO = require('./database/dao/TagDAO')
     const StoryAttachmentDAO = require('./database/dao/StoryAttachmentDAO')
+    const AttachmentDAO = require('./database/dao/AttachmentDAO')
     
     // Initialize Redis client if Redis config is available
     let redisClientLocal = null
@@ -235,7 +237,9 @@ async function initializeServices() {
       slackClient: require('./clients/SlackClient'),
       storyDAO: StoryDAO,
       tagDAO: TagDAO,
-      storyAttachmentDAO: StoryAttachmentDAO
+      storyAttachmentDAO: StoryAttachmentDAO,
+      attachmentDAO: AttachmentDAO,
+      notificationClient: rootProvider.notificationClient
     }
     
     // Service configuration

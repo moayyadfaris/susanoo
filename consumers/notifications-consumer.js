@@ -7,6 +7,7 @@ const ChangeEmailEmail = require('notifications/ChangeEmailEmail')
 const ResetPasswordEmailAdmin = require('notifications/ResetPasswordEmailAdmin')
 const Queue = require('bull')
 const { notificationType } = require('config')
+const logger = require('../util/logger')
 var queue = new Queue('notifications', config.queue.redisUrl)
 
 queue.process(1, function (job, done) {
@@ -28,14 +29,23 @@ queue.process(1, function (job, done) {
         to: job.data.email,
         name: job.data.name,
         code: job.data.code,
-        lang: job.data.lang
+        lang: job.data.lang,
+        emailConfirmToken: job.data.emailConfirmToken
       }))
-      // logger.info('Registration OTP, delivered', { to: user.email, ...result, ctx: this.name })
+      logger.info('Welcome email, delivered', { to: job.data.email, ctx: 'notifications-consumer' })
       break
     case notificationType.changeEmail:
       emailClient.send(new ChangeEmailEmail({ to: job.data.to, code: job.data.code }))
       break
     case notificationType.changeMobileNumber:
+      break
+    case notificationType.confirmEmail:
+      emailClient.send({
+        from: config.email.from,
+        to: job.data.to,
+        subject: job.data.subject || 'Confirm your email',
+        text: job.data.text || `Please confirm your email using this token: ${job.data.emailConfirmToken}`
+      })
       break
     default:
       // code block

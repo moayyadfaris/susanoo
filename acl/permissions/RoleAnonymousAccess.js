@@ -32,6 +32,8 @@ class RoleAnonymousAccess {
       'web#cache:clear': true,
       'web#users:send-reset-password-token': true,
       'web#users:reset-password': true,
+      'web#users:confirm-email': true,
+      'web#users:confirm-email-by-token': true,
       'web#users:confirm-reset-password': true,
       'root:overview': true,
       'categories:list': true

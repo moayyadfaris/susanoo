@@ -6,7 +6,6 @@ const { InterestsController } = require('./InterestsController')
 const { StoriesController } = require('./StoriesController')
 const { AttachmentsController } = require('./AttachmentsController')
 const { UserStoriesController } = require('./UserStoriesController')
-const { CacheController } = require('./CacheController')
 
 module.exports = [
   // RootController,
@@ -16,6 +15,5 @@ module.exports = [
   InterestsController,
   StoriesController,
   AttachmentsController,
-  UserStoriesController,
-  CacheController
+  UserStoriesController
 ]

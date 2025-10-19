@@ -4,5 +4,6 @@ module.exports = {
   resetPasswordEmailAdmin: 'reset-password-email-admin',
   createUser: 'create-user',
   changeEmail: 'change-email',
-  changeMobileNumber: 'change-mobile-number'
+  changeMobileNumber: 'change-mobile-number',
+  confirmEmail: 'confirm-email'
 }

@@ -10,6 +10,8 @@ const SendResetPasswordTokenHandler = require('./SendResetPasswordTokenHandler')
 const ResetPasswordHandler = require('./ResetPasswordHandler')
 const ConfirmResetPasswordTokenHandler = require('./ConfirmResetPasswordTokenHandler')
 const ListDashboardUsersHandler = require('./ListDashboardUsersHandler')
+const ConfirmEmailByCodeHandler = require('./ConfirmEmailByCodeHandler')
+const ConfirmEmailByTokenHandler = require('./ConfirmEmailByTokenHandler')
 
 module.exports = {
   GetCurrentUserHandler,
@@ -23,5 +25,7 @@ module.exports = {
   SendResetPasswordTokenHandler,
   ResetPasswordHandler,
   ConfirmResetPasswordTokenHandler,
-  ListDashboardUsersHandler
+  ListDashboardUsersHandler,
+  ConfirmEmailByCodeHandler,
+  ConfirmEmailByTokenHandler
 }

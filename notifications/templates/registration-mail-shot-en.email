@@ -27,6 +27,11 @@
                             letter-spacing: 10px;margin: auto;margin-top: 20px;font-weight: bold;margin-bottom: 40px;">{code}</span>
                         </p>
                         <p style="width: 300px;margin: auto;">
+                            Link:
+                            <span class="code-container" style="background-color: #333333;padding: 10px;color: #ffffff;display: block;width: 190px;
+                            letter-spacing: 10px;margin: auto;margin-top: 20px;font-weight: bold;margin-bottom: 40px;">{user.emailConfirmToken}</span>
+                        </p>
+                        <p style="width: 300px;margin: auto;">
                             We’re excited to have you on board!
                         </p>
                         <p style="width: 300px;margin: auto;">

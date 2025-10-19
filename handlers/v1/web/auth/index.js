@@ -5,5 +5,5 @@ const LogoutHandler = require('./LogoutHandler')
 module.exports = {
   LoginHandler,
   RefreshTokensHandler,
-  LogoutHandler
+  LogoutHandler,
 }

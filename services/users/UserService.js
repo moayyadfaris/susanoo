@@ -4,7 +4,7 @@ const DefaultUserDAO = require('../../database/dao/UserDAO')
 const DefaultCountryDAO = require('../../database/dao/CountryDAO')
 const DefaultAttachmentDAO = require('../../database/dao/AttachmentDAO')
 const SessionInvalidationService = require('../auth/session/SessionInvalidationService')
-const { makePasswordHashHelper, makeConfirmOTPHelper, makeUpdateTokenHelper, checkPasswordHelper, jwtHelper } = require('../../helpers').authHelpers
+const { makePasswordHashHelper, makeConfirmOTPHelper, makeEmailConfirmTokenHelper, makeUpdateTokenHelper, checkPasswordHelper, jwtHelper } = require('../../helpers').authHelpers
 const validator = require('validator')
 const config = require('config')
 const crypto = require('crypto')
@@ -65,8 +65,10 @@ class UserService extends BaseService {
       const user = await this.createUserTransaction(userData, logContext)
       const verificationData = await this.initializeVerification(user, logContext)
 
-      this.sendWelcomeNotifications(user, verificationData, logContext)
+      const emailConfirmToken = await this.generateEmailConfirmation(user, logContext)
 
+      this.sendWelcomeNotifications(user, verificationData, logContext, emailConfirmToken)
+      
       const processingTime = Date.now() - startTime
       const response = await this.formatUserResponse(
         user,
@@ -553,39 +555,76 @@ class UserService extends BaseService {
         })
       }
 
-      const user = await this.userDAO.baseGetById(userId)
+      const user = await this.userDAO.baseGetById(userId, {
+        includeHidden: ['emailConfirmToken']
+      })
+      
       if (!user || user.emailConfirmToken !== emailConfirmToken) {
         throw new ErrorWrapper({
           ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN
         })
       }
 
+      const expectedEmail = context.expectedEmail?.toLowerCase?.().trim()
+      if (expectedEmail) {
+        const possibleMatches = [
+          user.email?.toLowerCase(),
+          user.newEmail?.toLowerCase(),
+          tokenPayload.email?.toLowerCase(),
+          tokenPayload.newEmail?.toLowerCase()
+        ].filter(Boolean)
+
+        if (!possibleMatches.includes(expectedEmail)) {
+          throw new ErrorWrapper({
+            ...errorCodes.WRONG_EMAIL_CONFIRM_TOKEN,
+            message: 'Email does not match confirmation token'
+          })
+        }
+      }
+
       const newEmail = user.newEmail
-      if (!newEmail) {
-        throw new ErrorWrapper({
-          ...errorCodes.VALIDATION,
-          message: 'No pending email change request'
+
+      if (newEmail) {
+        await this.userDAO.baseUpdate(userId, {
+          email: newEmail,
+          newEmail: null,
+          emailConfirmToken: null
         })
+
+        this.logger.info('User email changed and confirmed', {
+          userId,
+          newEmail,
+          ip: context.ip,
+          requestId: operationContext.requestId
+        })
+
+        return {
+          message: `${newEmail} confirmed`,
+          data: {
+            userId,
+            email: newEmail
+          }
+        }
       }
 
       await this.userDAO.baseUpdate(userId, {
-        email: newEmail,
-        newEmail: null,
+        isVerified: true,
+        isConfirmedRegistration: true,
         emailConfirmToken: null
       })
 
-      this.logger.info('User email confirmed', {
+      this.logger.info('User registration email confirmed', {
         userId,
-        newEmail,
+        email: user.email,
         ip: context.ip,
         requestId: operationContext.requestId
       })
 
       return {
-        message: `${newEmail} confirmed`,
+        message: `${user.email} confirmed`,
         data: {
           userId,
-          email: newEmail
+          email: user.email
         }
       }
     }, operationContext)
@@ -1001,7 +1040,32 @@ class UserService extends BaseService {
     }
   }
 
-  sendWelcomeNotifications(user, verificationData, logContext) {
+  async generateEmailConfirmation(user, logContext) {
+    try {
+      const emailConfirmToken = await makeEmailConfirmTokenHelper(user)
+
+      await this.userDAO.baseUpdate(user.id, {
+        emailConfirmToken
+      })
+
+      this.logger.debug('Email confirmation token generated', {
+        ...logContext,
+        userId: user.id
+      })
+
+      return emailConfirmToken
+    } catch (error) {
+      this.logger.error('Failed to generate email confirmation token', {
+        ...logContext,
+        error: error.message,
+        userId: user.id
+      })
+
+      return null
+    }
+  }
+
+  sendWelcomeNotifications(user, verificationData, logContext, emailConfirmToken = null) {
     if (!this.notificationClient || typeof this.notificationClient.enqueue !== 'function') {
       this.logger.warn('Notification client not available, skipping welcome notifications', logContext)
       return
@@ -1009,24 +1073,39 @@ class UserService extends BaseService {
 
     setImmediate(async () => {
       try {
+        const jobs = []
+
         if (verificationData.verifyCode) {
-          await this.notificationClient.enqueue({
+          jobs.push(this.notificationClient.enqueue({
             type: notificationType.createUser,
             to: user.mobileNumber,
             code: verificationData.verifyCode,
             name: user.name,
             email: user.email,
             lang: user.preferredLanguage || 'en'
-          })
+          }))
 
-          await this.notificationClient.enqueue({
+          jobs.push(this.notificationClient.enqueue({
             type: notificationType.welcomeEmail,
             to: user.email,
             name: user.name,
             verificationCode: verificationData.verifyCode,
             lang: user.preferredLanguage || 'en'
-          })
+          }))
         }
+
+        if (emailConfirmToken) {
+          const confirmUrl = `${config.app.url}/confirm-email?token=${emailConfirmToken}`
+          jobs.push(this.notificationClient.enqueue({
+            type: notificationType.confirmEmail,
+            to: user.email,
+            emailConfirmToken,
+            subject: `[${config.app.name}] Confirm your email`,
+            text: `Welcome to ${config.app.name}! Confirm your email by visiting: ${confirmUrl}`
+          }))
+        }
+
+        await Promise.all(jobs)
 
         this.logger.info('Welcome notifications sent', {
           ...logContext,

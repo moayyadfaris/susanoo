@@ -6,13 +6,14 @@ const fs = require('fs')
 const path = require('path')
 
 class welcomeEmail {
-  constructor ({ to, code, name, lang } = {}) {
+  constructor ({ to, code, name, lang, emailConfirmToken } = {}) {
     assert.object(arguments[0], { required: true })
     assert.validate(to, UserModel.schema.email, { required: true })
     assert.validate(name, UserModel.schema.name, { required: true })
     assert.validate(code, UserModel.schema.code, { required: true })
     assert.validate(lang, UserModel.schema.preferredLanguage, { required: true })
-    console.log('WelcomeEmail email:', to)
+    assert.validate(emailConfirmToken, UserModel.schema.emailConfirmToken, { required: true })
+
     this.to = to
     this.subject = 'Welcome on board!'
     var emailPath = path.join(__dirname, `templates/registration-mail-shot-${lang}.email`)
@@ -20,6 +21,7 @@ class welcomeEmail {
     email = email.replace('{code}', code)
       .replace('{app.name}', app.name)
       .replace('{user.name}', name)
+      .replace('{user.emailConfirmToken}', emailConfirmToken)
       .replace('{logo_path}', app.url + '/white_logo.png')
     this.text = email
   }

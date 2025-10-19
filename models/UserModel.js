@@ -69,7 +69,7 @@ const schema = {
   }),
   email: new Rule({
     validator: v => {
-      if (!isEmail(v) || v.length > 50) return false
+      if ((typeof v === 'string') && (!isEmail(v) || v.length > 50)) return false
       // Enhanced email security validation
       const forbiddenDomains = ['10minutemail.com', 'tempmail.org', 'guerrillamail.com']
       const domain = v.split('@')[1]?.toLowerCase()
@@ -103,8 +103,8 @@ const schema = {
     description: 'string; email; max 50 chars;'
   }),
   emailConfirmToken: new Rule({
-    validator: v => isJWT(v),
-    description: 'string; jwt;'
+    validator: value => typeof value === 'string' && isJWT(value),
+    description: 'string; JWT email confirmation token'
   }),
   confirmRegisterCode: new Rule({
     validator: v => typeof v === 'string' && v.length >= otp.digits,
@@ -115,12 +115,12 @@ const schema = {
     description: 'string; otp;'
   }),
   resetPasswordToken: new Rule({
-    validator: v => isJWT(v),
-    description: 'string; jwt;'
+    validator: value => typeof value === 'string' && isJWT(value),
+    description: 'string; JWT email confirmation token'
   }),
   updateToken: new Rule({
-    validator: v => isJWT(v),
-    description: 'string; jwt;'
+    validator: value => typeof value === 'string' && isJWT(value),
+    description: 'string; JWT email confirmation token'
   }),
   passwordHash: new Rule({
     validator: v => {

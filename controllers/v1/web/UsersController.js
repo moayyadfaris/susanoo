@@ -278,6 +278,8 @@ class UsersController extends BaseController {
     router.post('/users/send-reset-password-token', this.handlerRunner(handlers.SendResetPasswordTokenHandler))
     router.post('/users/reset-password', this.handlerRunner(handlers.ResetPasswordHandler))
     router.post('/users/confirm-reset-password', this.handlerRunner(handlers.ConfirmResetPasswordTokenHandler))
+    router.post('/users/confirm-email-by-code', this.handlerRunner(handlers.ConfirmEmailByCodeHandler))
+    router.post('/users/confirm-email-by-token', this.handlerRunner(handlers.ConfirmEmailByTokenHandler))
 
     return router
   }
