@@ -1,4 +1,3 @@
-require('../../globals')()
 const { makePasswordHashHelper } = require('../../helpers/').authHelpers
 
 exports.seed = function (knex) {
