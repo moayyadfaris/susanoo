@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Swagger UI – App/Web Switcher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+    <style>
+      body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu; }
+      .toolbar {
+        display: flex; gap: .5rem; align-items: center;
+        padding: .75rem 1rem; border-bottom: 1px solid #e5e7eb; background: #fafafa;
+        position: sticky; top: 0; z-index: 10;
+      }
+      .toolbar label { font-size: .9rem; color: #374151; }
+      .toolbar select, .toolbar input {
+        padding: .4rem .6rem; font-size: .9rem; border: 1px solid #d1d5db; border-radius: .375rem;
+      }
+      .spacer { flex: 1; }
+      #swagger-ui { margin: 0; }
+      /* Optional: hide the built-in topbar */
+      #topbar { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <label for="specSelect">API:</label>
+      <select id="specSelect" title="Choose API spec">
+        <!-- options filled by script -->
+      </select>
+
+      <div class="spacer"></div>
+
+      <label for="customUrl">Custom URL:</label>
+      <input id="customUrl" type="url" placeholder="https://example.com/openapi.json" size="40" />
+      <button id="loadBtn">Load</button>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script>
+      // ---- Configurable list of specs (name + relative URL) ----
+      const SPECS = [
+        { name: "App API", url: "swagger.json" },
+        { name: "Web API", url: "swagger-web.json" },
+      ];
+
+      // ---- Helpers ----
+      const qs = new URLSearchParams(location.search);
+      const saved = localStorage.getItem("preferredSpecUrl");
+      const queryUrl = qs.get("url");
+
+      function initialUrl() {
+        // Priority: ?url=... → saved localStorage → first item
+        if (queryUrl) return queryUrl;
+        if (saved) return saved;
+        return SPECS[0].url;
+      }
+
+      let ui; // Swagger UI instance
+
+      function renderSwagger(specUrl) {
+        // Persist choice (only if same-origin-ish or a common URL)
+        try { localStorage.setItem("preferredSpecUrl", specUrl); } catch (e) {}
+        // (Re)create UI
+        ui = SwaggerUIBundle({
+          url: specUrl,
+          dom_id: "#swagger-ui",
+          deepLinking: true,
+          docExpansion: "none",
+          defaultModelsExpandDepth: 0,
+          displayOperationId: true,
+          displayRequestDuration: true,
+          tryItOutEnabled: true,
+          filter: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: "StandaloneLayout",
+        });
+      }
+
+      function populateSelect(currentUrl) {
+        const sel = document.getElementById("specSelect");
+        sel.innerHTML = ""; // reset
+        // Add built-in specs
+        for (const s of SPECS) {
+          const opt = document.createElement("option");
+          opt.value = s.url;
+          opt.textContent = s.name;
+          sel.appendChild(opt);
+        }
+        // If currentUrl isn't one of the built-ins (e.g., ?url=custom), add it as "[Custom]"
+        if (!SPECS.some(s => sameUrl(s.url, currentUrl))) {
+          const opt = document.createElement("option");
+          opt.value = currentUrl;
+          opt.textContent = "[Custom]";
+          sel.appendChild(opt);
+        }
+        // Select current
+        sel.value = currentUrl;
+      }
+
+      function sameUrl(a, b) {
+        try {
+          const ua = new URL(a, location.href).href;
+          const ub = new URL(b, location.href).href;
+          return ua === ub;
+        } catch { return a === b; }
+      }
+
+      // ---- Wire up UI ----
+      const startUrl = initialUrl();
+      populateSelect(startUrl);
+      renderSwagger(startUrl);
+
+      document.getElementById("specSelect").addEventListener("change", (e) => {
+        const url = e.target.value;
+        renderSwagger(url);
+      });
+
+      document.getElementById("loadBtn").addEventListener("click", () => {
+        const url = document.getElementById("customUrl").value.trim();
+        if (!url) return;
+        renderSwagger(url);
+        populateSelect(url);
+      });
+
+      // If ?url= was provided, show it in the input for convenience
+      if (queryUrl) document.getElementById("customUrl").value = queryUrl;
+
+      // Optional: press "d" for a basic dark toggle
+      document.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() === "d") document.body.classList.toggle("dark");
+      });
+    </script>
+  </body>
+</html>

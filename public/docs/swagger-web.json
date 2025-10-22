@@ -106,7 +106,7 @@
               }
             },
             "required": [
-              "email_or_mobile_number",
+              "email",
               "password",
               "fingerprint"
             ]
@@ -231,35 +231,6 @@
           },
           "403": {
             "description": "Access denied, don't have permissions."
-          }
-        }
-      }
-    },
-    "/web/countries": {
-      "get": {
-        "tags": [
-          "Countries"
-        ],
-        "name": "current",
-        "summary": "Get countries",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "responses": {
-          "200": {
-            "description": "Countries list",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Country"
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
           }
         }
       }
@@ -1067,61 +1038,249 @@
       "allOf": [
         {
           "required": [
-            "id"
+            "id",
+            "userId",
+            "originalName",
+            "mimeType",
+            "size",
+            "path"
           ]
         },
         {
           "properties": {
             "id": {
-              "type": "integer",
-              "format": "integer"
+              "type": "string",
+              "format": "uuid",
+              "description": "Unique attachment identifier"
             },
-            "fullPath": {
-              "type": "string"
-            },
-            "mimeType": {
-              "type": "string"
-            },
-            "size": {
-              "type": "integer"
+            "userId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Owner user ID"
             },
             "originalName": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 255,
+              "description": "Original filename"
+            },
+            "mimeType": {
+              "type": "string",
+              "description": "File MIME type"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1073741824,
+              "description": "File size in bytes"
+            },
+            "path": {
+              "type": "string",
+              "description": "S3 storage path"
+            },
+            "category": {
+              "type": "string",
+              "enum": [
+                "profile_image",
+                "document",
+                "image",
+                "video",
+                "audio",
+                "archive",
+                "other"
+              ],
+              "description": "File category"
+            },
+            "fullPath": {
+              "type": "string",
+              "readOnly": true,
+              "description": "Full URL to file"
             },
             "thumbnails": {
+              "type": "array",
+              "readOnly": true,
+              "description": "Available thumbnail sizes"
+            },
+            "streams": {
+              "type": "array",
+              "readOnly": true,
+              "description": "Video stream variants"
+            },
+            "securityStatus": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "safe",
+                "quarantined",
+                "blocked"
+              ],
+              "description": "Security scan status"
+            },
+            "metadata": {
               "type": "object",
-              "properties": {
-                "path": {
-                  "type": "string"
-                },
-                "dimension": {
-                  "type": "string"
-                }
-              }
+              "description": "File metadata and properties"
             }
           }
         }
       ]
     },
     "Country": {
-      "allOf": [
-        {
-          "required": [
-            "id"
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "iso"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Unique country identifier",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Official country name",
+          "example": "United States"
+        },
+        "niceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Commonly used country name",
+          "example": "United States"
+        },
+        "iso": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "ISO 3166-1 alpha-2 country code",
+          "example": "US"
+        },
+        "iso3": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 3166-1 alpha-3 country code",
+          "example": "USA"
+        },
+        "numcode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999,
+          "description": "ISO 3166-1 numeric country code",
+          "example": 840
+        },
+        "phonecode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999,
+          "description": "International dialing code",
+          "example": 1
+        },
+        "currencyCode": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code",
+          "example": "USD"
+        },
+        "currencyName": {
+          "type": "string",
+          "description": "Currency name",
+          "example": "US Dollar"
+        },
+        "currencySymbol": {
+          "type": "string",
+          "description": "Currency symbol",
+          "example": "$"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Primary timezone",
+          "example": "America/New_York"
+        },
+        "continent": {
+          "type": "string",
+          "enum": [
+            "Africa",
+            "Antarctica",
+            "Asia",
+            "Europe",
+            "North America",
+            "Oceania",
+            "South America"
+          ],
+          "description": "Continental classification",
+          "example": "North America"
+        },
+        "region": {
+          "type": "string",
+          "description": "Regional classification",
+          "example": "Northern America"
+        },
+        "capital": {
+          "type": "string",
+          "description": "Capital city",
+          "example": "Washington, D.C."
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "ISO 639-1 language codes",
+          "example": [
+            "en"
           ]
         },
-        {
-          "properties": {
-            "id": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": {
-              "type": "string"
-            }
-          }
+        "latitude": {
+          "type": "number",
+          "format": "float",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Geographic latitude",
+          "example": 39.8283
+        },
+        "longitude": {
+          "type": "number",
+          "format": "float",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Geographic longitude",
+          "example": -98.5795
+        },
+        "population": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Population count",
+          "example": 331900000
+        },
+        "area": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0,
+          "description": "Area in square kilometers",
+          "example": 9833517
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether country is active",
+          "example": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional country metadata"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
-      ]
+      }
     },
     "Interest": {
       "allOf": [
@@ -1146,42 +1305,123 @@
         }
       ]
     },
-    "storyStatus": {
-      "allOf": [
-        {
-          "required": [
-            "id"
+    "Story": {
+      "type": "object",
+      "required": [
+        "title",
+        "details",
+        "userId",
+        "type",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Unique story identifier",
+          "example": 123
+        },
+        "title": {
+          "type": "string",
+          "description": "Story title",
+          "minLength": 3,
+          "maxLength": 500,
+          "example": "Breaking News: Major Development"
+        },
+        "details": {
+          "type": "string",
+          "description": "Story content/details",
+          "minLength": 10,
+          "maxLength": 10000,
+          "example": "Detailed description of the story..."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "TIP_OFF",
+            "STORY",
+            "REPORT"
+          ],
+          "description": "Story type classification",
+          "example": "STORY"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUBMITTED",
+            "DRAFT",
+            "IN_PROGRESS",
+            "ARCHIVED",
+            "PUBLISHED",
+            "APPROVED",
+            "ASSIGNED",
+            "PENDING",
+            "FOR_REVIEW_SE",
+            "EXPIRED",
+            "DELETED"
+          ],
+          "description": "Current story status",
+          "example": "DRAFT"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Story author/owner ID"
+        },
+        "fromTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Story event start time"
+        },
+        "toTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Story event end time"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "NORMAL",
+            "HIGH",
+            "URGENT"
+          ],
+          "description": "Story priority level",
+          "example": "NORMAL"
+        },
+        "isInEditMode": {
+          "type": "boolean",
+          "description": "Whether story is currently being edited",
+          "example": false
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Associated tags",
+          "example": [
+            "politics",
+            "breaking-news"
           ]
         },
-        {
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "tags": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Tag"
-              }
-            },
-            "title": {
-              "type": "string"
-            },
-            "countryId": {
-              "type": "id"
-            },
-            "details": {
-              "type": "text"
-            },
-            "type": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string"
-            }
-          }
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attachment IDs"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
-      ]
+      }
     },
     "Tag": {
       "allOf": [

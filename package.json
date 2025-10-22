@@ -14,8 +14,8 @@
     "migrate": "NODE_PATH=. knex migrate:latest",
     "rollback": "NODE_PATH=. knex migrate:rollback",
     "seed": "NODE_PATH=. knex seed:run",
-    "docs": "NODE_PATH=. ./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
-    "docs-web": "NODE_PATH=. ./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
+    "docs:app": "NODE_PATH=. ./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/app/**/*.js models/**/*.js -o public/docs/swagger.json",
+    "docs:web": "NODE_PATH=. ./node_modules/swagger-jsdoc/bin/swagger-jsdoc.js -d config/swagger.js controllers/**/web/**/*.js models/**/*.js -o public/docs/swagger-web.json",
     "lint": "NODE_PATH=. ./node_modules/eslint/bin/eslint.js --fix \"**/*.js\"",
     "update:packages": "node wipe-dependencies.js && rm -rf node_modules && npm update --save-dev && npm update --save"
   },

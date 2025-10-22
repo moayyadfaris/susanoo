@@ -74,62 +74,106 @@
           "Authentication"
         ],
         "name": "Login",
-        "summary": "Logs in a user",
+        "summary": "Email-only user authentication - Enhanced security",
+        "description": "Authenticates user with email/password and creates a new session.\nRequires device fingerprinting for enhanced security.\n",
         "produces": [
           "application/json"
         ],
         "consumes": [
           "application/json"
         ],
-        "security": [
-          {
-            "JWT": []
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email",
+                  "password",
+                  "fingerprint"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User email address",
+                    "example": "user@example.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "description": "User password (min 8 characters)",
+                    "minLength": 8
+                  },
+                  "fingerprint": {
+                    "type": "string",
+                    "description": "Device fingerprint for security",
+                    "example": "fp_1234567890abcdef"
+                  },
+                  "rememberMe": {
+                    "type": "boolean",
+                    "description": "Remember login session for extended period",
+                    "default": false
+                  },
+                  "deviceInfo": {
+                    "type": "object",
+                    "description": "Device information for security tracking",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "os": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
-        ],
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "email_or_mobile_number": {
-                  "type": "string"
-                },
-                "password": {
-                  "type": "string",
-                  "format": "password"
-                },
-                "fingerprint": {
+        },
+        "responses": {
+          "200": {
+            "description": "User authenticated successfully",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier",
+                "schema": {
                   "type": "string"
                 }
               }
             },
-            "required": [
-              "email_or_mobile_number",
-              "password",
-              "fingerprint"
-            ]
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "User found and logged in successfully.",
-            "content": null,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean"
-                },
-                "data": {
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "accessToken": {
-                      "type": "string"
+                    "success": {
+                      "type": "boolean",
+                      "example": true
                     },
-                    "refreshToken": {
-                      "type": "string"
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string",
+                          "example": "user-uuid-here"
+                        },
+                        "accessToken": {
+                          "type": "string",
+                          "description": "JWT access token",
+                          "example": "eyJhbGciOiJIUzUxMi..."
+                        },
+                        "refreshToken": {
+                          "type": "string",
+                          "description": "Refresh token for token renewal",
+                          "example": "8883be22-b98e-4d31-91aa-b99e574b502d"
+                        }
+                      }
                     }
                   }
                 }
@@ -137,55 +181,93 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "Bad request - Invalid input data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "401": {
-            "description": "Not verified"
+            "description": "Unauthorized - Invalid credentials"
           },
           "403": {
-            "description": "Invalid credentials"
+            "description": "Forbidden - Account locked or disabled"
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded"
           }
         }
       }
     },
-    "/auth/logout": {
+    "/auth/login/qr-code": {
       "post": {
         "tags": [
           "Authentication"
         ],
-        "name": "Login",
-        "summary": "Logout a user",
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "properties": {
-              "refreshToken": {
-                "type": "string"
+        "summary": "QR Code-based authentication",
+        "description": "Authenticates user via QR code scanning mechanism.\nUsed for mobile app integration and passwordless login.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "qrToken",
+                  "fingerprint"
+                ],
+                "properties": {
+                  "qrToken": {
+                    "type": "string",
+                    "description": "QR code token from scan"
+                  },
+                  "fingerprint": {
+                    "type": "string",
+                    "description": "Device fingerprint for security"
+                  }
+                }
               }
             }
           }
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "security": [
-          {
-            "JWT": []
-          }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "User is logged out from current session."
+            "description": "QR authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad request."
+            "description": "Invalid QR token"
           },
-          "403": {
-            "description": "Access denied, don't have permissions."
+          "401": {
+            "description": "QR token expired or unauthorized"
           }
         }
       }
@@ -195,67 +277,1153 @@
         "tags": [
           "Authentication"
         ],
-        "name": "Refresh Tokens",
-        "summary": "Get Refresh Token for login user",
-        "parameters": [
+        "summary": "Refresh authentication tokens",
+        "description": "Exchanges a valid refresh token for new access and refresh tokens.\nImplements secure token rotation for enhanced security.\n",
+        "security": [
           {
-            "name": "body",
-            "in": "body",
-            "properties": {
-              "refreshToken": {
-                "type": "string"
-              },
-              "fingerprint": {
-                "type": "string"
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "refreshToken",
+                  "fingerprint"
+                ],
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Valid refresh token"
+                  },
+                  "fingerprint": {
+                    "type": "string",
+                    "description": "Device fingerprint for verification"
+                  }
+                }
               }
             }
           }
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "security": [
-          {
-            "JWT": []
-          }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "User is logged out from current session."
+            "description": "Tokens refreshed successfully",
+            "headers": {
+              "X-Session-Rotated": {
+                "description": "Indicates session was rotated",
+                "schema": {
+                  "type": "string",
+                  "example": "1"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "userId": {
+                          "type": "string"
+                        },
+                        "accessToken": {
+                          "type": "string"
+                        },
+                        "refreshToken": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad request."
+            "description": "Invalid refresh token format"
+          },
+          "401": {
+            "description": "Refresh token expired or invalid"
           },
           "403": {
-            "description": "Access denied, don't have permissions."
+            "description": "User account deactivated"
           }
         }
       }
     },
-    "/config": {
-      "get": {
+    "/auth/logout": {
+      "post": {
         "tags": [
-          "Config"
+          "Authentication"
         ],
-        "summary": "Get App config",
-        "produces": [
-          "application/json"
+        "summary": "Logout from current session",
+        "description": "Invalidates the current user session. Supports logout from current device\nor all devices based on the logoutAll parameter.\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ],
-        "consumes": [
-          "application/json"
-        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "refreshToken"
+                ],
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Current session refresh token"
+                  },
+                  "logoutAll": {
+                    "type": "boolean",
+                    "description": "Logout from all devices",
+                    "default": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "user_initiated",
+                      "security_concern",
+                      "admin_forced",
+                      "token_refresh"
+                    ],
+                    "description": "Reason for logout (for audit trails)",
+                    "default": "user_initiated"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Countries list",
-            "schema": {
-              "type": "array"
+            "description": "Logout successful",
+            "headers": {
+              "X-Logout-Session-ID": {
+                "description": "ID of the session that was logged out",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Sessions-Invalidated": {
+                "description": "Number of sessions invalidated",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "sessionsInvalidated": {
+                          "type": "integer"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "properties": {
+                            "logoutType": {
+                              "type": "string",
+                              "enum": [
+                                "current_device",
+                                "all_devices"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "Invalid request parameters"
+          },
+          "401": {
+            "description": "Invalid or expired access token"
+          },
+          "403": {
+            "description": "Session ownership mismatch"
+          }
+        }
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Logout from all sessions with optional current session exclusion",
+        "description": "Invalidates all user sessions. Supports two modes:\n- Default: Logout from ALL sessions (legacy behavior)\n- excludeCurrent: Logout from all OTHER sessions, keep current session active\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "excludeCurrent": {
+                    "type": "boolean",
+                    "description": "When true, preserve current session and invalidate all others",
+                    "default": false
+                  },
+                  "sessionId": {
+                    "type": "integer",
+                    "description": "Current session ID (required when excludeCurrent=true)"
+                  },
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Current refresh token (alternative to sessionId when excludeCurrent=true)"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "user_initiated",
+                      "security_concern",
+                      "admin_forced",
+                      "token_refresh"
+                    ],
+                    "description": "Reason for logout (for audit trails)",
+                    "default": "user_initiated"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sessions invalidated successfully",
+            "headers": {
+              "X-Sessions-Invalidated": {
+                "description": "Number of sessions that were invalidated",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Logout-Mode": {
+                "description": "Logout mode used (all or others_only)",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "all",
+                    "others_only"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "sessionsInvalidated": {
+                          "type": "integer"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "metadata": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "all",
+                                "others_only"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "401": {
+            "description": "Invalid or expired access token"
+          },
+          "422": {
+            "description": "Validation error - excludeCurrent requires sessionId or refreshToken"
+          }
+        }
+      }
+    },
+    "/auth/sessions": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "List user sessions with advanced filtering and analytics - Enterprise Edition",
+        "description": "Enterprise-grade session management endpoint that retrieves comprehensive session data\nwith advanced filtering, security risk assessment, device analytics, and geolocation.\n\n**Key Features:**\n- Advanced pagination and filtering\n- Security risk assessment for each session\n- Device fingerprinting and geolocation enrichment\n- Data anonymization capabilities\n- Session health monitoring and expiry prediction\n- Performance metrics and structured logging\n\n**Security Features:**\n- Current session identification\n- Risk scoring and security recommendations\n- IP address masking and data anonymization\n- Session activity monitoring\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number for pagination (0-based)",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000,
+              "default": 0,
+              "example": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of sessions per page",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                5,
+                10,
+                20,
+                25,
+                50,
+                100
+              ],
+              "default": 10,
+              "example": 20
+            }
+          },
+          {
+            "name": "includeExpired",
+            "in": "query",
+            "description": "Include expired sessions in results",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "example": true
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "description": "Sort field for session ordering",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "expiredAt",
+                "ip",
+                "location"
+              ],
+              "default": "createdAt",
+              "example": "expiredAt"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "description": "Sort order (ascending or descending)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc",
+              "example": "desc"
+            }
+          },
+          {
+            "name": "filterByDevice",
+            "in": "query",
+            "description": "Filter sessions by device type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mobile",
+                "desktop",
+                "tablet",
+                "bot"
+              ],
+              "example": "desktop"
+            }
+          },
+          {
+            "name": "filterByStatus",
+            "in": "query",
+            "description": "Filter sessions by status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "expired",
+                "expiring"
+              ],
+              "example": "active"
+            }
+          },
+          {
+            "name": "includeRiskAssessment",
+            "in": "query",
+            "description": "Include security risk assessment for each session",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "example": true
+            }
+          },
+          {
+            "name": "anonymizeData",
+            "in": "query",
+            "description": "Anonymize sensitive data (IPs, partial tokens)",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "example": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sessions retrieved successfully with comprehensive metadata",
+            "headers": {
+              "X-Total-Sessions": {
+                "description": "Total number of sessions for this user",
+                "schema": {
+                  "type": "string",
+                  "example": "15"
+                }
+              },
+              "X-Active-Sessions": {
+                "description": "Number of currently active sessions",
+                "schema": {
+                  "type": "string",
+                  "example": "3"
+                }
+              },
+              "X-Current-Session-Included": {
+                "description": "Whether current session is included in results",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "0",
+                    "1"
+                  ],
+                  "example": "1"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "User sessions retrieved successfully"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "description": "Session unique identifier",
+                            "example": 114
+                          },
+                          "ip": {
+                            "type": "string",
+                            "description": "IP address (anonymized if anonymizeData=true)",
+                            "example": "192.168.xxx.xxx"
+                          },
+                          "location": {
+                            "type": "object",
+                            "description": "Geolocation information",
+                            "properties": {
+                              "country": {
+                                "type": "string",
+                                "example": "United States"
+                              },
+                              "region": {
+                                "type": "string",
+                                "example": "California"
+                              },
+                              "city": {
+                                "type": "string",
+                                "example": "San Francisco"
+                              },
+                              "timezone": {
+                                "type": "string",
+                                "example": "America/Los_Angeles"
+                              }
+                            }
+                          },
+                          "device": {
+                            "type": "object",
+                            "description": "Device information and user agent analysis",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "mobile",
+                                  "desktop",
+                                  "tablet",
+                                  "bot"
+                                ],
+                                "example": "desktop"
+                              },
+                              "browser": {
+                                "type": "string",
+                                "example": "Chrome"
+                              },
+                              "browserVersion": {
+                                "type": "string",
+                                "example": "118.0.0.0"
+                              },
+                              "os": {
+                                "type": "string",
+                                "example": "macOS"
+                              },
+                              "osVersion": {
+                                "type": "string",
+                                "example": "14.1"
+                              },
+                              "platform": {
+                                "type": "string",
+                                "example": "Apple MacBook Pro"
+                              }
+                            }
+                          },
+                          "timing": {
+                            "type": "object",
+                            "description": "Session timing and lifecycle information",
+                            "properties": {
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2025-10-11T18:19:46.719Z"
+                              },
+                              "expiredAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2025-10-11T19:19:46.716Z"
+                              },
+                              "timeToExpiry": {
+                                "type": "string",
+                                "description": "Human-readable time until expiration",
+                                "example": "2 hours"
+                              },
+                              "sessionAge": {
+                                "type": "string",
+                                "description": "How long session has been active",
+                                "example": "30 minutes"
+                              }
+                            }
+                          },
+                          "status": {
+                            "type": "object",
+                            "description": "Session status and health indicators",
+                            "properties": {
+                              "isActive": {
+                                "type": "boolean",
+                                "description": "Whether session is currently active",
+                                "example": true
+                              },
+                              "isCurrent": {
+                                "type": "boolean",
+                                "description": "Whether this is the current session making the request",
+                                "example": true
+                              },
+                              "isExpiring": {
+                                "type": "boolean",
+                                "description": "Whether session expires within 24 hours",
+                                "example": false
+                              },
+                              "health": {
+                                "type": "string",
+                                "enum": [
+                                  "healthy",
+                                  "new",
+                                  "expiring",
+                                  "expired"
+                                ],
+                                "example": "healthy"
+                              }
+                            }
+                          },
+                          "security": {
+                            "type": "object",
+                            "nullable": true,
+                            "description": "Security risk assessment (only when includeRiskAssessment=true)",
+                            "properties": {
+                              "score": {
+                                "type": "integer",
+                                "description": "Risk score (0-100)",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "example": 15
+                              },
+                              "level": {
+                                "type": "string",
+                                "enum": [
+                                  "low",
+                                  "medium",
+                                  "high"
+                                ],
+                                "example": "low"
+                              },
+                              "factors": {
+                                "type": "array",
+                                "description": "List of risk factors detected",
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "automated_client",
+                                    "outdated_browser",
+                                    "unknown_location",
+                                    "long_lived_session"
+                                  ]
+                                },
+                                "example": [
+                                  "outdated_browser"
+                                ]
+                              },
+                              "recommendations": {
+                                "type": "array",
+                                "description": "Security recommendations",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "example": [
+                                  "Encourage user to update their browser"
+                                ]
+                              }
+                            }
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "description": "Additional session metadata",
+                            "properties": {
+                              "fingerprint": {
+                                "type": "string",
+                                "description": "Device fingerprint (anonymized if anonymizeData=true)",
+                                "example": "123-123-xxxxxxxx"
+                              },
+                              "userAgent": {
+                                "type": "string",
+                                "description": "User agent string (truncated if anonymizeData=true)",
+                                "example": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)..."
+                              },
+                              "refreshTokenPrefix": {
+                                "type": "string",
+                                "description": "Refresh token prefix (only when anonymizeData=true)",
+                                "example": "c7d06740..."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "description": "Response metadata and analytics",
+                      "properties": {
+                        "sessionSummary": {
+                          "type": "object",
+                          "description": "Summary statistics for all sessions",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "example": 15
+                            },
+                            "active": {
+                              "type": "integer",
+                              "example": 3
+                            },
+                            "expired": {
+                              "type": "integer",
+                              "example": 12
+                            },
+                            "deviceDistribution": {
+                              "type": "object",
+                              "description": "Breakdown by device type",
+                              "example": {
+                                "desktop": 10,
+                                "mobile": 5
+                              }
+                            },
+                            "geographicDistribution": {
+                              "type": "object",
+                              "description": "Breakdown by country",
+                              "example": {
+                                "United States": 12,
+                                "Canada": 3
+                              }
+                            },
+                            "parameters": {
+                              "type": "object",
+                              "description": "Query parameters used",
+                              "properties": {
+                                "includeExpired": {
+                                  "type": "boolean"
+                                },
+                                "sortBy": {
+                                  "type": "string"
+                                },
+                                "filterByDevice": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "securityInsights": {
+                          "type": "object",
+                          "nullable": true,
+                          "description": "Security analysis (only when includeRiskAssessment=true)",
+                          "properties": {
+                            "totalRiskScore": {
+                              "type": "integer",
+                              "description": "Cumulative risk score across all sessions"
+                            },
+                            "highRiskSessions": {
+                              "type": "integer",
+                              "description": "Number of high-risk sessions"
+                            },
+                            "suspiciousActivities": {
+                              "type": "array",
+                              "description": "List of sessions with suspicious activity",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "sessionId": {
+                                    "type": "integer"
+                                  },
+                                  "location": {
+                                    "type": "object"
+                                  },
+                                  "device": {
+                                    "type": "object"
+                                  },
+                                  "riskFactors": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "recommendations": {
+                              "type": "array",
+                              "description": "Overall security recommendations",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        "queryParameters": {
+                          "type": "object",
+                          "description": "Processed query parameters"
+                        },
+                        "generatedAt": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Response generation timestamp"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "Unique request identifier"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Response timestamp"
+                        },
+                        "executionTime": {
+                          "type": "string",
+                          "description": "Request processing time",
+                          "example": "311ms"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidLimit": {
+                    "summary": "Invalid limit parameter",
+                    "value": {
+                      "success": false,
+                      "error": "VALIDATION_ERROR",
+                      "message": "Invalid limit value. Allowed values: [5, 10, 20, 25, 50, 100]"
+                    }
+                  },
+                  "invalidPage": {
+                    "summary": "Invalid page parameter",
+                    "value": {
+                      "success": false,
+                      "error": "VALIDATION_ERROR",
+                      "message": "Page number must be between 0 and 1000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied - User account deactivated or insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Session retrieval failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/_health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Authentication controller health check",
+        "description": "Returns health status of the authentication controller (development only)",
+        "responses": {
+          "200": {
+            "description": "Controller is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "controller": {
+                          "type": "string"
+                        },
+                        "endpoints": {
+                          "type": "integer"
+                        },
+                        "uptime": {
+                          "type": "number"
+                        },
+                        "timestamp": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/_metrics": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Authentication controller metrics",
+        "description": "Returns performance metrics for the authentication controller (development only)",
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {
+                          "type": "object"
+                        },
+                        "errors": {
+                          "type": "object"
+                        },
+                        "securityEvents": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "List story categories",
+        "description": "Retrieve all story categories with optional search and pagination.",
+        "operationId": "listCategories",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search term to filter categories by name or slug"
+          },
+          {
+            "in": "query",
+            "name": "isActive",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter by active state"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page number (zero based)"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size (max 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated categories response"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Create a new category",
+        "description": "Creates a new story category. Requires administrative access.",
+        "operationId": "createCategory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "slug"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created successfully"
+          }
+        }
+      }
+    },
+    "/categories/{id}": {
+      "patch": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Update an existing category",
+        "description": "Updates the details of a category. Requires administrative access.",
+        "operationId": "updateCategory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Category identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "Delete a category",
+        "description": "Deletes a category and unlinks it from all stories.",
+        "operationId": "deleteCategory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Category identifier"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Category deleted"
           }
         }
       }
@@ -265,28 +1433,786 @@
         "tags": [
           "Countries"
         ],
-        "name": "current",
-        "summary": "Get countries",
-        "produces": [
-          "application/json"
+        "summary": "List countries with advanced filtering and search",
+        "description": "Retrieve a comprehensive list of countries with powerful filtering, search, and pagination capabilities.\n\n## 🚀 **Advanced Features**\n\n### **Search & Filtering**\n- **Text Search**: Search by country name, nice name, or ISO codes\n- **Regional Filtering**: Filter by geographical regions\n- **Status Filtering**: Filter by active/inactive status\n- **Code Filtering**: Filter by ISO codes, phone codes, or numeric codes\n- **Multiple Filter Formats**: Support for JSON objects and bracket notation\n\n### **Response Formats**\n- **Full Format** (default): Complete country information\n- **Minimal Format**: Essential fields only (id, name, iso, phonecode)\n- **Codes Only**: ISO codes and names for lightweight responses\n\n### **Grouping & Organization**\n- **Regional Grouping**: Group countries by geographical regions\n- **Phone Code Grouping**: Group by international calling codes\n\n### **Performance Optimization**\n- **Intelligent Caching**: Redis-backed caching for improved performance\n- **Field Selection**: Choose specific fields to reduce payload size\n- **Pagination**: Efficient large dataset handling\n\n## 📋 **Usage Examples**\n\n```bash\n# Basic country listing\nGET /api/v1/countries?page=0&limit=20\n\n# Search for countries containing \"jordan\"\nGET /api/v1/countries?search=jordan\n\n# Filter by region using bracket notation\nGET /api/v1/countries?filter[region]=europe&filter[isActive]=true\n\n# Complex filtering with JSON\nGET /api/v1/countries?filter={\"region\":\"asia\",\"phonecode\":1}\n\n# Custom field selection for lightweight responses\nGET /api/v1/countries?fields=id,name,iso,phonecode&format=minimal\n\n# Regional grouping with codes-only format\nGET /api/v1/countries?groupBy=region&format=codes-only\n\n# Advanced search with multiple criteria\nGET /api/v1/countries?search=united&filter[isActive]=true&fields=name,iso,phonecode\n```\n\n## 🌍 **Supported Regions**\n- `europe` - European countries\n- `asia` - Asian countries  \n- `africa` - African countries\n- `north_america` - North American countries\n- `south_america` - South American countries\n- `oceania` - Oceania countries\n\n## ⚡ **Performance Notes**\n- Results are cached for 1 hour by default\n- Maximum page size is 1000 items\n- Field selection can significantly reduce response size\n- Regional grouping may increase response time for large datasets\n",
+        "operationId": "listCountries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number for pagination (0-based indexing).\n\n**Examples:**\n- `0` - First page\n- `1` - Second page\n- `5` - Sixth page\n",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "example": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of results per page. Maximum allowed is 1000.\n\n**Recommended values:**\n- `20` - For mobile applications\n- `50` - For web applications (default)\n- `100` - For bulk operations\n- `1000` - For data exports (maximum)\n",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50,
+              "example": 20
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Search term to filter countries. Searches across:\n- Country name (e.g., \"United States\")\n- Nice name (e.g., \"Jordan\")  \n- ISO 2-letter codes (e.g., \"US\", \"JO\")\n- ISO 3-letter codes (e.g., \"USA\", \"JOR\")\n\n**Search is case-insensitive and supports partial matching.**\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "example": "jordan"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "Advanced filtering using JSON object format. Can be provided as:\n\n**JSON String Format:**\n```json\n{\"region\":\"europe\",\"isActive\":true,\"phonecode\":1}\n```\n\n**URL Encoded Format:**\n```\n%7B%22region%22%3A%22europe%22%2C%22isActive%22%3Atrue%7D\n```\n\n**Supported Filter Fields:**\n- `name` - Filter by country name (partial match)\n- `nicename` - Filter by nice name (partial match)\n- `iso` - Filter by 2-letter ISO code (exact match)\n- `iso3` - Filter by 3-letter ISO code (exact match)  \n- `phonecode` - Filter by international calling code\n- `numcode` - Filter by numeric country code\n- `isActive` - Filter by active status (boolean)\n- `region` - Filter by geographical region\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "{\"region\":\"asia\",\"isActive\":true}"
+            }
+          },
+          {
+            "name": "filter[name]",
+            "in": "query",
+            "description": "Filter by country name using bracket notation (alternative to JSON filter)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "example": "United"
+            }
+          },
+          {
+            "name": "filter[region]",
+            "in": "query",
+            "description": "Filter by geographical region using bracket notation",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "europe",
+                "asia",
+                "africa",
+                "north_america",
+                "south_america",
+                "oceania"
+              ],
+              "example": "europe"
+            }
+          },
+          {
+            "name": "filter[iso]",
+            "in": "query",
+            "description": "Filter by 2-letter ISO code using bracket notation",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[A-Z]{2}$",
+              "example": "US"
+            }
+          },
+          {
+            "name": "filter[iso3]",
+            "in": "query",
+            "description": "Filter by 3-letter ISO code using bracket notation",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "pattern": "^[A-Z]{3}$",
+              "example": "USA"
+            }
+          },
+          {
+            "name": "filter[phonecode]",
+            "in": "query",
+            "description": "Filter by international calling code using bracket notation",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 999,
+              "example": 1
+            }
+          },
+          {
+            "name": "filter[isActive]",
+            "in": "query",
+            "description": "Filter by active status using bracket notation",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "example": true
+            }
+          },
+          {
+            "name": "fields",
+            "in": "query",
+            "description": "Comma-separated list of fields to include in the response.\nHelps reduce payload size for better performance.\n\n**Available Fields:**\n- `id` - Unique country identifier\n- `name` - Official country name\n- `nicename` - Friendly country name\n- `iso` - 2-letter ISO code\n- `iso3` - 3-letter ISO code\n- `phonecode` - International calling code\n- `numcode` - Numeric country code\n- `isActive` - Active status flag\n\n**Example combinations:**\n- Essential: `id,name,iso`\n- Phone directory: `name,phonecode,iso`\n- Mapping: `name,iso,iso3`\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "id,name,iso,phonecode"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Response format to control the amount of data returned:\n\n- **full** (default): Complete country information with all fields\n- **minimal**: Essential fields only (id, name, iso, phonecode)\n- **codes-only**: Just ISO codes and country names for lightweight responses\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "full",
+                "minimal",
+                "codes-only"
+              ],
+              "default": "full",
+              "example": "minimal"
+            }
+          },
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Group results by specified field for organized data presentation:\n\n- **region**: Group countries by geographical regions\n- **phonecode**: Group countries by international calling codes\n\nWhen grouping is enabled, the response structure changes to an object\nwith group names as keys and country arrays as values.\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "region",
+                "phonecode"
+              ],
+              "example": "region"
+            }
+          },
+          {
+            "name": "useCache",
+            "in": "query",
+            "description": "Control caching behavior for the request:\n\n- `true` (default): Use cached results when available\n- `false`: Force fresh data from database\n\n**Note:** Disabling cache may increase response time but ensures\nthe most up-to-date data.\n",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "example": true
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort results by specified field and direction.\n\n**Format:** `field:direction`\n\n**Available fields:** name, iso, phonecode, numcode\n**Directions:** asc (ascending), desc (descending)\n\n**Examples:**\n- `name:asc` - Sort by name A-Z (default)\n- `name:desc` - Sort by name Z-A  \n- `phonecode:asc` - Sort by phone code ascending\n",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(name|iso|phonecode|numcode):(asc|desc)$",
+              "default": "name:asc",
+              "example": "name:asc"
+            }
+          }
         ],
-        "consumes": [
+        "produces": [
           "application/json"
         ],
         "responses": {
           "200": {
-            "description": "Countries list",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Country"
+            "description": "**Successful response with countries data and comprehensive metadata**\n\nThe response includes:\n- **data**: Array of country objects (or grouped object when groupBy is used)\n- **meta**: Comprehensive metadata including pagination, query info, and performance metrics\n- **headers**: Additional response headers for caching and identification\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "array",
+                          "description": "Array of country objects (when groupBy is not used)",
+                          "items": {
+                            "$ref": "#/definitions/Country"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "description": "Grouped countries object (when groupBy is used)",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/definitions/Country"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "pagination": {
+                          "type": "object",
+                          "description": "Pagination information",
+                          "properties": {
+                            "page": {
+                              "type": "integer",
+                              "description": "Current page number (0-based)",
+                              "example": 0
+                            },
+                            "limit": {
+                              "type": "integer",
+                              "description": "Results per page",
+                              "example": 50
+                            },
+                            "total": {
+                              "type": "integer",
+                              "description": "Total number of countries matching criteria",
+                              "example": 195
+                            },
+                            "pages": {
+                              "type": "integer",
+                              "description": "Total number of pages",
+                              "example": 4
+                            }
+                          }
+                        },
+                        "query": {
+                          "type": "object",
+                          "description": "Applied query parameters",
+                          "properties": {
+                            "search": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Applied search term",
+                              "example": "jordan"
+                            },
+                            "filters": {
+                              "type": "object",
+                              "description": "Applied filter conditions",
+                              "example": {
+                                "region": "asia",
+                                "isActive": true
+                              }
+                            },
+                            "format": {
+                              "type": "string",
+                              "description": "Applied response format",
+                              "example": "full"
+                            },
+                            "groupBy": {
+                              "type": "string",
+                              "nullable": true,
+                              "description": "Applied grouping field",
+                              "example": "region"
+                            },
+                            "fields": {
+                              "type": "array",
+                              "nullable": true,
+                              "description": "Selected fields (if any)",
+                              "items": {
+                                "type": "string"
+                              },
+                              "example": [
+                                "id",
+                                "name",
+                                "iso"
+                              ]
+                            }
+                          }
+                        },
+                        "performance": {
+                          "type": "object",
+                          "description": "Performance and caching information",
+                          "properties": {
+                            "duration": {
+                              "type": "integer",
+                              "description": "Request processing time in milliseconds",
+                              "example": 45
+                            },
+                            "cacheHit": {
+                              "type": "boolean",
+                              "description": "Whether the result was served from cache",
+                              "example": true
+                            },
+                            "source": {
+                              "type": "string",
+                              "description": "Data source (cache or database)",
+                              "enum": [
+                                "cache",
+                                "database"
+                              ],
+                              "example": "cache"
+                            }
+                          }
+                        },
+                        "regions": {
+                          "type": "array",
+                          "nullable": true,
+                          "description": "Available regions (when groupBy=region is used)",
+                          "items": {
+                            "type": "string"
+                          },
+                          "example": [
+                            "Europe",
+                            "Asia",
+                            "Africa"
+                          ]
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Response generation timestamp",
+                          "example": "2025-10-12T14:30:00Z"
+                        },
+                        "version": {
+                          "type": "string",
+                          "description": "API version",
+                          "example": "2.0.0"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "basic_list": {
+                    "summary": "Basic country listing",
+                    "value": {
+                      "data": [
+                        {
+                          "id": 1,
+                          "name": "Afghanistan",
+                          "nicename": "Afghanistan",
+                          "iso": "AF",
+                          "iso3": "AFG",
+                          "phonecode": 93,
+                          "numcode": 4,
+                          "isActive": true
+                        },
+                        {
+                          "id": 2,
+                          "name": "Albania",
+                          "nicename": "Albania",
+                          "iso": "AL",
+                          "iso3": "ALB",
+                          "phonecode": 355,
+                          "numcode": 8,
+                          "isActive": true
+                        }
+                      ],
+                      "meta": {
+                        "pagination": {
+                          "page": 0,
+                          "limit": 50,
+                          "total": 195,
+                          "pages": 4
+                        },
+                        "query": {
+                          "search": null,
+                          "filters": {},
+                          "format": "full",
+                          "groupBy": null
+                        },
+                        "performance": {
+                          "duration": 23,
+                          "cacheHit": true,
+                          "source": "cache"
+                        }
+                      }
+                    }
+                  },
+                  "regional_grouping": {
+                    "summary": "Countries grouped by region",
+                    "value": {
+                      "data": {
+                        "Europe": [
+                          {
+                            "id": 15,
+                            "name": "Austria",
+                            "iso": "AT",
+                            "phonecode": 43
+                          },
+                          {
+                            "id": 21,
+                            "name": "Belgium",
+                            "iso": "BE",
+                            "phonecode": 32
+                          }
+                        ],
+                        "Asia": [
+                          {
+                            "id": 108,
+                            "name": "Jordan",
+                            "iso": "JO",
+                            "phonecode": 962
+                          }
+                        ]
+                      },
+                      "meta": {
+                        "pagination": {
+                          "page": 0,
+                          "limit": 1000,
+                          "total": 195,
+                          "pages": 1
+                        },
+                        "query": {
+                          "groupBy": "region",
+                          "format": "minimal"
+                        },
+                        "regions": [
+                          "Europe",
+                          "Asia",
+                          "Africa",
+                          "North America",
+                          "South America",
+                          "Oceania"
+                        ]
+                      }
+                    }
+                  },
+                  "minimal_format": {
+                    "summary": "Minimal format response",
+                    "value": {
+                      "data": [
+                        {
+                          "id": 108,
+                          "name": "Jordan",
+                          "iso": "JO",
+                          "phonecode": 962
+                        }
+                      ],
+                      "meta": {
+                        "query": {
+                          "search": "jordan",
+                          "format": "minimal"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracking",
+                "schema": {
+                  "type": "string",
+                  "example": "req_1234567890abcdef"
+                }
+              },
+              "X-Total-Count": {
+                "description": "Total number of countries matching the criteria",
+                "schema": {
+                  "type": "string",
+                  "example": "195"
+                }
+              },
+              "X-Page": {
+                "description": "Current page number (0-based)",
+                "schema": {
+                  "type": "string",
+                  "example": "0"
+                }
+              },
+              "X-Limit": {
+                "description": "Number of results per page",
+                "schema": {
+                  "type": "string",
+                  "example": "50"
+                }
+              },
+              "X-Performance": {
+                "description": "Request processing time",
+                "schema": {
+                  "type": "string",
+                  "example": "45ms"
+                }
+              },
+              "Cache-Control": {
+                "description": "Cache control directives",
+                "schema": {
+                  "type": "string",
+                  "example": "public, max-age=3600"
+                }
+              },
+              "Vary": {
+                "description": "Response variation headers",
+                "schema": {
+                  "type": "string",
+                  "example": "Accept, Accept-Language"
+                }
               }
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "**Bad Request - Invalid parameters or validation errors**\n\nCommon causes:\n- Invalid filter JSON format\n- Invalid region names\n- Invalid ISO code format\n- Invalid pagination parameters\n- Invalid field names in field selection\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "example": "VALIDATION_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Invalid region 'invalid_region'. Valid regions: europe, asia, africa, north_america, south_america, oceania"
+                        },
+                        "layer": {
+                          "type": "string",
+                          "example": "CountriesController"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req_1234567890abcdef"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2025-10-12T14:30:00Z"
+                        },
+                        "details": {
+                          "type": "object",
+                          "description": "Additional error details"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "invalid_region": {
+                    "summary": "Invalid region filter",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Invalid region 'invalid_region'. Valid regions: europe, asia, africa, north_america, south_america, oceania",
+                        "layer": "CountriesController"
+                      }
+                    }
+                  },
+                  "invalid_json_filter": {
+                    "summary": "Invalid JSON in filter parameter",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Invalid JSON in filter parameter: Unexpected token 'i' at position 1",
+                        "layer": "CountriesController"
+                      }
+                    }
+                  },
+                  "invalid_iso_code": {
+                    "summary": "Invalid ISO code format",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "ISO code must be exactly 2 characters",
+                        "layer": "CountriesController"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "**Too Many Requests - Rate limit exceeded**\n\nThe client has exceeded the allowed number of requests per time window.\nPlease reduce request frequency and try again later.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "example": "RATE_LIMIT_EXCEEDED"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Too many requests. Please try again later."
+                        },
+                        "retryAfter": {
+                          "type": "integer",
+                          "description": "Seconds to wait before retrying",
+                          "example": 60
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before making another request",
+                "schema": {
+                  "type": "integer",
+                  "example": 60
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Request limit per time window",
+                "schema": {
+                  "type": "integer",
+                  "example": 100
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Remaining requests in current window",
+                "schema": {
+                  "type": "integer",
+                  "example": 0
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when the rate limit resets",
+                "schema": {
+                  "type": "integer",
+                  "example": 1634567890
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "**Internal Server Error - Unexpected server error**\n\nAn unexpected error occurred while processing the request.\nThe error has been logged and will be investigated.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "example": "INTERNAL_SERVER_ERROR"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "An unexpected error occurred while processing your request"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "example": "req_1234567890abcdef"
+                        },
+                        "timestamp": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2025-10-12T14:30:00Z"
+                        }
+                      }
+                    }
+                  }
+                },
+                "examples": {
+                  "server_error": {
+                    "summary": "Generic server error",
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_SERVER_ERROR",
+                        "message": "An unexpected error occurred while processing your request",
+                        "requestId": "req_1234567890abcdef",
+                        "timestamp": "2025-10-12T14:30:00Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "**Service Unavailable - Service temporarily unavailable**\n\nThe service is temporarily unavailable due to maintenance\nor high load. Please try again later.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "example": "SERVICE_UNAVAILABLE"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "Service temporarily unavailable. Please try again later."
+                        },
+                        "estimatedRecovery": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2025-10-12T15:00:00Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying",
+                "schema": {
+                  "type": "integer",
+                  "example": 300
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "x-code-samples": [
+          {
+            "lang": "JavaScript",
+            "source": "// Basic fetch example\nconst response = await fetch('/api/v1/countries?page=0&limit=20');\nconst data = await response.json();\nconsole.log('Countries:', data.data);\n\n// Advanced filtering\nconst filtered = await fetch('/api/v1/countries?filter={\"region\":\"asia\",\"isActive\":true}');\nconst asianCountries = await filtered.json();\n\n// Using field selection for performance\nconst minimal = await fetch('/api/v1/countries?fields=id,name,iso&format=minimal');\nconst essentialData = await minimal.json();\n"
+          },
+          {
+            "lang": "curl",
+            "source": "# Basic listing\ncurl -X GET \"https://api.example.com/v1/countries?page=0&limit=20\" \\\n     -H \"Accept: application/json\"\n\n# Search for countries\ncurl -X GET \"https://api.example.com/v1/countries?search=jordan\" \\\n     -H \"Accept: application/json\"\n\n# Regional filtering with bracket notation\ncurl -X GET \"https://api.example.com/v1/countries?filter[region]=europe&filter[isActive]=true\" \\\n     -H \"Accept: application/json\"\n\n# Complex JSON filtering (URL encoded)\ncurl -X GET \"https://api.example.com/v1/countries?filter=%7B%22region%22%3A%22asia%22%2C%22phonecode%22%3A1%7D\" \\\n     -H \"Accept: application/json\"\n\n# Custom fields with minimal format\ncurl -X GET \"https://api.example.com/v1/countries?fields=id,name,iso,phonecode&format=minimal\" \\\n     -H \"Accept: application/json\"\n\n# Regional grouping\ncurl -X GET \"https://api.example.com/v1/countries?groupBy=region&format=codes-only\" \\\n     -H \"Accept: application/json\"\n"
+          },
+          {
+            "lang": "Python",
+            "source": "import requests\n\n# Basic request\nresponse = requests.get('https://api.example.com/v1/countries', \n                        params={'page': 0, 'limit': 20})\ncountries = response.json()['data']\n\n# Advanced filtering\nfilter_params = {\n    'filter': '{\"region\":\"europe\",\"isActive\":true}',\n    'format': 'minimal'\n}\nfiltered = requests.get('https://api.example.com/v1/countries', \n                        params=filter_params)\n\n# Using bracket notation\nbracket_params = {\n    'filter[region]': 'asia',\n    'filter[phonecode]': 1,\n    'fields': 'id,name,iso,phonecode'\n}\nresults = requests.get('https://api.example.com/v1/countries', \n                       params=bracket_params)\n"
+          }
+        ],
+        "x-performance-notes": [
+          "Cache TTL is 1 hour for optimal performance",
+          "Field selection can reduce response size by up to 70%",
+          "Regional grouping adds ~50ms processing time for large datasets",
+          "Search operations use optimized database indexes"
+        ],
+        "x-rate-limits": [
+          {
+            "Standard": "100 requests per 15 minutes"
+          },
+          {
+            "Premium": "1000 requests per 15 minutes"
+          },
+          {
+            "Enterprise": "Unlimited with SLA"
+          }
+        ]
       }
     },
     "/interests": {
@@ -299,31 +2225,641 @@
         "tags": [
           "Interests"
         ],
-        "name": "current",
-        "summary": "Get interests",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
+        "summary": "List interests",
+        "description": "Retrieve a paginated list of interests with optional search.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search term to filter interests by name"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page number (zero based)"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page size (max 1000)"
+          }
         ],
         "responses": {
           "200": {
-            "description": "Interests list",
-            "schema": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Interest"
+            "description": "Interests list"
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Interests"
+        ],
+        "summary": "Create a new interest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
               }
             }
-          },
-          "400": {
-            "description": "Bad request"
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Interest created successfully"
           }
         }
       }
     },
-    "/stories": {
+    "/interests/{id}": {
+      "get": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Interests"
+        ],
+        "summary": "Get interest by id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Interest identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Interest retrieved successfully"
+          }
+        }
+      },
+      "patch": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Interests"
+        ],
+        "summary": "Update an interest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Interest identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Interest updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Interests"
+        ],
+        "summary": "Delete an interest",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Interest identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Interest deleted successfully"
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Retrieve service overview and metadata",
+        "description": "Returns high-level information about the running service including version, environment, uptime, and runtime metadata.\n",
+        "operationId": "getServiceOverview",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "includeMetrics",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "When true, include CPU and load metrics in the response"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service overview information"
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Retrieve service health status and dependency checks",
+        "description": "Performs health checks against core dependencies (Redis, queue, messaging clients) and returns runtime metrics.\n",
+        "operationId": "getServiceStatus",
+        "responses": {
+          "200": {
+            "description": "Service status payload"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Alias for service status endpoint",
+        "description": "This endpoint mirrors `/status` and is provided for health-check integrations.\n",
+        "operationId": "getServiceHealth",
+        "responses": {
+          "200": {
+            "description": "Service status payload"
+          }
+        }
+      }
+    },
+    "/callback": {
+      "post": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Ingest inbound webhook callback",
+        "description": "Accepts inbound callback payloads from external systems. Payload is validated and acknowledged.\n",
+        "operationId": "ingestCallback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "eventType",
+                  "payload"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Callback accepted for processing"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/callbacks": {
+      "post": {
+        "tags": [
+          "Service"
+        ],
+        "summary": "Alias for ingesting inbound webhook callback",
+        "description": "Alternate endpoint name that mirrors `/callback` to support multiple integrators.\n",
+        "operationId": "ingestCallbackAlias",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "eventType",
+                  "payload"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "eventType": {
+                    "type": "string"
+                  },
+                  "payload": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Callback accepted for processing"
+          }
+        }
+      }
+    },
+    "/runtime-settings/current": {
+      "get": {
+        "tags": [
+          "Runtime Settings"
+        ],
+        "summary": "Retrieve runtime configuration for a client",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "appVersion",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "namespace",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Runtime settings payload"
+          },
+          "400": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/runtime-settings": {
+      "get": {
+        "tags": [
+          "Runtime Settings"
+        ],
+        "summary": "List runtime settings with filtering and pagination",
+        "description": "Retrieve stored runtime configuration entries, optionally filtered by namespace, environment, or platform.\nRequires administrative access.\n",
+        "operationId": "listRuntimeSettings",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "namespace",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by configuration namespace (e.g., feature_flags)"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published",
+                "retired"
+              ]
+            },
+            "description": "Filter by publication status"
+          },
+          {
+            "in": "query",
+            "name": "environment",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by environment (e.g., production, staging)"
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ios",
+                "android",
+                "web",
+                "desktop",
+                "all"
+              ]
+            },
+            "description": "Filter by target platform"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Page number (zero-based)"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            },
+            "description": "Page size"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A paginated list of runtime settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "namespace": {
+                            "type": "string"
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "environment": {
+                            "type": "string"
+                          },
+                          "platform": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "pages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Runtime Settings"
+        ],
+        "summary": "Create or update a runtime setting entry",
+        "description": "Upsert a runtime configuration record. Requires administrative privileges.\n",
+        "operationId": "createRuntimeSetting",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "namespace",
+                  "key",
+                  "value"
+                ],
+                "properties": {
+                  "namespace": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "object"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "published",
+                      "retired"
+                    ]
+                  },
+                  "environment": {
+                    "type": "string"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android",
+                      "web",
+                      "desktop",
+                      "all"
+                    ]
+                  },
+                  "priority": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Runtime setting upserted successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/runtime-settings/{id}": {
+      "put": {
+        "tags": [
+          "Runtime Settings"
+        ],
+        "summary": "Update an existing runtime setting entry",
+        "description": "Update a runtime configuration record by identifier. Requires administrative privileges.\n",
+        "operationId": "updateRuntimeSetting",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Runtime setting identifier (UUID)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "object"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "published",
+                      "retired"
+                    ]
+                  },
+                  "environment": {
+                    "type": "string"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android",
+                      "web",
+                      "desktop",
+                      "all"
+                    ]
+                  },
+                  "priority": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Runtime setting updated successfully"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/stories": {
       "get": {
         "security": [
           {
@@ -333,76 +2869,212 @@
         "tags": [
           "Stories"
         ],
-        "summary": "list of stories",
+        "summary": "List stories with advanced filtering and pagination",
+        "description": "Retrieve a paginated list of stories with comprehensive filtering, search, and sorting capabilities",
         "produces": [
-          "application/json"
-        ],
-        "consumes": [
           "application/json"
         ],
         "parameters": [
           {
             "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "in": "query",
             "name": "status",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SUBMITTED",
+                "IN_PROGRESS",
+                "APPROVED",
+                "PUBLISHED",
+                "ARCHIVED"
+              ]
+            },
+            "description": "Filter by story status"
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TIP_OFF",
+                "STORY",
+                "REPORT"
+              ]
+            },
+            "description": "Filter by story type"
           },
           {
             "in": "query",
             "name": "term",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            },
+            "description": "Search term for title, content, or tags"
           },
           {
             "in": "query",
-            "name": "page",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "in": "query",
-            "name": "orderByDirection",
+            "name": "orderBy",
             "schema": {
               "type": "string",
               "enum": [
-                "desc",
-                "asc"
-              ]
-            }
+                "createdAt",
+                "updatedAt",
+                "title",
+                "status"
+              ],
+              "default": "createdAt"
+            },
+            "description": "Field to sort by"
+          },
+          {
+            "in": "query",
+            "name": "orderDirection",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            },
+            "description": "Sort direction"
+          },
+          {
+            "in": "query",
+            "name": "userId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Filter by story author (admin only)"
+          },
+          {
+            "in": "query",
+            "name": "countryId",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter by country"
+          },
+          {
+            "in": "query",
+            "name": "tags",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Filter by tags (comma-separated)"
+          },
+          {
+            "in": "query",
+            "name": "dateFrom",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter stories created after this date"
+          },
+          {
+            "in": "query",
+            "name": "dateTo",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter stories created before this date"
           }
         ],
         "responses": {
           "200": {
-            "description": "storyStatus has been created",
-            "content": null,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean"
-                },
-                "data": {
+            "description": "Successfully retrieved stories list",
+            "headers": {
+              "X-Total-Count": {
+                "description": "Total number of stories",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Page": {
+                "description": "Current page number",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Limit": {
+                "description": "Items per page",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-Total-Pages": {
+                "description": "Total number of pages",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "title": {
-                      "type": "string"
+                    "success": {
+                      "type": "boolean",
+                      "example": true
                     },
-                    "details": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "countryId": {
-                      "type": "string"
-                    },
-                    "tags": {
+                    "data": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/definitions/Tag"
+                        "$ref": "#/definitions/Story"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        },
+                        "hasNext": {
+                          "type": "boolean"
+                        },
+                        "hasPrev": {
+                          "type": "boolean"
+                        }
                       }
                     }
                   }
@@ -411,10 +3083,26 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "Bad request - Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/definitions/ErrorResponse"
+                }
+              }
+            }
           },
-          "409": {
-            "description": "duplicate data"
+          "401": {
+            "description": "Unauthorized - Authentication required"
+          },
+          "403": {
+            "description": "Forbidden - Insufficient permissions"
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       },
@@ -427,82 +3115,123 @@
         "tags": [
           "Stories"
         ],
-        "summary": "create new story from reporter",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "type": "string"
-                },
-                "details": {
-                  "type": "string"
-                },
-                "tags": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "countryId": {
-                  "type": "integer",
-                  "format": "number"
-                },
-                "attachmentFiles": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "attachmentLinks": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
+        "summary": "Create a new story",
+        "description": "Create a new story with validation and relationship handling",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "details",
+                  "type"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500,
+                    "example": "Breaking News Story"
+                  },
+                  "details": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 10000,
+                    "example": "Detailed description of the story..."
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "TIP_OFF",
+                      "STORY",
+                      "REPORT"
+                    ],
+                    "example": "STORY"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "SUBMITTED"
+                    ],
+                    "default": "DRAFT"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                      "URGENT"
+                    ],
+                    "default": "NORMAL"
+                  },
+                  "countryId": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "fromTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "toTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 10,
+                    "example": [
+                      "politics",
+                      "breaking-news"
+                    ]
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 20
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "latitude": {
+                        "type": "number"
+                      },
+                      "longitude": {
+                        "type": "number"
+                      },
+                      "address": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               }
             }
           }
-        ],
+        },
         "responses": {
-          "200": {
-            "description": "storyStatus has been created",
-            "content": null,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean"
-                },
-                "data": {
+          "201": {
+            "description": "Story created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "title": {
-                      "type": "string"
+                    "success": {
+                      "type": "boolean",
+                      "example": true
                     },
-                    "details": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "countryId": {
-                      "type": "string"
-                    },
-                    "tags": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/Tag"
-                      }
+                    "data": {
+                      "$ref": "#/definitions/Story"
                     }
                   }
                 }
@@ -510,15 +3239,21 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "Validation error"
           },
-          "409": {
-            "description": "duplicate data"
+          "401": {
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Business logic validation failed"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       }
     },
-    "/stories/{id}": {
+    "/api/v1/stories/{id}": {
       "get": {
         "security": [
           {
@@ -528,68 +3263,57 @@
         "tags": [
           "Stories"
         ],
-        "summary": "get story by id",
+        "summary": "Get story by ID with comprehensive details",
+        "description": "Retrieve a specific story by its ID with all related data",
         "produces": [
-          "application/json"
-        ],
-        "consumes": [
           "application/json"
         ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "type": "number"
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Unique story identifier"
+          },
+          {
+            "in": "query",
+            "name": "include",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "tags",
+                  "owner",
+                  "country",
+                  "attachments",
+                  "editor",
+                  "comments",
+                  "history"
+                ]
+              }
+            },
+            "description": "Additional relations to include"
           }
         ],
         "responses": {
           "200": {
-            "description": "get story",
-            "content": null,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean"
-                },
-                "data": {
+            "description": "Successfully retrieved story",
+            "content": {
+              "application/json": {
+                "schema": {
                   "type": "object",
                   "properties": {
-                    "title": {
-                      "type": "string"
+                    "success": {
+                      "type": "boolean",
+                      "example": true
                     },
-                    "details": {
-                      "type": "string"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "countryId": {
-                      "type": "string"
-                    },
-                    "tags": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/Tag"
-                      }
-                    },
-                    "country": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/Country"
-                      }
-                    },
-                    "attachmentFiles": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/AttachmentFiles"
-                      }
-                    },
-                    "attachmentLinks": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/definitions/AttachmentLinks"
-                      }
+                    "data": {
+                      "$ref": "#/definitions/Story"
                     }
                   }
                 }
@@ -597,10 +3321,19 @@
             }
           },
           "400": {
-            "description": "Bad request"
+            "description": "Bad request - Invalid story ID"
           },
-          "409": {
-            "description": "duplicate data"
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - No access to this story"
+          },
+          "404": {
+            "description": "Story not found"
+          },
+          "500": {
+            "description": "Internal server error"
           }
         }
       },
@@ -613,7 +3346,369 @@
         "tags": [
           "Stories"
         ],
-        "summary": "update story by id",
+        "summary": "Update story by ID",
+        "description": "Update an existing story with optimistic locking and validation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  },
+                  "details": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 10000
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "DRAFT",
+                      "SUBMITTED",
+                      "IN_PROGRESS",
+                      "APPROVED",
+                      "PUBLISHED",
+                      "ARCHIVED"
+                    ]
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "TIP_OFF",
+                      "STORY",
+                      "REPORT"
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "LOW",
+                      "NORMAL",
+                      "HIGH",
+                      "URGENT"
+                    ]
+                  },
+                  "countryId": {
+                    "type": "integer"
+                  },
+                  "fromTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "toTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "isInEditMode": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "description": "Version for optimistic locking"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Story updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/definitions/Story"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Cannot edit this story"
+          },
+          "404": {
+            "description": "Story not found"
+          },
+          "409": {
+            "description": "Conflict - Version mismatch (optimistic locking)"
+          },
+          "422": {
+            "description": "Business logic validation failed"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Stories"
+        ],
+        "summary": "Delete story by ID",
+        "description": "Soft delete a story (moves to deleted status)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "permanent",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Perform permanent deletion (admin only)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Story deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Story deleted successfully"
+                    },
+                    "deletedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - Cannot delete this story"
+          },
+          "404": {
+            "description": "Story not found"
+          },
+          "422": {
+            "description": "Cannot delete story in current status"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/api/v1/stories/search": {
+      "get": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Stories"
+        ],
+        "summary": "Advanced story search",
+        "description": "Full-text search across stories with advanced filtering",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2
+            },
+            "description": "Search query"
+          },
+          {
+            "in": "query",
+            "name": "fields",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "title",
+                  "details",
+                  "tags",
+                  "owner"
+                ]
+              }
+            },
+            "description": "Fields to search in"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/definitions/Story"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "query": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "executionTime": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stories/statistics": {
+      "get": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Stories"
+        ],
+        "summary": "Get story statistics",
+        "description": "Retrieve comprehensive statistics about stories",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "dateFrom",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dateTo",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "groupBy",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "status",
+                "type",
+                "country",
+                "user"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Story statistics"
+          }
+        }
+      }
+    },
+    "/stories/{id}/attachments/{itemId}": {
+      "post": {
+        "security": [
+          {
+            "JWT": []
+          }
+        ],
+        "tags": [
+          "Stories"
+        ],
+        "summary": "link attachment to story",
         "produces": [
           "application/json"
         ],
@@ -626,52 +3721,21 @@
             "in": "path",
             "schema": {
               "type": "number"
-            }
+            },
+            "description": "Story ID"
           },
           {
-            "name": "body",
-            "in": "body",
+            "name": "itemId",
+            "in": "path",
             "schema": {
-              "type": "object",
-              "properties": {
-                "title": {
-                  "type": "string"
-                },
-                "details": {
-                  "type": "string"
-                },
-                "tags": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "countryId": {
-                  "type": "integer",
-                  "format": "number"
-                },
-                "attachmentFiles": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "attachmentLinks": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "isInEditMode": {
-                  "type": "boolean"
-                }
-              }
-            }
+              "type": "number"
+            },
+            "description": "Attachment ID"
           }
         ],
         "responses": {
           "200": {
-            "description": "Story has been deleted",
+            "description": "attachment linked (or already linked)",
             "content": null,
             "schema": {
               "type": "object",
@@ -699,63 +3763,6 @@
           }
         }
       },
-      "delete": {
-        "security": [
-          {
-            "JWT": []
-          }
-        ],
-        "tags": [
-          "Stories"
-        ],
-        "summary": "delete story by id",
-        "produces": [
-          "application/json"
-        ],
-        "consumes": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Story has been deleted",
-            "content": null,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "success": {
-                  "type": "boolean"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "403": {
-            "description": "Access denied"
-          },
-          "404": {
-            "description": "Empty response, not found"
-          },
-          "409": {
-            "description": "duplicate data"
-          }
-        }
-      }
-    },
-    "/stories/{id}/attachments/{itemId}": {
       "delete": {
         "security": [
           {
@@ -817,6 +3824,53 @@
           },
           "409": {
             "description": "duplicate data"
+          }
+        }
+      }
+    },
+    "/stories/{storyId}/categories": {
+      "post": {
+        "tags": [
+          "Story Categories"
+        ],
+        "summary": "Assign categories to a story",
+        "description": "Replaces the categories associated with a story.",
+        "operationId": "assignStoryCategories",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "storyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Story identifier"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "categoryIds"
+                ],
+                "properties": {
+                  "categoryIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Story categories updated successfully"
           }
         }
       }
@@ -1045,7 +4099,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Check if email/Mobile is taken or not.",
+        "summary": "Check availability of email and/or phone number - Enhanced flexible format",
         "produces": [
           "application/json"
         ],
@@ -1059,8 +4113,54 @@
             "schema": {
               "type": "object",
               "properties": {
+                "email": {
+                  "type": "string",
+                  "description": "Email address to check availability",
+                  "example": "user@example.com"
+                },
+                "phone": {
+                  "type": "string",
+                  "description": "Phone number to check availability",
+                  "example": "+1234567890"
+                },
                 "email_or_mobile_number": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "LEGACY - Email or phone in single field",
+                  "example": "user@example.com"
+                },
+                "countryCode": {
+                  "type": "string",
+                  "description": "ISO country code for phone validation",
+                  "example": "US"
+                },
+                "suggestions": {
+                  "type": "boolean",
+                  "description": "Generate suggestions for unavailable fields",
+                  "example": true
+                },
+                "includeDetails": {
+                  "type": "boolean",
+                  "description": "Include detailed availability information",
+                  "example": true
+                },
+                "batch": {
+                  "type": "array",
+                  "description": "Batch check multiple values",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "email",
+                          "phone"
+                        ]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1068,16 +4168,70 @@
         ],
         "responses": {
           "200": {
-            "description": "Email or phone number is available.",
-            "content": null,
+            "description": "Availability check completed successfully",
             "schema": {
               "type": "object",
               "properties": {
                 "success": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "example": true
                 },
-                "message": {
-                  "type": "string"
+                "summary": {
+                  "type": "object",
+                  "properties": {
+                    "totalChecks": {
+                      "type": "integer"
+                    },
+                    "availableCount": {
+                      "type": "integer"
+                    },
+                    "unavailableCount": {
+                      "type": "integer"
+                    },
+                    "allAvailable": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      },
+                      "available": {
+                        "type": "boolean"
+                      },
+                      "field": {
+                        "type": "string"
+                      },
+                      "suggestions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "meta": {
+                  "type": "object",
+                  "properties": {
+                    "processingTime": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  }
                 }
               }
             }
@@ -2037,61 +5191,249 @@
       "allOf": [
         {
           "required": [
-            "id"
+            "id",
+            "userId",
+            "originalName",
+            "mimeType",
+            "size",
+            "path"
           ]
         },
         {
           "properties": {
             "id": {
-              "type": "integer",
-              "format": "integer"
+              "type": "string",
+              "format": "uuid",
+              "description": "Unique attachment identifier"
             },
-            "fullPath": {
-              "type": "string"
-            },
-            "mimeType": {
-              "type": "string"
-            },
-            "size": {
-              "type": "integer"
+            "userId": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Owner user ID"
             },
             "originalName": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 255,
+              "description": "Original filename"
+            },
+            "mimeType": {
+              "type": "string",
+              "description": "File MIME type"
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1073741824,
+              "description": "File size in bytes"
+            },
+            "path": {
+              "type": "string",
+              "description": "S3 storage path"
+            },
+            "category": {
+              "type": "string",
+              "enum": [
+                "profile_image",
+                "document",
+                "image",
+                "video",
+                "audio",
+                "archive",
+                "other"
+              ],
+              "description": "File category"
+            },
+            "fullPath": {
+              "type": "string",
+              "readOnly": true,
+              "description": "Full URL to file"
             },
             "thumbnails": {
+              "type": "array",
+              "readOnly": true,
+              "description": "Available thumbnail sizes"
+            },
+            "streams": {
+              "type": "array",
+              "readOnly": true,
+              "description": "Video stream variants"
+            },
+            "securityStatus": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "safe",
+                "quarantined",
+                "blocked"
+              ],
+              "description": "Security scan status"
+            },
+            "metadata": {
               "type": "object",
-              "properties": {
-                "path": {
-                  "type": "string"
-                },
-                "dimension": {
-                  "type": "string"
-                }
-              }
+              "description": "File metadata and properties"
             }
           }
         }
       ]
     },
     "Country": {
-      "allOf": [
-        {
-          "required": [
-            "id"
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "iso"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Unique country identifier",
+          "example": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Official country name",
+          "example": "United States"
+        },
+        "niceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Commonly used country name",
+          "example": "United States"
+        },
+        "iso": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "ISO 3166-1 alpha-2 country code",
+          "example": "US"
+        },
+        "iso3": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 3166-1 alpha-3 country code",
+          "example": "USA"
+        },
+        "numcode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999,
+          "description": "ISO 3166-1 numeric country code",
+          "example": 840
+        },
+        "phonecode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999,
+          "description": "International dialing code",
+          "example": 1
+        },
+        "currencyCode": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$",
+          "description": "ISO 4217 currency code",
+          "example": "USD"
+        },
+        "currencyName": {
+          "type": "string",
+          "description": "Currency name",
+          "example": "US Dollar"
+        },
+        "currencySymbol": {
+          "type": "string",
+          "description": "Currency symbol",
+          "example": "$"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Primary timezone",
+          "example": "America/New_York"
+        },
+        "continent": {
+          "type": "string",
+          "enum": [
+            "Africa",
+            "Antarctica",
+            "Asia",
+            "Europe",
+            "North America",
+            "Oceania",
+            "South America"
+          ],
+          "description": "Continental classification",
+          "example": "North America"
+        },
+        "region": {
+          "type": "string",
+          "description": "Regional classification",
+          "example": "Northern America"
+        },
+        "capital": {
+          "type": "string",
+          "description": "Capital city",
+          "example": "Washington, D.C."
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "ISO 639-1 language codes",
+          "example": [
+            "en"
           ]
         },
-        {
-          "properties": {
-            "id": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "name": {
-              "type": "string"
-            }
-          }
+        "latitude": {
+          "type": "number",
+          "format": "float",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Geographic latitude",
+          "example": 39.8283
+        },
+        "longitude": {
+          "type": "number",
+          "format": "float",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Geographic longitude",
+          "example": -98.5795
+        },
+        "population": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Population count",
+          "example": 331900000
+        },
+        "area": {
+          "type": "number",
+          "format": "float",
+          "minimum": 0,
+          "description": "Area in square kilometers",
+          "example": 9833517
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether country is active",
+          "example": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional country metadata"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
-      ]
+      }
     },
     "Interest": {
       "allOf": [
@@ -2116,42 +5458,123 @@
         }
       ]
     },
-    "storyStatus": {
-      "allOf": [
-        {
-          "required": [
-            "id"
+    "Story": {
+      "type": "object",
+      "required": [
+        "title",
+        "details",
+        "userId",
+        "type",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Unique story identifier",
+          "example": 123
+        },
+        "title": {
+          "type": "string",
+          "description": "Story title",
+          "minLength": 3,
+          "maxLength": 500,
+          "example": "Breaking News: Major Development"
+        },
+        "details": {
+          "type": "string",
+          "description": "Story content/details",
+          "minLength": 10,
+          "maxLength": 10000,
+          "example": "Detailed description of the story..."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "TIP_OFF",
+            "STORY",
+            "REPORT"
+          ],
+          "description": "Story type classification",
+          "example": "STORY"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUBMITTED",
+            "DRAFT",
+            "IN_PROGRESS",
+            "ARCHIVED",
+            "PUBLISHED",
+            "APPROVED",
+            "ASSIGNED",
+            "PENDING",
+            "FOR_REVIEW_SE",
+            "EXPIRED",
+            "DELETED"
+          ],
+          "description": "Current story status",
+          "example": "DRAFT"
+        },
+        "userId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Story author/owner ID"
+        },
+        "fromTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Story event start time"
+        },
+        "toTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Story event end time"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "LOW",
+            "NORMAL",
+            "HIGH",
+            "URGENT"
+          ],
+          "description": "Story priority level",
+          "example": "NORMAL"
+        },
+        "isInEditMode": {
+          "type": "boolean",
+          "description": "Whether story is currently being edited",
+          "example": false
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Associated tags",
+          "example": [
+            "politics",
+            "breaking-news"
           ]
         },
-        {
-          "properties": {
-            "id": {
-              "type": "integer"
-            },
-            "tags": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Tag"
-              }
-            },
-            "title": {
-              "type": "string"
-            },
-            "countryId": {
-              "type": "id"
-            },
-            "details": {
-              "type": "text"
-            },
-            "type": {
-              "type": "string"
-            },
-            "status": {
-              "type": "string"
-            }
-          }
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Attachment IDs"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
         }
-      ]
+      }
     },
     "Tag": {
       "allOf": [
